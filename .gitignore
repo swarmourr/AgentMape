@@ -1,0 +1,54 @@
+# ======================== Byte-compiled / cache files ========================
+__pycache__/ 
+*.py[cod] 
+*.pyo 
+*.pyd
+# ======================== Virtual environments ========================
+env/ 
+venv/ 
+.venv/
+# ======================== Distribution / packaging ========================
+build/ 
+dist/ 
+*.egg-info/ 
+.eggs/
+# ======================== Installer logs ========================
+pip-log.txt 
+pip-delete-this-directory.txt
+# ======================== PyInstaller ========================
+*.manifest 
+*.spec
+# ======================== Unit test / coverage reports ========================
+htmlcov/ 
+.tox/ 
+.nox/ 
+.coverage 
+.coverage.* 
+.cache 
+nosetests.xml 
+coverage.xml 
+*.cover 
+*.py,cover 
+.hypothesis/
+# ======================== Jupyter Notebook ========================
+.ipynb_checkpoints
+# ======================== Environment / secret files ========================
+.env 
+.env.*.local 
+*.env
+# ======================== IDE / editor files ========================
+.vscode/ 
+.idea/ 
+*.sublime-project 
+*.sublime-workspace
+# ======================== OS files ========================
+.DS_Store
+ Thumbs.db
+# ======================== Optional: compiled files ========================
+*.so 
+*.dylib 
+*.dll
+
+# ======================== Optional: git-sync script (if it contains token) 
+# ========================
+git-sync.sh
