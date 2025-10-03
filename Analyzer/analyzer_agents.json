@@ -1,0 +1,1 @@
+{"agents": {"1": {"agent_id": "monitor_001", "agent_type": "monitor", "mcp_url": "ws://localhost:8765", "http_url": "http://localhost:8080", "capabilities": ["workflow_monitoring", "job_tracking", "log_files"], "registered_at": "2025-10-03T11:10:26.458725", "last_health_check": "2025-10-03T12:08:06.036473", "status": "healthy"}}}

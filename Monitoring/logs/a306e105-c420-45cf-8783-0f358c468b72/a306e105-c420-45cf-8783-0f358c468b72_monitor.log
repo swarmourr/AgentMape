@@ -1,0 +1,55 @@
+2025-09-04 09:43:01,985 - WARNING - Workflow a306e105-c420-45cf-8783-0f358c468b72 has jobs in 'Held' state. Retry 1/3.
+2025-09-04 09:43:12,269 - WARNING - Workflow a306e105-c420-45cf-8783-0f358c468b72 has jobs in 'Held' state. Retry 2/3.
+2025-09-04 09:43:22,569 - WARNING - Workflow a306e105-c420-45cf-8783-0f358c468b72 has jobs in 'Held' state. Retry 3/3.
+2025-09-04 09:43:22,573 - WARNING - Maximum retries reached for workflow a306e105-c420-45cf-8783-0f358c468b72. Stopping workflow.
+2025-09-04 11:56:23,596 - WARNING - Workflow a306e105-c420-45cf-8783-0f358c468b72 has jobs in 'Held' state. Retry 1/3.
+2025-09-04 11:56:33,879 - WARNING - Workflow a306e105-c420-45cf-8783-0f358c468b72 has jobs in 'Held' state. Retry 2/3.
+2025-09-04 11:56:44,170 - WARNING - Workflow a306e105-c420-45cf-8783-0f358c468b72 has jobs in 'Held' state. Retry 3/3.
+2025-09-04 11:56:44,175 - WARNING - Maximum retries reached for workflow a306e105-c420-45cf-8783-0f358c468b72. Stopping workflow.
+2025-09-04 12:18:00,472 - WARNING - Workflow a306e105-c420-45cf-8783-0f358c468b72 has jobs in 'Held' state. Retry 1/3.
+2025-09-04 12:18:10,793 - WARNING - Workflow a306e105-c420-45cf-8783-0f358c468b72 has jobs in 'Held' state. Retry 2/3.
+2025-09-04 12:18:21,096 - WARNING - Workflow a306e105-c420-45cf-8783-0f358c468b72 has jobs in 'Held' state. Retry 3/3.
+2025-09-04 12:18:21,102 - WARNING - Maximum retries reached for workflow a306e105-c420-45cf-8783-0f358c468b72. Stopping workflow.
+2025-09-05 12:40:18,514 - WARNING - Workflow a306e105-c420-45cf-8783-0f358c468b72 has 1 jobs in 'Held' state. Retry 1/3.
+2025-09-05 12:40:28,821 - WARNING - Workflow a306e105-c420-45cf-8783-0f358c468b72 has 1 jobs in 'Held' state. Retry 2/3.
+2025-09-05 12:40:39,126 - WARNING - Workflow a306e105-c420-45cf-8783-0f358c468b72 has 1 jobs in 'Held' state. Retry 3/3.
+2025-09-05 12:40:39,130 - CRITICAL - Maximum retries reached for workflow a306e105-c420-45cf-8783-0f358c468b72. Escalating to execution agent.
+2025-09-05 12:45:11,706 - WARNING - Workflow a306e105-c420-45cf-8783-0f358c468b72 has jobs in 'Held' state. Retry 1/3.
+2025-09-05 12:45:22,015 - WARNING - Workflow a306e105-c420-45cf-8783-0f358c468b72 has jobs in 'Held' state. Retry 2/3.
+2025-09-05 12:45:32,330 - WARNING - Workflow a306e105-c420-45cf-8783-0f358c468b72 has jobs in 'Held' state. Retry 3/3.
+2025-09-05 12:45:32,334 - WARNING - Maximum retries reached for workflow a306e105-c420-45cf-8783-0f358c468b72. Stopping workflow.
+2025-09-05 14:18:33,404 - WARNING - Workflow a306e105-c420-45cf-8783-0f358c468b72 has jobs in 'Held' state. Retry 1/3.
+2025-09-05 14:18:43,692 - WARNING - Workflow a306e105-c420-45cf-8783-0f358c468b72 has jobs in 'Held' state. Retry 2/3.
+2025-09-05 14:18:53,993 - WARNING - Workflow a306e105-c420-45cf-8783-0f358c468b72 has jobs in 'Held' state. Retry 3/3.
+2025-09-05 14:18:54,000 - WARNING - Maximum retries reached for workflow a306e105-c420-45cf-8783-0f358c468b72. Stopping workflow.
+2025-09-06 16:17:12,965 - WARNING - Workflow a306e105-c420-45cf-8783-0f358c468b72 has jobs in 'Held' state. Retry 1/3.
+2025-09-06 16:17:12,972 - WARNING - Found 1 recent error logs for workflow a306e105-c420-45cf-8783-0f358c468b72
+2025-09-06 16:17:12,972 - WARNING - Error log: 00/00/FineTuneLLM_ID0000001.err (modified: 2025-09-06 16:17:04)
+2025-09-06 16:17:23,261 - WARNING - Workflow a306e105-c420-45cf-8783-0f358c468b72 has jobs in 'Held' state. Retry 2/3.
+2025-09-06 16:17:23,266 - WARNING - Found 1 recent error logs for workflow a306e105-c420-45cf-8783-0f358c468b72
+2025-09-06 16:17:23,266 - WARNING - Error log: 00/00/FineTuneLLM_ID0000001.err (modified: 2025-09-06 16:17:04)
+2025-09-06 16:17:33,566 - WARNING - Workflow a306e105-c420-45cf-8783-0f358c468b72 has jobs in 'Held' state. Retry 3/3.
+2025-09-06 16:17:33,583 - WARNING - Found 1 recent error logs for workflow a306e105-c420-45cf-8783-0f358c468b72
+2025-09-06 16:17:33,583 - WARNING - Error log: 00/00/FineTuneLLM_ID0000001.err (modified: 2025-09-06 16:17:04)
+2025-09-06 16:17:33,583 - WARNING - Maximum retries reached for workflow a306e105-c420-45cf-8783-0f358c468b72. Stopping workflow.
+2025-09-06 16:19:38,337 - WARNING - Workflow a306e105-c420-45cf-8783-0f358c468b72 has jobs in 'Held' state. Retry 1/3.
+2025-09-06 16:19:38,343 - WARNING - Found 2 recent error logs for workflow a306e105-c420-45cf-8783-0f358c468b72
+2025-09-06 16:19:38,343 - WARNING - Error log: 00/00/FineTuneLLM_ID0000001.err (modified: 2025-09-06 16:19:35)
+2025-09-06 16:19:38,343 - WARNING - Error log: falcon-7b-0.dag.rescue007 (modified: 2025-09-06 16:17:33)
+2025-09-06 16:19:48,634 - WARNING - Workflow a306e105-c420-45cf-8783-0f358c468b72 has jobs in 'Held' state. Retry 2/3.
+2025-09-06 16:19:48,639 - WARNING - Found 2 recent error logs for workflow a306e105-c420-45cf-8783-0f358c468b72
+2025-09-06 16:19:48,639 - WARNING - Error log: 00/00/FineTuneLLM_ID0000001.err (modified: 2025-09-06 16:19:35)
+2025-09-06 16:19:48,639 - WARNING - Error log: falcon-7b-0.dag.rescue007 (modified: 2025-09-06 16:17:33)
+2025-09-06 16:19:58,923 - WARNING - Workflow a306e105-c420-45cf-8783-0f358c468b72 has jobs in 'Held' state. Retry 3/3.
+2025-09-06 16:19:58,928 - WARNING - Found 2 recent error logs for workflow a306e105-c420-45cf-8783-0f358c468b72
+2025-09-06 16:19:58,928 - WARNING - Error log: 00/00/FineTuneLLM_ID0000001.err (modified: 2025-09-06 16:19:35)
+2025-09-06 16:19:58,928 - WARNING - Error log: falcon-7b-0.dag.rescue007 (modified: 2025-09-06 16:17:33)
+2025-09-06 16:19:58,928 - WARNING - Maximum retries reached for workflow a306e105-c420-45cf-8783-0f358c468b72. Stopping workflow.
+2025-09-06 16:20:16,583 - INFO - Workflow a306e105-c420-45cf-8783-0f358c468b72 completed with state Failure.
+2025-09-08 12:08:15,730 - WARNING - Workflow a306e105-c420-45cf-8783-0f358c468b72 has jobs in 'Held' state. Retry 1/3.
+2025-09-08 12:08:15,744 - ERROR - Error monitoring workflow a306e105-c420-45cf-8783-0f358c468b72: There is no current event loop in thread 'Thread-1 (watch_workflow_sync)'.
+2025-09-08 12:16:51,271 - WARNING - Workflow a306e105-c420-45cf-8783-0f358c468b72 has jobs in 'Held' state. Retry 1/3.
+2025-09-08 12:17:01,565 - WARNING - Workflow a306e105-c420-45cf-8783-0f358c468b72 has jobs in 'Held' state. Retry 2/3.
+2025-09-08 12:17:11,856 - WARNING - Workflow a306e105-c420-45cf-8783-0f358c468b72 has jobs in 'Held' state. Retry 3/3.
+2025-09-08 12:17:11,862 - WARNING - Maximum retries reached for workflow a306e105-c420-45cf-8783-0f358c468b72. Stopping workflow.
+2025-09-14 14:49:31,775 - WARNING - Workflow a306e105-c420-45cf-8783-0f358c468b72 has jobs in 'Held' state. Retry 1/3.

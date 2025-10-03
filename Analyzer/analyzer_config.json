@@ -1,0 +1,15 @@
+{
+    "ollama_url": "https://gzeuj-2a02-8428-f963-1801-b5c3-65e7-4fba-45c0.a.free.pinggy.link/api/generate",
+    "ollama_api_base": "https://gzeuj-2a02-8428-f963-1801-b5c3-65e7-4fba-45c0.a.free.pinggy.link",
+    "ollama_model": "llama3:latest",
+    "ollama_check_interval": 30,
+    "monitor_url": "ws://localhost:8765",
+    "monitor_check_interval": 120,
+    "push_notifications_enabled": true,
+    "auto_analysis_enabled": true,
+    "fallback_mode": true,
+    "log_level": "INFO",
+    "enable_monitor_integration": true,
+    "connection_timeout": 10,
+    "retry_attempts": 3
+}
