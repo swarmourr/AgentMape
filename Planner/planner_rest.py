@@ -122,15 +122,48 @@ class PromptBuilder:
     SYSTEM_PROMPT = """You are an expert Pegasus Workflow Management System planner agent.
 Your role is to generate executable repair plans based on workflow failure analysis.
 
+PEGASUS ARCHITECTURE UNDERSTANDING:
+- Workflows are defined by: workflow.yml (descriptor) + workflow generator Python script
+- Catalogs can be: embedded in workflow.yml OR separate files (replica, transformation, site)
+- Resources are defined in: site catalog (condor profiles, memory, cores, disk)
+- Data locations are in: replica catalog (LFN → PFN mappings)
+- Executables are in: transformation catalog (programs/scripts to run)
+
+TYPES OF REPAIRS:
+1. RESOURCE ISSUES (memory, disk, cores):
+   - Modify site catalog condor profiles
+   - If embedded: use 'yq' to edit workflow.yml sites section
+   - If separate: edit sites.yml or regenerate workflow with updated resources
+   - Consider: May need to update workflow GENERATOR script for permanent fix
+
+2. DATA/FILE ISSUES (missing files, wrong paths):
+   - Add/update replica catalog entries
+   - Verify file actually exists before adding
+   - Update LFN→PFN mappings
+   - Consider: May need to update workflow GENERATOR to produce correct paths
+
+3. TRANSFORMATION ISSUES (missing executables, wrong versions):
+   - Update transformation catalog
+   - Verify executable exists and is correct version
+   - Check container/environment requirements
+
+4. WORKFLOW REGENERATION (when catalog changes aren't enough):
+   - Modify workflow generator Python script
+   - Re-run: pegasus-plan workflow.yml
+   - This creates fresh workflow with updated settings
+
 You must provide:
 1. Specific bash/Pegasus commands to fix issues
 2. Validation steps to verify the fix
 3. Rollback commands if needed
 4. Risk assessment (low/medium/high)
+5. Whether workflow regeneration is needed
 
 Output format: JSON with executable commands.
 
 IMPORTANT RULES:
+- ALWAYS consider if the fix should be in the GENERATOR script (for permanent fix)
+- For resource problems: update site catalog AND suggest generator changes
 - Only generate commands you are confident will work
 - Always include validation after modifications
 - Provide rollback strategy for file modifications
@@ -138,6 +171,7 @@ IMPORTANT RULES:
 - If unsure, recommend manual intervention
 - For embedded catalogs, use 'yq' YAML editor
 - For text catalogs, use 'echo' or 'sed'
+- Specify if workflow needs to be regenerated vs just resubmitted
 """
 
     @staticmethod
@@ -150,6 +184,9 @@ IMPORTANT RULES:
         # Build analysis section
         analysis_section = json.dumps(analysis_result, indent=2)
 
+        # Get workflow files info from context (sent by Monitor via Analyzer)
+        workflow_files_info = PromptBuilder._discover_workflow_files(workflow_context)
+
         prompt = f"""
 Given the following workflow failure analysis, generate a detailed executable repair plan.
 
@@ -157,6 +194,9 @@ Given the following workflow failure analysis, generate a detailed executable re
 Workflow ID: {workflow_context.get('workflow_id')}
 Workflow Directory: {workflow_context.get('workflow_dir')}
 Current State: {workflow_context.get('state', 'unknown')}
+
+=== WORKFLOW FILES ===
+{workflow_files_info}
 
 === CATALOG INFORMATION ===
 {catalog_info}
@@ -206,20 +246,129 @@ Generate a repair plan with the following JSON structure:
   }},
 
   "requires_approval": true/false,
-  "approval_reason": "Why human approval is needed (if applicable)"
+  "approval_reason": "Why human approval is needed (if applicable)",
+
+  "generator_script_review_needed": true/false,
+  "generator_modifications_suggested": [
+    "Description of changes needed in generator script for permanent fix",
+    "Example: Update request_memory from 2GB to 8GB in Site() configuration"
+  ],
+
+  "workflow_regeneration_needed": true/false,
+  "regeneration_reason": "Why workflow needs to be regenerated (if applicable)"
 }}
 
-EXAMPLES OF GOOD COMMANDS:
+EXAMPLES OF PEGASUS-SPECIFIC REPAIRS:
+
+Example 1 - MEMORY ISSUE (Quick Fix):
+  Step 1: Update site catalog memory in workflow.yml
+    yq eval '.sites[0].profiles.condor.request_memory = "8GB"' -i /workflow/workflow.yml
+  Step 2: Release held jobs
+    condor_release -constraint 'DAGManJobId =?= <cluster_id>'
+  Step 3: Suggest permanent fix
+    "NOTE: For permanent fix, update memory in workflow generator script"
+
+Example 2 - MEMORY ISSUE (Permanent Fix):
+  Step 1: Backup generator
+    cp /workflow/generate_workflow.py /workflow/generate_workflow.py.backup
+  Step 2: Update generator memory settings
+    sed -i 's/request_memory.*=.*/request_memory = "8GB"/' /workflow/generate_workflow.py
+  Step 3: Regenerate workflow
+    cd /workflow && python generate_workflow.py
+  Step 4: Plan new workflow
+    pegasus-plan --submit workflow.yml
+
+Example 3 - MISSING FILE (Replica Catalog):
+  Step 1: Verify file exists
+    test -f /data/input.csv || echo "ERROR: File not found"
+  Step 2: Add to replica catalog
+    yq eval '.replicaCatalog.replicas += [{{"lfn": "input.csv", "pfn": "file:///data/input.csv", "site": "local"}}]' -i workflow.yml
+  Step 3: Resubmit
+    pegasus-run /workflow/submit-dir
+
+Example 4 - DISK SPACE ISSUE:
+  Step 1: Update disk requirement in site catalog
+    yq eval '.sites[0].profiles.condor.request_disk = "10GB"' -i workflow.yml
+  Step 2: Update generator for permanent fix
+    # Add note to modify generator script disk settings
+
+COMMAND SYNTAX GUIDE:
 - Add to replica catalog (text): echo 'lfn pfn site' >> /path/rc.txt
 - Add to replica catalog (YAML): yq eval '.replicaCatalog.replicas += [{{"lfn": "data.csv", "pfn": "file:///path", "site": "local"}}]' -i /path/workflow.yml
 - Update site memory (YAML): yq eval '.sites[0].profiles.condor.request_memory = "4GB"' -i /path/sites.yml
+- Update site cores (YAML): yq eval '.sites[0].profiles.condor.request_cpus = "4"' -i /path/sites.yml
+- Update site disk (YAML): yq eval '.sites[0].profiles.condor.request_disk = "10GB"' -i /path/sites.yml
 - Check file exists: test -f /path/to/file && echo "exists"
-- Resubmit workflow: cd /workflow/dir && pegasus-run .
+- Resubmit workflow: cd /workflow/submit-dir && pegasus-run .
 - Release held job: condor_release <job_id>
+- Check workflow status: pegasus-status /workflow/submit-dir
+- Regenerate workflow: cd /workflow && python generate_workflow.py && pegasus-plan workflow.yml
+
+REPAIR STRATEGY DECISION:
+- Use QUICK FIX (modify workflow.yml) if: One-time issue, need immediate resolution
+- Use PERMANENT FIX (modify generator) if: Recurring issue, need long-term solution
+- Use WORKFLOW REGENERATION if: Major changes needed, multiple catalog updates
+- ALWAYS mention both quick and permanent fix options in the plan
 
 Generate the plan now:
 """
         return prompt
+
+    @staticmethod
+    def _discover_workflow_files(workflow_context: Dict[str, Any]) -> str:
+        """Use workflow files from context (sent by Monitor) to build prompt section"""
+        import os
+
+        info = []
+        workflow_files = workflow_context.get('workflow_files', {})
+        workflow_dir = workflow_context.get('workflow_dir', '')
+
+        # Use workflow YAML from context
+        if workflow_files.get('workflow_yaml'):
+            wf = workflow_files['workflow_yaml']
+            info.append(f"Workflow Descriptor: {wf.get('path', 'N/A')}")
+            info.append("  → This file defines the workflow structure and catalogs")
+            info.append("  → Can be regenerated if needed")
+
+            # Include the YAML content that Monitor already read
+            yaml_content = wf.get('content', '')
+            if yaml_content:
+                info.append("\n=== CURRENT WORKFLOW YAML CONTENT ===")
+                info.append(yaml_content)
+                info.append("=== END YAML CONTENT ===\n")
+            else:
+                info.append("  → WARNING: YAML content not available")
+
+        # Use generator script from context
+        if workflow_files.get('generator_script'):
+            gs = workflow_files['generator_script']
+            info.append(f"\nWorkflow Generator Script: {gs.get('path', 'N/A')}")
+            info.append("  → This script generates the workflow descriptor")
+            info.append("  → Modify this for PERMANENT fixes to resources/paths")
+            info.append(f"  → Re-run with: python {gs.get('filename', 'generator.py')} to regenerate workflow.yml")
+
+            # Provide info about generator availability
+            info.append("\n  ℹ️  GENERATOR SCRIPT AVAILABLE:")
+            info.append("     If you need to see the generator script content to suggest")
+            info.append("     permanent fixes, include in your plan:")
+            info.append("     'generator_script_review_needed': true")
+            info.append("     The Executor agent can read and analyze it for modifications.")
+
+        # Look for submit directory (planned workflow) - this still needs filesystem access
+        if workflow_dir and os.path.exists(workflow_dir):
+            try:
+                submit_dirs = [d for d in os.listdir(workflow_dir) if os.path.isdir(os.path.join(workflow_dir, d))
+                              and d.startswith(os.path.basename(workflow_dir))]
+
+                if submit_dirs:
+                    info.append(f"\nSubmit Directory: {submit_dirs[0]}/")
+                    info.append("  → Contains the planned/submitted workflow")
+                    info.append("  → Use: pegasus-run {submit_dirs[0]} to resubmit")
+                    info.append("  → Use: pegasus-status {submit_dirs[0]} to check status")
+            except Exception as e:
+                pass  # Directory listing may fail, not critical
+
+        return "\n".join(info) if info else "No workflow files received from Monitor"
 
     @staticmethod
     def _build_catalog_section(catalogs: Dict[str, Any]) -> str:
@@ -493,6 +642,19 @@ class LLMPlanner:
         confidence = plan.get("confidence_score", {})
         print(f"\n{TerminalColor.BRIGHT_MAGENTA.apply('📊 Confidence:')} {confidence.get('score', 'N/A')}")
         print(f"  {confidence.get('explanation', 'N/A')}")
+
+        # Display generator script review info if applicable
+        if plan.get("generator_script_review_needed"):
+            print(f"\n{TerminalColor.BRIGHT_YELLOW.apply('⚠️  GENERATOR SCRIPT REVIEW NEEDED')}")
+            print(f"  {TerminalColor.YELLOW.apply('For permanent fix, the workflow generator script needs modification:')}")
+            for suggestion in plan.get("generator_modifications_suggested", []):
+                print(f"    • {suggestion}")
+
+        # Display workflow regeneration info if applicable
+        if plan.get("workflow_regeneration_needed"):
+            print(f"\n{TerminalColor.BRIGHT_CYAN.apply('🔄 WORKFLOW REGENERATION RECOMMENDED')}")
+            print(f"  {TerminalColor.CYAN.apply('Reason:')} {plan.get('regeneration_reason', 'Major changes required')}")
+
         print(f"{'='*80}\n")
 
     def convert_plan_to_execution_request(self, plan: Dict[str, Any]) -> Dict[str, Any]:
@@ -578,11 +740,13 @@ class PlannerHTTPServer:
             workflow_id = data.get("workflow_id")
             analysis_result = data.get("result", {}).get("analysis", {})
             catalogs = data.get("catalogs", {})
+            workflow_files = data.get("workflow_files", {})  # ENHANCED: Get workflow files from Monitor
 
             workflow_context = {
                 "workflow_id": workflow_id,
                 "workflow_dir": data.get("workflow_dir"),
-                "state": "failed"
+                "state": "failed",
+                "workflow_files": workflow_files  # ENHANCED: Include workflow files in context
             }
 
             # STEP 1: Received webhook
@@ -594,6 +758,13 @@ class PlannerHTTPServer:
             print(f"{TerminalColor.YELLOW.apply('Catalogs Received:')} {len(catalogs)}")
             for cat_type, cat_info in catalogs.items():
                 print(f"  {TerminalColor.GREEN.apply('✓')} {cat_type}: {cat_info.get('path')} ({cat_info.get('format')})")
+            print(f"{TerminalColor.YELLOW.apply('Workflow Files Received:')} {len(workflow_files)}")
+            if workflow_files.get('workflow_yaml'):
+                wf = workflow_files['workflow_yaml']
+                print(f"  {TerminalColor.GREEN.apply('✓')} Workflow YAML: {wf.get('filename')} ({wf.get('size')} bytes)")
+            if workflow_files.get('generator_script'):
+                gs = workflow_files['generator_script']
+                print(f"  {TerminalColor.GREEN.apply('✓')} Generator Script: {gs.get('filename')} ({gs.get('size')} bytes)")
             print(f"{TerminalColor.YELLOW.apply('Problems to solve:')} {len(analysis_result.get('problems_and_solutions', []))}")
             print(f"{'='*80}\n")
 

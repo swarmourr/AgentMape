@@ -2029,7 +2029,8 @@ class EnhancedAnalyzerAgent:
                 "analysis_type": analysis_type,
                 "requester": requester,
                 "status": "queued",
-                "queued_at": datetime.now().isoformat()
+                "queued_at": datetime.now().isoformat(),
+                "workflow_files": data.get('workflow_files', {})  # ENHANCED: Store workflow files
             }
             
             self.analysis_queue.append(analysis_request)
@@ -2230,14 +2231,29 @@ class EnhancedAnalyzerAgent:
             print(f"      - Catalogs included: {len(catalogs)}")
             print(f"      - Analysis problems: {len(analysis_data.get('analysis', {}).get('problems_and_solutions', []))}")
 
+            # Get workflow files - they should be passed through from the analysis request
+            # We need to retrieve them from the active analysis record
+            workflow_files = {}
+            request_id = analysis_data.get('request_id')
+            if request_id and request_id in self.active_analyses:
+                workflow_files = self.active_analyses[request_id].get('workflow_files', {})
+
             # Build webhook payload for Planner
             webhook_data = {
                 "workflow_id": workflow_id,
                 "workflow_dir": workflow_dir,
                 "result": analysis_data,
                 "catalogs": catalogs,
+                "workflow_files": workflow_files,  # ENHANCED: Include workflow descriptor and generator
                 "timestamp": datetime.now().isoformat()
             }
+
+            if workflow_files:
+                print(f"      - Workflow files included: {len(workflow_files)}")
+                if workflow_files.get('workflow_yaml'):
+                    print(f"        • {workflow_files['workflow_yaml']['filename']}")
+                if workflow_files.get('generator_script'):
+                    print(f"        • {workflow_files['generator_script']['filename']}")
 
             print(f"    {TerminalColor.YELLOW.apply('◆')} Sending to Planner: {webhook_url}")
 

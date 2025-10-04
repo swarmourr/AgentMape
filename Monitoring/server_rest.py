@@ -251,6 +251,21 @@ class PegasusWorkflowManager:
         else:
             print(f"    {TerminalColor.YELLOW.apply('⚠')} No catalogs discovered")
 
+        # STEP 2.5: Read workflow descriptor and generator files
+        print(f"\n  {TerminalColor.CYAN.apply('→ Step 1.2.5:')} Reading workflow files...")
+        workflow_files = self.read_workflow_files(workflow_dir)
+
+        if workflow_files.get('workflow_yaml'):
+            print(f"    {TerminalColor.GREEN.apply('✓')} Workflow descriptor: {workflow_files['workflow_yaml']['filename']}")
+            print(f"      - Size: {workflow_files['workflow_yaml']['size']} bytes")
+
+        if workflow_files.get('generator_script'):
+            print(f"    {TerminalColor.GREEN.apply('✓')} Generator script: {workflow_files['generator_script']['filename']}")
+            print(f"      - Size: {workflow_files['generator_script']['size']} bytes")
+
+        if not workflow_files.get('workflow_yaml') and not workflow_files.get('generator_script'):
+            print(f"    {TerminalColor.YELLOW.apply('⚠')} No workflow files found")
+
         # Send analysis request via HTTP
         print(f"\n  {TerminalColor.CYAN.apply('→ Step 1.3:')} Sending analysis request to Analyzer...")
 
@@ -262,7 +277,8 @@ class PegasusWorkflowManager:
                     "analysis_type": analysis_type,
                     "request_id": request_id,
                     "requester": "monitor_agent",
-                    "catalogs": catalogs  # ENHANCED: Include catalog information
+                    "catalogs": catalogs,  # ENHANCED: Include catalog information
+                    "workflow_files": workflow_files  # ENHANCED: Include workflow descriptor and generator
                 }
 
                 url = f"{healthy_analyzer['http_url']}/api/analyze"
@@ -542,6 +558,62 @@ class PegasusWorkflowManager:
             return {"error": f"Error acknowledging analysis: {str(e)}"}
 
     # Catalog Discovery Methods
+    def read_workflow_files(self, workflow_dir: str) -> Dict[str, Any]:
+        """Read workflow descriptor and generator files"""
+        import glob
+
+        workflow_files = {}
+
+        if not workflow_dir or not os.path.exists(workflow_dir):
+            return workflow_files
+
+        # Look for workflow YAML descriptor
+        yaml_files = glob.glob(os.path.join(workflow_dir, "*.yml")) + glob.glob(os.path.join(workflow_dir, "*.yaml"))
+        workflow_yamls = [f for f in yaml_files if 'workflow' in os.path.basename(f).lower()]
+
+        if workflow_yamls:
+            try:
+                with open(workflow_yamls[0], 'r') as f:
+                    content = f.read()
+                    # Limit size to avoid excessive data transfer (max 5KB)
+                    if len(content) > 5000:
+                        content = content[:5000] + "\n... (truncated - file too large)"
+
+                    workflow_files['workflow_yaml'] = {
+                        "filename": os.path.basename(workflow_yamls[0]),
+                        "path": workflow_yamls[0],
+                        "content": content,
+                        "size": len(content),
+                        "type": "yaml"
+                    }
+            except Exception as e:
+                logger.error(f"Error reading workflow YAML: {e}")
+
+        # Look for workflow generator Python script
+        py_files = glob.glob(os.path.join(workflow_dir, "*.py"))
+        generator_scripts = [f for f in py_files if any(keyword in os.path.basename(f).lower()
+                            for keyword in ['workflow', 'generate', 'dax', 'plan'])]
+
+        if generator_scripts:
+            try:
+                with open(generator_scripts[0], 'r') as f:
+                    content = f.read()
+                    # Limit size to avoid excessive data transfer (max 10KB)
+                    if len(content) > 10000:
+                        content = content[:10000] + "\n... (truncated - file too large)"
+
+                    workflow_files['generator_script'] = {
+                        "filename": os.path.basename(generator_scripts[0]),
+                        "path": generator_scripts[0],
+                        "content": content,
+                        "size": len(content),
+                        "type": "python"
+                    }
+            except Exception as e:
+                logger.error(f"Error reading generator script: {e}")
+
+        return workflow_files
+
     def discover_catalogs(self, workflow_dir: str) -> Dict[str, Any]:
         """Discover all catalog files and their formats"""
         catalogs = {
