@@ -126,14 +126,15 @@ class AgentRegistry:
         return False
 
 class PegasusWorkflowManager:
-    def __init__(self, agent_registry: AgentRegistry):
+    def __init__(self, agent_registry: AgentRegistry, config: dict = None):
         self.registered_workflows = {}
         self.watchers = {}
         self.monitoring_active = False
         self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=10)
         self.agent_registry = agent_registry
+        self.config = config or {}  # ENHANCED: Store config for auto-analysis
         self.create_logs_directory()
-        
+
         # Enhanced notification system
         self.push_enabled = True
         self.analyzer_connections = set()
@@ -141,7 +142,7 @@ class PegasusWorkflowManager:
         self.known_held_workflows = set()
         self.notification_queue = []
         self.analysis_requests = {}  # Track pending analysis requests
-        
+
         # FIXED: Thread-safe analysis request queue
         self.pending_analysis_queue = []
 
@@ -707,11 +708,20 @@ class PegasusWorkflowManager:
         workflow_files = {}
 
         if not workflow_dir or not os.path.exists(workflow_dir):
+            logger.warning(f"Workflow directory does not exist: {workflow_dir}")
             return workflow_files
 
         # Look for workflow YAML descriptor
         yaml_files = glob.glob(os.path.join(workflow_dir, "*.yml")) + glob.glob(os.path.join(workflow_dir, "*.yaml"))
+        logger.debug(f"Found {len(yaml_files)} YAML files in {workflow_dir}: {yaml_files}")
+
+        # Try to find workflow YAML - be flexible with naming
         workflow_yamls = [f for f in yaml_files if 'workflow' in os.path.basename(f).lower()]
+
+        # If no 'workflow' named files, just take the first YAML file
+        if not workflow_yamls and yaml_files:
+            workflow_yamls = [yaml_files[0]]
+            logger.info(f"No 'workflow' named YAML found, using first YAML: {workflow_yamls[0]}")
 
         if workflow_yamls:
             try:
@@ -740,8 +750,15 @@ class PegasusWorkflowManager:
 
         # Look for workflow generator Python script
         py_files = glob.glob(os.path.join(workflow_dir, "*.py"))
+        logger.debug(f"Found {len(py_files)} Python files in {workflow_dir}: {py_files}")
+
         generator_scripts = [f for f in py_files if any(keyword in os.path.basename(f).lower()
                             for keyword in ['workflow', 'generate', 'dax', 'plan'])]
+
+        # If no generator script found by keywords, take the first .py file
+        if not generator_scripts and py_files:
+            generator_scripts = [py_files[0]]
+            logger.info(f"No generator script found by keywords, using first Python file: {generator_scripts[0]}")
 
         if generator_scripts:
             try:
@@ -1383,7 +1400,7 @@ class EnhancedPegasusMCPServer:
         self.config = self.load_config(config_file)
 
         self.agent_registry = AgentRegistry()
-        self.workflow_manager = PegasusWorkflowManager(self.agent_registry)
+        self.workflow_manager = PegasusWorkflowManager(self.agent_registry, self.config)
         self.auto_monitor_active = False
         self.auto_monitor_task = None
         self.monitor_interval = self.config.get("monitor_interval", 60)

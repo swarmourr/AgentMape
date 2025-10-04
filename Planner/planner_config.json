@@ -1,6 +1,6 @@
 {
-    "ollama_url": "http://gfbws-176-159-70-145.a.free.pinggy.link/api/generate",
-    "ollama_api_base": "http://gfbws-176-159-70-145.a.free.pinggy.link",
+    "ollama_url": "http://zdmbn-2001-863-3aa-5754-784f-5355-820e-aa2c.a.free.pinggy.link/api/generate",
+    "ollama_api_base": "http://zdmbn-2001-863-3aa-5754-784f-5355-820e-aa2c.a.free.pinggy.link",
     "ollama_model": "llama3:latest",
     "ollama_check_interval": 30,
     "monitor_url": "http://localhost:8080",
