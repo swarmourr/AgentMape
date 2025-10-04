@@ -180,8 +180,15 @@ class PegasusWorkflowManager:
 
     # FIXED: Thread-safe method to queue analysis requests
     def schedule_analysis_request(self, workflow_id: str, workflow_dir: str, analysis_type: str):
-        """Thread-safe method to schedule analysis request"""
+        """Thread-safe method to schedule analysis request with deduplication"""
         try:
+            # ENHANCED: Check if workflow already in queue (deduplication)
+            already_queued = any(req['workflow_id'] == workflow_id for req in self.pending_analysis_queue)
+
+            if already_queued:
+                logger.info(f"Workflow {workflow_id} already in analysis queue, skipping duplicate request (type: {analysis_type})")
+                return
+
             analysis_request = {
                 "workflow_id": workflow_id,
                 "workflow_dir": workflow_dir,
@@ -189,10 +196,10 @@ class PegasusWorkflowManager:
                 "timestamp": datetime.now().isoformat(),
                 "request_id": str(uuid.uuid4())
             }
-            
+
             self.pending_analysis_queue.append(analysis_request)
-            logger.info(f"Queued analysis request for workflow {workflow_id} (type: {analysis_type})")
-            
+            logger.info(f"Queued analysis request for workflow {workflow_id} (type: {analysis_type}, queue size: {len(self.pending_analysis_queue)})")
+
         except Exception as e:
             logger.error(f"Error queuing analysis request: {e}")
 
@@ -1483,20 +1490,9 @@ class PegasusWorkflowManager:
 
         # ENHANCED: Trigger analysis automatically if enabled
         if self.config.get("auto_analysis_enabled", False):
-            # Check if workflow already in queue (deduplication)
-            already_queued = any(req['workflow_id'] == workflow_id for req in self.pending_analysis_queue)
-
-            if not already_queued:
-                logger.info(f"Auto-analysis enabled: Queuing analysis request for workflow {workflow_id}")
-                analysis_request = {
-                    "workflow_id": workflow_id,
-                    "workflow_dir": workflow_dir,
-                    "analysis_type": "failure_analysis"
-                }
-                self.pending_analysis_queue.append(analysis_request)
-                logger.info(f"Added workflow {workflow_id} to analysis queue (queue size: {len(self.pending_analysis_queue)})")
-            else:
-                logger.info(f"Workflow {workflow_id} already in analysis queue, skipping duplicate")
+            logger.info(f"Auto-analysis enabled: Scheduling analysis request for workflow {workflow_id}")
+            # FIXED: Use centralized deduplication in schedule_analysis_request
+            self.schedule_analysis_request(workflow_id, workflow_dir, "failure_analysis")
 
     def remove_workflow(self, workflow_id: str):
         """Remove workflow from monitoring"""

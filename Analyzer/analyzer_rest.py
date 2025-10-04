@@ -2083,6 +2083,9 @@ class EnhancedAnalyzerAgent:
             else:
                 result = await self.analyze_failed_workflow(workflow_id, workflow_dir)
 
+            # ENHANCED: Add request_id to result for later lookup in notify_planner_of_analysis
+            result["request_id"] = request_id
+
             # Update status
             self.active_analyses[request_id]["status"] = "completed"
             self.active_analyses[request_id]["completed_at"] = datetime.now().isoformat()
