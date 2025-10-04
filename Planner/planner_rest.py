@@ -747,6 +747,68 @@ class PlannerHTTPServer:
             return web.json_response({"error": str(e)}, status=500)
 
 
+async def verify_agent_connections(config):
+    """Verify connections to other agents at startup"""
+    print(f"\n{TerminalColor.BRIGHT_CYAN.apply('🔗 VERIFYING AGENT CONNECTIONS')}")
+    print(f"{'='*80}")
+
+    # Check Analyzer connection
+    analyzer_url = config.get("analyzer_url", "http://localhost:8081")
+    print(f"\n{TerminalColor.CYAN.apply('→ Checking Analyzer Agent...')}")
+    print(f"  URL: {analyzer_url}")
+    try:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=5)) as session:
+            async with session.get(f"{analyzer_url}/health") as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    print(f"  {TerminalColor.GREEN.apply('✓')} Analyzer: Connected")
+                    print(f"  {TerminalColor.GREEN.apply('✓')} Status: {data.get('status', 'unknown')}")
+                else:
+                    print(f"  {TerminalColor.RED.apply('✗')} Analyzer: HTTP {resp.status}")
+    except Exception as e:
+        print(f"  {TerminalColor.RED.apply('✗')} Analyzer: Not reachable")
+        print(f"  {TerminalColor.YELLOW.apply('⚠')} Error: {str(e)[:60]}")
+        print(f"  {TerminalColor.YELLOW.apply('⚠')} Will wait for Analyzer to send analysis")
+
+    # Check Executor connection (future)
+    executor_url = config.get("executor_url", "http://localhost:8083")
+    print(f"\n{TerminalColor.CYAN.apply('→ Checking Executor Agent...')}")
+    print(f"  URL: {executor_url}")
+    try:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=5)) as session:
+            async with session.get(f"{executor_url}/health") as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    print(f"  {TerminalColor.GREEN.apply('✓')} Executor: Connected")
+                    print(f"  {TerminalColor.GREEN.apply('✓')} Status: {data.get('status', 'unknown')}")
+                else:
+                    print(f"  {TerminalColor.RED.apply('✗')} Executor: HTTP {resp.status}")
+    except Exception as e:
+        print(f"  {TerminalColor.RED.apply('✗')} Executor: Not reachable")
+        print(f"  {TerminalColor.YELLOW.apply('⚠')} Error: {str(e)[:60]}")
+        print(f"  {TerminalColor.YELLOW.apply('⚠')} Plan execution features will be unavailable")
+
+    # Check Monitor connection
+    monitor_url = config.get("monitor_url", "http://localhost:8080")
+    print(f"\n{TerminalColor.CYAN.apply('→ Checking Monitor Agent...')}")
+    print(f"  URL: {monitor_url}")
+    try:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=5)) as session:
+            async with session.get(f"{monitor_url}/health") as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    print(f"  {TerminalColor.GREEN.apply('✓')} Monitor: Connected")
+                    print(f"  {TerminalColor.GREEN.apply('✓')} Status: {data.get('status', 'unknown')}")
+                    print(f"  {TerminalColor.GREEN.apply('✓')} Active workflows: {data.get('active_workflows', 0)}")
+                else:
+                    print(f"  {TerminalColor.RED.apply('✗')} Monitor: HTTP {resp.status}")
+    except Exception as e:
+        print(f"  {TerminalColor.RED.apply('✗')} Monitor: Not reachable")
+        print(f"  {TerminalColor.YELLOW.apply('⚠')} Error: {str(e)[:60]}")
+
+    print(f"\n{'='*80}")
+
+
 async def main():
     """Main function"""
     # Initialize planner
@@ -760,6 +822,9 @@ async def main():
     await runner.setup()
     site = web.TCPSite(runner, "localhost", HTTP_PORT)
     await site.start()
+
+    # Verify connections to other agents
+    await verify_agent_connections(planner.config)
 
     # Print startup info
     print(f"\n{TerminalColor.BRIGHT_GREEN.apply('✓ LLM-Powered Planner Agent Started')}")
@@ -780,7 +845,8 @@ async def main():
     print(f"   GET  /api/plans/{{id}} - Get specific plan")
     print(f"   POST /api/plans/{{id}}/approve - Approve plan for execution")
     print(f"   GET  /health - Health check")
-    print(f"\n{TerminalColor.CYAN.apply('Press Ctrl+C to stop')}\n")
+    print(f"\n{TerminalColor.CYAN.apply('Press Ctrl+C to stop')}")
+    print(f"{'='*80}\n")
 
     logger.info(f"Planner agent running on http://localhost:{HTTP_PORT}")
 

@@ -2160,6 +2160,26 @@ class EnhancedAnalyzerAgent:
             planner_url = self.config.get("planner_url", "http://localhost:8082")
             webhook_url = f"{planner_url}/webhooks/analysis-complete"
 
+            # CHECK CONNECTION: Verify Planner is reachable
+            print(f"    {TerminalColor.YELLOW.apply('◆')} Checking connection to Planner...")
+            try:
+                async with ClientSession(timeout=aiohttp.ClientTimeout(total=5)) as session:
+                    health_url = f"{planner_url}/health"
+                    async with session.get(health_url) as resp:
+                        if resp.status == 200:
+                            health_data = await resp.json()
+                            print(f"    {TerminalColor.GREEN.apply('✓')} Planner is reachable and healthy")
+                            print(f"      - Status: {health_data.get('status', 'unknown')}")
+                            print(f"      - Ollama: {'✓' if health_data.get('ollama_available') else '✗'}")
+                        else:
+                            print(f"    {TerminalColor.RED.apply('✗')} Planner health check failed: HTTP {resp.status}")
+                            print(f"    {TerminalColor.YELLOW.apply('⚠')} Continuing anyway...")
+            except Exception as health_error:
+                print(f"    {TerminalColor.RED.apply('✗')} Cannot reach Planner at {planner_url}")
+                print(f"    {TerminalColor.RED.apply('✗')} Error: {str(health_error)}")
+                print(f"    {TerminalColor.YELLOW.apply('⚠')} Skipping Planner notification")
+                return
+
             print(f"    {TerminalColor.YELLOW.apply('◆')} Discovering catalogs in workflow directory...")
 
             # Get catalog information from Monitor's discovery
@@ -2396,13 +2416,18 @@ class EnhancedAnalyzerAgent:
         # Start WebSocket MCP server
         async with websockets.serve(self.handle_client_message, "localhost", self.mcp_port):
             self.logger.info(f"WebSocket MCP server started on ws://localhost:{self.mcp_port}")
-            
+
+            # Check connections to other agents
+            await self.verify_agent_connections()
+
             # Print startup summary
             print(f"\n{TerminalColor.GREEN.apply('✓')} Enhanced Analyzer Agent Started")
+            print(f"{'='*80}")
             print(f"🌐 HTTP API: http://localhost:{self.http_port}")
             print(f"🔌 MCP WebSocket: ws://localhost:{self.mcp_port}")
             print(f"📊 Known agents: {len(self.agent_registry.agents)}")
             print(f"🦙 LLM Backend: Ollama ({self.ollama_manager.ollama_model})")
+            print(f"{'='*80}")
             print(f"📋 Available HTTP endpoints:")
             print(f"   GET  /health - Agent health status")
             print(f"   POST /api/analyze - Process analysis request")
@@ -2415,8 +2440,59 @@ class EnhancedAnalyzerAgent:
             for tool_name in sorted(self.tools.keys()):
                 print(f"   • {tool_name}")
             print(f"\n{TerminalColor.CYAN.apply('Press Ctrl+C to stop')}")
-            
+            print(f"{'='*80}\n")
+
             await asyncio.Future()  # Run forever
+
+    async def verify_agent_connections(self):
+        """Verify connections to other agents at startup"""
+        print(f"\n{TerminalColor.BRIGHT_CYAN.apply('🔗 VERIFYING AGENT CONNECTIONS')}")
+        print(f"{'='*80}")
+
+        # Check Planner connection
+        planner_url = self.config.get("planner_url", "http://localhost:8082")
+        print(f"\n{TerminalColor.CYAN.apply('→ Checking Planner Agent...')}")
+        print(f"  URL: {planner_url}")
+        try:
+            async with ClientSession(timeout=aiohttp.ClientTimeout(total=5)) as session:
+                async with session.get(f"{planner_url}/health") as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        print(f"  {TerminalColor.GREEN.apply('✓')} Planner: Connected")
+                        print(f"  {TerminalColor.GREEN.apply('✓')} Status: {data.get('status', 'unknown')}")
+                        print(f"  {TerminalColor.GREEN.apply('✓')} Ollama: {data.get('ollama_available', False)}")
+                    else:
+                        print(f"  {TerminalColor.RED.apply('✗')} Planner: HTTP {resp.status}")
+        except Exception as e:
+            print(f"  {TerminalColor.RED.apply('✗')} Planner: Not reachable")
+            print(f"  {TerminalColor.YELLOW.apply('⚠')} Error: {str(e)[:60]}")
+            print(f"  {TerminalColor.YELLOW.apply('⚠')} Planning features will be unavailable")
+
+        # Check Monitor connection (if registered)
+        monitor_url = self.config.get("monitor_url", "ws://localhost:8765")
+        if monitor_url.startswith("ws://"):
+            http_monitor_url = monitor_url.replace("ws://", "http://").replace(":8765", ":8080")
+        else:
+            http_monitor_url = monitor_url
+
+        print(f"\n{TerminalColor.CYAN.apply('→ Checking Monitor Agent...')}")
+        print(f"  URL: {http_monitor_url}")
+        try:
+            async with ClientSession(timeout=aiohttp.ClientTimeout(total=5)) as session:
+                async with session.get(f"{http_monitor_url}/health") as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        print(f"  {TerminalColor.GREEN.apply('✓')} Monitor: Connected")
+                        print(f"  {TerminalColor.GREEN.apply('✓')} Status: {data.get('status', 'unknown')}")
+                        print(f"  {TerminalColor.GREEN.apply('✓')} Active workflows: {data.get('active_workflows', 0)}")
+                    else:
+                        print(f"  {TerminalColor.RED.apply('✗')} Monitor: HTTP {resp.status}")
+        except Exception as e:
+            print(f"  {TerminalColor.RED.apply('✗')} Monitor: Not reachable")
+            print(f"  {TerminalColor.YELLOW.apply('⚠')} Error: {str(e)[:60]}")
+            print(f"  {TerminalColor.YELLOW.apply('⚠')} Will wait for Monitor to connect")
+
+        print(f"\n{'='*80}")
 
     async def periodic_health_checks(self):
         """Periodically check agent health"""

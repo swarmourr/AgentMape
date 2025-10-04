@@ -1120,13 +1120,33 @@ class PegasusWorkflowManager:
 
 class EnhancedPegasusMCPServer:
     """Enhanced MCP Server with HTTP + WebSocket hybrid architecture"""
-    
-    def __init__(self):
+
+    def load_config(self, config_file: str) -> Dict[str, Any]:
+        """Load configuration from JSON file"""
+        try:
+            if os.path.exists(config_file):
+                with open(config_file, 'r') as f:
+                    return json.load(f)
+            else:
+                logger.warning(f"Config file {config_file} not found, using defaults")
+                return {}
+        except Exception as e:
+            logger.error(f"Error loading config: {e}")
+            return {}
+
+    def __init__(self, config_file: str = "monitor_config.json"):
+        # Load configuration
+        self.config = self.load_config(config_file)
+
         self.agent_registry = AgentRegistry()
         self.workflow_manager = PegasusWorkflowManager(self.agent_registry)
         self.auto_monitor_active = False
         self.auto_monitor_task = None
-        self.monitor_interval = 60
+        self.monitor_interval = self.config.get("monitor_interval", 60)
+
+        # Configuration settings
+        self.http_port = self.config.get("http_port", 8080)
+        self.mcp_port = self.config.get("mcp_port", 8765)
         
         # MCP tools for external clients and inter-agent communication
         self.tools = {
@@ -1520,49 +1540,129 @@ class EnhancedPegasusMCPServer:
         except Exception as e:
             return {"error": f"Failed to get held jobs: {str(e)}"}
 
+    async def verify_agent_connections(self):
+        """Verify connections to other agents at startup"""
+        print(f"\n{TerminalColor.BRIGHT_CYAN.apply('🔗 VERIFYING AGENT CONNECTIONS')}")
+        print(f"{'='*80}")
+
+        # Check Analyzer connection
+        analyzer_url = self.config.get("analyzer_url", "http://localhost:8081")
+        print(f"\n{TerminalColor.CYAN.apply('→ Checking Analyzer Agent...')}")
+        print(f"  URL: {analyzer_url}")
+        try:
+            async with ClientSession(timeout=aiohttp.ClientTimeout(total=5)) as session:
+                async with session.get(f"{analyzer_url}/health") as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        print(f"  {TerminalColor.GREEN.apply('✓')} Analyzer: Connected")
+                        print(f"  {TerminalColor.GREEN.apply('✓')} Status: {data.get('status', 'unknown')}")
+                    else:
+                        print(f"  {TerminalColor.RED.apply('✗')} Analyzer: HTTP {resp.status}")
+        except Exception as e:
+            print(f"  {TerminalColor.RED.apply('✗')} Analyzer: Not reachable")
+            print(f"  {TerminalColor.YELLOW.apply('⚠')} Error: {str(e)[:60]}")
+            print(f"  {TerminalColor.YELLOW.apply('⚠')} Analysis features will be unavailable")
+
+        # Check Planner connection
+        planner_url = self.config.get("planner_url", "http://localhost:8082")
+        print(f"\n{TerminalColor.CYAN.apply('→ Checking Planner Agent...')}")
+        print(f"  URL: {planner_url}")
+        try:
+            async with ClientSession(timeout=aiohttp.ClientTimeout(total=5)) as session:
+                async with session.get(f"{planner_url}/health") as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        print(f"  {TerminalColor.GREEN.apply('✓')} Planner: Connected")
+                        print(f"  {TerminalColor.GREEN.apply('✓')} Status: {data.get('status', 'unknown')}")
+                        print(f"  {TerminalColor.GREEN.apply('✓')} Ollama: {data.get('ollama_available', False)}")
+                    else:
+                        print(f"  {TerminalColor.RED.apply('✗')} Planner: HTTP {resp.status}")
+        except Exception as e:
+            print(f"  {TerminalColor.RED.apply('✗')} Planner: Not reachable")
+            print(f"  {TerminalColor.YELLOW.apply('⚠')} Error: {str(e)[:60]}")
+
+        # Check Executor connection (future)
+        executor_url = self.config.get("executor_url", "http://localhost:8083")
+        print(f"\n{TerminalColor.CYAN.apply('→ Checking Executor Agent...')}")
+        print(f"  URL: {executor_url}")
+        try:
+            async with ClientSession(timeout=aiohttp.ClientTimeout(total=5)) as session:
+                async with session.get(f"{executor_url}/health") as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        print(f"  {TerminalColor.GREEN.apply('✓')} Executor: Connected")
+                        print(f"  {TerminalColor.GREEN.apply('✓')} Status: {data.get('status', 'unknown')}")
+                    else:
+                        print(f"  {TerminalColor.RED.apply('✗')} Executor: HTTP {resp.status}")
+        except Exception as e:
+            print(f"  {TerminalColor.RED.apply('✗')} Executor: Not reachable")
+            print(f"  {TerminalColor.YELLOW.apply('⚠')} Error: {str(e)[:60]}")
+            print(f"  {TerminalColor.YELLOW.apply('⚠')} Execution features will be unavailable")
+
+        print(f"\n{'='*80}")
+
     async def start_servers(self):
         """Start both HTTP and WebSocket servers"""
+        # Use config ports, fallback to env vars or defaults
+        http_port = self.http_port
+        mcp_port = self.mcp_port
+        http_host = "localhost"
+        ws_host = "localhost"
+
         logger.info(f"Starting FIXED Enhanced Pegasus Monitor Agent")
-        logger.info(f"WebSocket MCP Server: ws://{WS_HOST}:{WS_PORT}")
-        logger.info(f"HTTP API Server: http://{HTTP_HOST}:{HTTP_PORT}")
-        
+        logger.info(f"WebSocket MCP Server: ws://{ws_host}:{mcp_port}")
+        logger.info(f"HTTP API Server: http://{http_host}:{http_port}")
+
+        # Verify connections to other agents
+        await self.verify_agent_connections()
+
         # Start auto monitoring
         await self.start_auto_monitoring()
-        
+
         # FIXED: Start the analysis queue processor
         asyncio.create_task(self.process_analysis_queue())
-        
+
         # Start HTTP server
         runner = web.AppRunner(self.app)
         await runner.setup()
-        site = web.TCPSite(runner, HTTP_HOST, HTTP_PORT)
+        site = web.TCPSite(runner, http_host, http_port)
         await site.start()
-        logger.info(f"HTTP server started on http://{HTTP_HOST}:{HTTP_PORT}")
-        
+        logger.info(f"HTTP server started on http://{http_host}:{http_port}")
+
         # Start WebSocket MCP server
         websocket_server = await websockets.serve(
             self.handle_client,
-            WS_HOST,
-            WS_PORT,
+            ws_host,
+            mcp_port,
             ping_interval=20,
             ping_timeout=10
         )
-        logger.info(f"WebSocket MCP server started on ws://{WS_HOST}:{WS_PORT}")
-        
+        logger.info(f"WebSocket MCP server started on ws://{ws_host}:{mcp_port}")
+
         # Print startup summary
-        print(f"\n{TerminalColor.GREEN.apply('✓')} FIXED Enhanced Monitor Agent Started")
-        print(f"🌐 HTTP API: http://{HTTP_HOST}:{HTTP_PORT}")
-        print(f"🔌 MCP WebSocket: ws://{WS_HOST}:{WS_PORT}")
-        print(f"📊 Known agents: {len(self.agent_registry.agents)}")
-        print(f"🔍 Auto-monitoring: {self.auto_monitor_active}")
-        print(f"🔧 Analysis queue processor: Running")
-        print(f"📋 Available HTTP endpoints:")
+        print(f"\n{TerminalColor.BRIGHT_GREEN.apply('✓ Enhanced Monitor Agent Started')}")
+        print(f"{'='*80}")
+        print(f"{TerminalColor.CYAN.apply('🌐 HTTP API:')} http://{http_host}:{http_port}")
+        print(f"{TerminalColor.CYAN.apply('🔌 MCP WebSocket:')} ws://{ws_host}:{mcp_port}")
+        print(f"{TerminalColor.CYAN.apply('📊 Known agents:')} {len(self.agent_registry.agents)}")
+        print(f"{TerminalColor.CYAN.apply('🔍 Auto-monitoring:')} {self.auto_monitor_active}")
+        print(f"{TerminalColor.CYAN.apply('⏱️  Monitor interval:')} {self.monitor_interval}s")
+        print(f"{TerminalColor.CYAN.apply('🔧 Analysis queue processor:')} Running")
+
+        print(f"\n{TerminalColor.BRIGHT_CYAN.apply('📋 Available HTTP Endpoints:')}")
         print(f"   GET  /health - Agent health status")
         print(f"   GET  /api/workflows - List workflows")
         print(f"   POST /api/workflows/{{id}}/analyze - Request analysis")
         print(f"   POST /webhooks/analysis-complete - Analysis webhook")
         print(f"   GET  /api/agents/registry - Agent registry")
+
+        print(f"\n{TerminalColor.BRIGHT_CYAN.apply('🔗 Connected Agents:')}")
+        print(f"   Analyzer: {self.config.get('analyzer_url', 'http://localhost:8081')}")
+        print(f"   Planner: {self.config.get('planner_url', 'http://localhost:8082')}")
+        print(f"   Executor: {self.config.get('executor_url', 'http://localhost:8083')}")
+
         print(f"\n{TerminalColor.CYAN.apply('Press Ctrl+C to stop')}")
+        print(f"{'='*80}\n")
         
         try:
             await websocket_server.wait_closed()

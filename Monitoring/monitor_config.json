@@ -1,0 +1,13 @@
+{
+    "http_port": 8080,
+    "mcp_port": 8765,
+    "analyzer_url": "http://localhost:8081",
+    "planner_url": "http://localhost:8082",
+    "executor_url": "http://localhost:8083",
+    "log_level": "INFO",
+    "monitor_interval": 60,
+    "max_retries_for_held_jobs": 3,
+    "health_check_interval": 60,
+    "auto_analysis_enabled": true,
+    "push_notifications_enabled": true
+}
