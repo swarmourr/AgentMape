@@ -282,8 +282,33 @@ class PegasusWorkflowManager:
             print(f"    {TerminalColor.GREEN.apply('✓')} Generator script: {workflow_files['generator_script']['filename']}")
             print(f"      - Size: {workflow_files['generator_script']['size']} bytes")
 
+        if workflow_files.get('braindump_metadata'):
+            metadata = workflow_files['braindump_metadata']
+            print(f"    {TerminalColor.GREEN.apply('✓')} Braindump metadata extracted:")
+            if metadata.get('submit_dir'):
+                print(f"      - Submit dir: {metadata['submit_dir']}")
+            if metadata.get('dax'):
+                print(f"      - DAX file: {metadata['dax']}")
+
         if not workflow_files.get('workflow_yaml') and not workflow_files.get('generator_script'):
             print(f"    {TerminalColor.YELLOW.apply('⚠')} No workflow files found")
+
+        # STEP 2.6: Run pegasus-analyzer
+        print(f"\n  {TerminalColor.CYAN.apply('→ Step 1.2.6:')} Running pegasus-analyzer...")
+        pegasus_analyzer_output = self.run_pegasus_analyzer(workflow_dir)
+
+        if pegasus_analyzer_output.get('ran'):
+            print(f"    {TerminalColor.GREEN.apply('✓')} pegasus-analyzer completed (exit code: {pegasus_analyzer_output['exit_code']})")
+            if pegasus_analyzer_output.get('parsed_issues'):
+                print(f"      - Found {len(pegasus_analyzer_output['parsed_issues'])} issues")
+                for issue in pegasus_analyzer_output['parsed_issues'][:3]:  # Show first 3
+                    print(f"        • {issue}")
+                if len(pegasus_analyzer_output['parsed_issues']) > 3:
+                    print(f"        • ... and {len(pegasus_analyzer_output['parsed_issues']) - 3} more")
+        else:
+            print(f"    {TerminalColor.YELLOW.apply('⚠')} pegasus-analyzer not available or failed")
+            if pegasus_analyzer_output.get('error'):
+                print(f"      - Error: {pegasus_analyzer_output['error']}")
 
         # Send analysis request via HTTP
         print(f"\n  {TerminalColor.CYAN.apply('→ Step 1.3:')} Sending analysis request to Analyzer...")
@@ -297,7 +322,8 @@ class PegasusWorkflowManager:
                     "request_id": request_id,
                     "requester": "monitor_agent",
                     "catalogs": catalogs,  # ENHANCED: Include catalog information
-                    "workflow_files": workflow_files  # ENHANCED: Include workflow descriptor and generator
+                    "workflow_files": workflow_files,  # ENHANCED: Include workflow descriptor and generator
+                    "pegasus_analyzer": pegasus_analyzer_output  # ENHANCED: Include pegasus-analyzer output
                 }
 
                 # Print request payload
@@ -339,7 +365,13 @@ class PegasusWorkflowManager:
                         k: {"path": v.get("path"), "format": v.get("format"), "embedded": v.get("embedded")}
                         for k, v in catalogs.items() if v and isinstance(v, dict)  # FIX: Only include dict values
                     },
-                    "workflow_files": wf_summary if wf_summary else {}
+                    "workflow_files": wf_summary if wf_summary else {},
+                    "pegasus_analyzer": {
+                        "ran": pegasus_analyzer_output.get("ran", False),
+                        "exit_code": pegasus_analyzer_output.get("exit_code"),
+                        "issues_found": len(pegasus_analyzer_output.get("parsed_issues", [])),
+                        "error": pegasus_analyzer_output.get("error")
+                    }
                 }
 
                 print(f"  {json.dumps(summary_data, indent=2)}")
@@ -701,6 +733,34 @@ class PegasusWorkflowManager:
 
         return parsed_structure
 
+    def extract_braindump_metadata(self, workflow_dir: str) -> Dict[str, Any]:
+        """Extract useful metadata from braindump.yml"""
+        import yaml
+
+        braindump_path = os.path.join(workflow_dir, "braindump.yml")
+        metadata = {}
+
+        if os.path.exists(braindump_path):
+            try:
+                with open(braindump_path, 'r') as f:
+                    braindump = yaml.safe_load(f)
+                    if braindump:
+                        metadata = {
+                            "submit_dir": braindump.get("submit_dir"),
+                            "planner": braindump.get("planner"),
+                            "planner_version": braindump.get("planner_version"),
+                            "dax": braindump.get("dax"),
+                            "dag": braindump.get("dag"),
+                            "user": braindump.get("user"),
+                            "root_wf_uuid": braindump.get("root_wf_uuid"),
+                            "wf_uuid": braindump.get("wf_uuid")
+                        }
+                        logger.info(f"Extracted braindump metadata: submit_dir={metadata.get('submit_dir')}, dax={metadata.get('dax')}")
+            except Exception as e:
+                logger.error(f"Error reading braindump.yml: {e}")
+
+        return metadata
+
     def read_workflow_files(self, workflow_dir: str) -> Dict[str, Any]:
         """Read workflow descriptor and generator files with parsed structure"""
         import glob
@@ -711,17 +771,39 @@ class PegasusWorkflowManager:
             logger.warning(f"Workflow directory does not exist: {workflow_dir}")
             return workflow_files
 
-        # Look for workflow YAML descriptor
+        # STEP 1: Extract braindump metadata
+        braindump_metadata = self.extract_braindump_metadata(workflow_dir)
+        if braindump_metadata:
+            workflow_files['braindump_metadata'] = braindump_metadata
+
+        # STEP 2: Find actual workflow descriptor (workflow.yml, dax.yml, or from braindump 'dax' field)
         yaml_files = glob.glob(os.path.join(workflow_dir, "*.yml")) + glob.glob(os.path.join(workflow_dir, "*.yaml"))
         logger.debug(f"Found {len(yaml_files)} YAML files in {workflow_dir}: {yaml_files}")
 
-        # Try to find workflow YAML - be flexible with naming
-        workflow_yamls = [f for f in yaml_files if 'workflow' in os.path.basename(f).lower()]
+        # Priority 1: Look for workflow.yml or dax.yml
+        workflow_yamls = [f for f in yaml_files if os.path.basename(f).lower() in ['workflow.yml', 'workflow.yaml', 'dax.yml', 'dax.yaml']]
 
-        # If no 'workflow' named files, just take the first YAML file
-        if not workflow_yamls and yaml_files:
-            workflow_yamls = [yaml_files[0]]
-            logger.info(f"No 'workflow' named YAML found, using first YAML: {workflow_yamls[0]}")
+        # Priority 2: Use 'dax' field from braindump if available
+        if not workflow_yamls and braindump_metadata.get('dax'):
+            dax_path = braindump_metadata['dax']
+            if os.path.exists(dax_path):
+                workflow_yamls = [dax_path]
+                logger.info(f"Using workflow descriptor from braindump 'dax' field: {dax_path}")
+
+        # Priority 3: Look for submit directory planned workflow
+        if not workflow_yamls and braindump_metadata.get('submit_dir'):
+            submit_dir = braindump_metadata['submit_dir']
+            if os.path.exists(submit_dir):
+                submit_yamls = glob.glob(os.path.join(submit_dir, "*.yml")) + glob.glob(os.path.join(submit_dir, "*.yaml"))
+                workflow_yamls = [f for f in submit_yamls if 'workflow' in os.path.basename(f).lower() or 'dax' in os.path.basename(f).lower()]
+                if workflow_yamls:
+                    logger.info(f"Found workflow descriptor in submit dir: {workflow_yamls[0]}")
+
+        # Priority 4: Exclude braindump.yml and take any remaining YAML
+        if not workflow_yamls:
+            workflow_yamls = [f for f in yaml_files if 'braindump' not in os.path.basename(f).lower()]
+            if workflow_yamls:
+                logger.info(f"Using first non-braindump YAML: {workflow_yamls[0]}")
 
         if workflow_yamls:
             try:
@@ -779,6 +861,61 @@ class PegasusWorkflowManager:
                 logger.error(f"Error reading generator script: {e}")
 
         return workflow_files
+
+    def run_pegasus_analyzer(self, workflow_dir: str) -> Dict[str, Any]:
+        """Run pegasus-analyzer on the workflow and capture output"""
+        import subprocess
+
+        result = {
+            "ran": False,
+            "exit_code": None,
+            "output": None,
+            "error": None,
+            "parsed_issues": []
+        }
+
+        # Check if pegasus-analyzer is available
+        try:
+            subprocess.run(["which", "pegasus-analyzer"], check=True, capture_output=True)
+        except subprocess.CalledProcessError:
+            logger.warning("pegasus-analyzer command not found in PATH")
+            result["error"] = "pegasus-analyzer not installed or not in PATH"
+            return result
+
+        # Run pegasus-analyzer on the workflow directory
+        try:
+            logger.info(f"Running pegasus-analyzer on {workflow_dir}")
+            proc = subprocess.run(
+                ["pegasus-analyzer", workflow_dir],
+                capture_output=True,
+                text=True,
+                timeout=30  # 30 second timeout
+            )
+
+            result["ran"] = True
+            result["exit_code"] = proc.returncode
+            result["output"] = proc.stdout
+            result["error"] = proc.stderr
+
+            # Parse common issues from output
+            if proc.stdout:
+                issues = []
+                for line in proc.stdout.split('\n'):
+                    line_lower = line.lower()
+                    if any(keyword in line_lower for keyword in ['error', 'failed', 'missing', 'not found', 'permission denied']):
+                        issues.append(line.strip())
+                result["parsed_issues"] = issues
+
+            logger.info(f"pegasus-analyzer completed with exit code {proc.returncode}, found {len(result['parsed_issues'])} issues")
+
+        except subprocess.TimeoutExpired:
+            logger.error("pegasus-analyzer timed out after 30 seconds")
+            result["error"] = "Timeout after 30 seconds"
+        except Exception as e:
+            logger.error(f"Error running pegasus-analyzer: {e}")
+            result["error"] = str(e)
+
+        return result
 
     def discover_catalogs(self, workflow_dir: str) -> Dict[str, Any]:
         """Discover all catalog files and their formats"""
@@ -1341,14 +1478,20 @@ class PegasusWorkflowManager:
 
         # ENHANCED: Trigger analysis automatically if enabled
         if self.config.get("auto_analysis_enabled", False):
-            logger.info(f"Auto-analysis enabled: Queuing analysis request for workflow {workflow_id}")
-            analysis_request = {
-                "workflow_id": workflow_id,
-                "workflow_dir": workflow_dir,
-                "analysis_type": "failure_analysis"
-            }
-            self.pending_analysis_queue.append(analysis_request)
-            logger.info(f"Added workflow {workflow_id} to analysis queue (queue size: {len(self.pending_analysis_queue)})")
+            # Check if workflow already in queue (deduplication)
+            already_queued = any(req['workflow_id'] == workflow_id for req in self.pending_analysis_queue)
+
+            if not already_queued:
+                logger.info(f"Auto-analysis enabled: Queuing analysis request for workflow {workflow_id}")
+                analysis_request = {
+                    "workflow_id": workflow_id,
+                    "workflow_dir": workflow_dir,
+                    "analysis_type": "failure_analysis"
+                }
+                self.pending_analysis_queue.append(analysis_request)
+                logger.info(f"Added workflow {workflow_id} to analysis queue (queue size: {len(self.pending_analysis_queue)})")
+            else:
+                logger.info(f"Workflow {workflow_id} already in analysis queue, skipping duplicate")
 
     def remove_workflow(self, workflow_id: str):
         """Remove workflow from monitoring"""
