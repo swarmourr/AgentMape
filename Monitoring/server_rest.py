@@ -1310,6 +1310,17 @@ class PegasusWorkflowManager:
 
         self.queue_notification("new_error_logs", notification_data)
 
+        # ENHANCED: Trigger analysis automatically if enabled
+        if self.config.get("auto_analysis_enabled", False):
+            logger.info(f"Auto-analysis enabled: Queuing analysis request for workflow {workflow_id}")
+            analysis_request = {
+                "workflow_id": workflow_id,
+                "workflow_dir": workflow_dir,
+                "analysis_type": "failure_analysis"
+            }
+            self.pending_analysis_queue.append(analysis_request)
+            logger.info(f"Added workflow {workflow_id} to analysis queue (queue size: {len(self.pending_analysis_queue)})")
+
     def remove_workflow(self, workflow_id: str):
         """Remove workflow from monitoring"""
         if workflow_id in self.registered_workflows:
