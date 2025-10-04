@@ -238,11 +238,16 @@ class PegasusWorkflowManager:
         print(f"\n  {TerminalColor.CYAN.apply('→ Step 1.2:')} Discovering workflow catalogs...")
         catalogs = self.discover_catalogs(workflow_dir)
 
-        catalog_count = sum(1 for k in ['replica_catalog', 'transformation_catalog', 'site_catalog'] if k in catalogs)
+        # Count actual catalog discoveries (not metadata fields)
+        catalog_types = ['replica_catalog', 'transformation_catalog', 'site_catalog']
+        catalog_count = sum(1 for k in catalog_types if catalogs.get(k) is not None)
+
         if catalog_count > 0:
             print(f"    {TerminalColor.GREEN.apply('✓')} Found {catalog_count} catalog(s)")
-            for cat_type, cat_info in catalogs.items():
-                print(f"      • {cat_type}: {cat_info.get('path', 'N/A')}")
+            for cat_type in catalog_types:
+                cat_info = catalogs.get(cat_type)
+                if cat_info and isinstance(cat_info, dict):
+                    print(f"      • {cat_type}: {cat_info.get('path', 'N/A')}")
         else:
             print(f"    {TerminalColor.YELLOW.apply('⚠')} No catalogs discovered")
 
@@ -1548,65 +1553,110 @@ class EnhancedPegasusMCPServer:
             return {"error": f"Failed to get held jobs: {str(e)}"}
 
     async def verify_agent_connections(self):
-        """Verify connections to other agents at startup"""
-        print(f"\n{TerminalColor.BRIGHT_CYAN.apply('🔗 VERIFYING AGENT CONNECTIONS')}")
+        """Verify connections to other agents (non-blocking)"""
+        print(f"\n{TerminalColor.BRIGHT_CYAN.apply('🔗 CHECKING AGENT CONNECTIONS')}")
         print(f"{'='*80}")
+        print(f"{TerminalColor.YELLOW.apply('ℹ')} Agents may not be started yet - will retry periodically")
 
         # Check Analyzer connection
         analyzer_url = self.config.get("analyzer_url", "http://localhost:8081")
-        print(f"\n{TerminalColor.CYAN.apply('→ Checking Analyzer Agent...')}")
-        print(f"  URL: {analyzer_url}")
+        print(f"\n{TerminalColor.CYAN.apply('→ Analyzer Agent:')} {analyzer_url}")
         try:
-            async with ClientSession(timeout=aiohttp.ClientTimeout(total=5)) as session:
+            async with ClientSession(timeout=aiohttp.ClientTimeout(total=2)) as session:
                 async with session.get(f"{analyzer_url}/health") as resp:
                     if resp.status == 200:
                         data = await resp.json()
-                        print(f"  {TerminalColor.GREEN.apply('✓')} Analyzer: Connected")
-                        print(f"  {TerminalColor.GREEN.apply('✓')} Status: {data.get('status', 'unknown')}")
+                        print(f"  {TerminalColor.GREEN.apply('✓')} Status: Connected")
                     else:
-                        print(f"  {TerminalColor.RED.apply('✗')} Analyzer: HTTP {resp.status}")
+                        print(f"  {TerminalColor.YELLOW.apply('○')} Status: Not ready (HTTP {resp.status})")
         except Exception as e:
-            print(f"  {TerminalColor.RED.apply('✗')} Analyzer: Not reachable")
-            print(f"  {TerminalColor.YELLOW.apply('⚠')} Error: {str(e)[:60]}")
-            print(f"  {TerminalColor.YELLOW.apply('⚠')} Analysis features will be unavailable")
+            print(f"  {TerminalColor.YELLOW.apply('○')} Status: Not started yet")
 
         # Check Planner connection
         planner_url = self.config.get("planner_url", "http://localhost:8082")
-        print(f"\n{TerminalColor.CYAN.apply('→ Checking Planner Agent...')}")
-        print(f"  URL: {planner_url}")
+        print(f"\n{TerminalColor.CYAN.apply('→ Planner Agent:')} {planner_url}")
         try:
-            async with ClientSession(timeout=aiohttp.ClientTimeout(total=5)) as session:
+            async with ClientSession(timeout=aiohttp.ClientTimeout(total=2)) as session:
                 async with session.get(f"{planner_url}/health") as resp:
                     if resp.status == 200:
                         data = await resp.json()
-                        print(f"  {TerminalColor.GREEN.apply('✓')} Planner: Connected")
-                        print(f"  {TerminalColor.GREEN.apply('✓')} Status: {data.get('status', 'unknown')}")
-                        print(f"  {TerminalColor.GREEN.apply('✓')} Ollama: {data.get('ollama_available', False)}")
+                        print(f"  {TerminalColor.GREEN.apply('✓')} Status: Connected")
                     else:
-                        print(f"  {TerminalColor.RED.apply('✗')} Planner: HTTP {resp.status}")
+                        print(f"  {TerminalColor.YELLOW.apply('○')} Status: Not ready (HTTP {resp.status})")
         except Exception as e:
-            print(f"  {TerminalColor.RED.apply('✗')} Planner: Not reachable")
-            print(f"  {TerminalColor.YELLOW.apply('⚠')} Error: {str(e)[:60]}")
+            print(f"  {TerminalColor.YELLOW.apply('○')} Status: Not started yet")
 
         # Check Executor connection (future)
         executor_url = self.config.get("executor_url", "http://localhost:8083")
-        print(f"\n{TerminalColor.CYAN.apply('→ Checking Executor Agent...')}")
-        print(f"  URL: {executor_url}")
+        print(f"\n{TerminalColor.CYAN.apply('→ Executor Agent:')} {executor_url}")
         try:
-            async with ClientSession(timeout=aiohttp.ClientTimeout(total=5)) as session:
+            async with ClientSession(timeout=aiohttp.ClientTimeout(total=2)) as session:
                 async with session.get(f"{executor_url}/health") as resp:
                     if resp.status == 200:
                         data = await resp.json()
-                        print(f"  {TerminalColor.GREEN.apply('✓')} Executor: Connected")
-                        print(f"  {TerminalColor.GREEN.apply('✓')} Status: {data.get('status', 'unknown')}")
+                        print(f"  {TerminalColor.GREEN.apply('✓')} Status: Connected")
                     else:
-                        print(f"  {TerminalColor.RED.apply('✗')} Executor: HTTP {resp.status}")
+                        print(f"  {TerminalColor.YELLOW.apply('○')} Status: Not ready (HTTP {resp.status})")
         except Exception as e:
-            print(f"  {TerminalColor.RED.apply('✗')} Executor: Not reachable")
-            print(f"  {TerminalColor.YELLOW.apply('⚠')} Error: {str(e)[:60]}")
-            print(f"  {TerminalColor.YELLOW.apply('⚠')} Execution features will be unavailable")
+            print(f"  {TerminalColor.YELLOW.apply('○')} Status: Not started yet")
 
         print(f"\n{'='*80}")
+
+    async def periodic_agent_health_checks(self):
+        """Periodically check connections to other agents"""
+        await asyncio.sleep(10)  # Wait 10 seconds before first check
+
+        while True:
+            try:
+                await asyncio.sleep(self.config.get("health_check_interval", 60))
+
+                # Silent health checks - only log changes
+                agents_status = {}
+
+                # Check Analyzer
+                analyzer_url = self.config.get("analyzer_url", "http://localhost:8081")
+                try:
+                    async with ClientSession(timeout=aiohttp.ClientTimeout(total=3)) as session:
+                        async with session.get(f"{analyzer_url}/health") as resp:
+                            agents_status['analyzer'] = (resp.status == 200)
+                except:
+                    agents_status['analyzer'] = False
+
+                # Check Planner
+                planner_url = self.config.get("planner_url", "http://localhost:8082")
+                try:
+                    async with ClientSession(timeout=aiohttp.ClientTimeout(total=3)) as session:
+                        async with session.get(f"{planner_url}/health") as resp:
+                            agents_status['planner'] = (resp.status == 200)
+                except:
+                    agents_status['planner'] = False
+
+                # Check Executor
+                executor_url = self.config.get("executor_url", "http://localhost:8083")
+                try:
+                    async with ClientSession(timeout=aiohttp.ClientTimeout(total=3)) as session:
+                        async with session.get(f"{executor_url}/health") as resp:
+                            agents_status['executor'] = (resp.status == 200)
+                except:
+                    agents_status['executor'] = False
+
+                # Log status summary
+                connected = sum(1 for status in agents_status.values() if status)
+                logger.info(f"Agent health check: {connected}/{len(agents_status)} agents available")
+
+                # Log individual agent status changes
+                for agent, status in agents_status.items():
+                    if hasattr(self, '_last_agent_status'):
+                        if self._last_agent_status.get(agent) != status:
+                            if status:
+                                print(f"{TerminalColor.GREEN.apply('✓')} {agent.capitalize()} agent connected")
+                            else:
+                                print(f"{TerminalColor.YELLOW.apply('○')} {agent.capitalize()} agent disconnected")
+
+                self._last_agent_status = agents_status
+
+            except Exception as e:
+                logger.error(f"Error in periodic agent health checks: {e}")
 
     async def start_servers(self):
         """Start both HTTP and WebSocket servers"""
@@ -1628,6 +1678,9 @@ class EnhancedPegasusMCPServer:
 
         # FIXED: Start the analysis queue processor
         asyncio.create_task(self.process_analysis_queue())
+
+        # Start periodic agent health checks
+        asyncio.create_task(self.periodic_agent_health_checks())
 
         # Start HTTP server
         runner = web.AppRunner(self.app)

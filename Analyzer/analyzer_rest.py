@@ -2445,52 +2445,43 @@ class EnhancedAnalyzerAgent:
             await asyncio.Future()  # Run forever
 
     async def verify_agent_connections(self):
-        """Verify connections to other agents at startup"""
-        print(f"\n{TerminalColor.BRIGHT_CYAN.apply('🔗 VERIFYING AGENT CONNECTIONS')}")
+        """Verify connections to other agents (non-blocking)"""
+        print(f"\n{TerminalColor.BRIGHT_CYAN.apply('🔗 CHECKING AGENT CONNECTIONS')}")
         print(f"{'='*80}")
+        print(f"{TerminalColor.YELLOW.apply('ℹ')} Agents may not be started yet - will retry periodically")
 
         # Check Planner connection
         planner_url = self.config.get("planner_url", "http://localhost:8082")
-        print(f"\n{TerminalColor.CYAN.apply('→ Checking Planner Agent...')}")
-        print(f"  URL: {planner_url}")
+        print(f"\n{TerminalColor.CYAN.apply('→ Planner Agent:')} {planner_url}")
         try:
-            async with ClientSession(timeout=aiohttp.ClientTimeout(total=5)) as session:
+            async with ClientSession(timeout=aiohttp.ClientTimeout(total=2)) as session:
                 async with session.get(f"{planner_url}/health") as resp:
                     if resp.status == 200:
                         data = await resp.json()
-                        print(f"  {TerminalColor.GREEN.apply('✓')} Planner: Connected")
-                        print(f"  {TerminalColor.GREEN.apply('✓')} Status: {data.get('status', 'unknown')}")
-                        print(f"  {TerminalColor.GREEN.apply('✓')} Ollama: {data.get('ollama_available', False)}")
+                        print(f"  {TerminalColor.GREEN.apply('✓')} Status: Connected")
                     else:
-                        print(f"  {TerminalColor.RED.apply('✗')} Planner: HTTP {resp.status}")
+                        print(f"  {TerminalColor.YELLOW.apply('○')} Status: Not ready (HTTP {resp.status})")
         except Exception as e:
-            print(f"  {TerminalColor.RED.apply('✗')} Planner: Not reachable")
-            print(f"  {TerminalColor.YELLOW.apply('⚠')} Error: {str(e)[:60]}")
-            print(f"  {TerminalColor.YELLOW.apply('⚠')} Planning features will be unavailable")
+            print(f"  {TerminalColor.YELLOW.apply('○')} Status: Not started yet")
 
-        # Check Monitor connection (if registered)
+        # Check Monitor connection
         monitor_url = self.config.get("monitor_url", "ws://localhost:8765")
         if monitor_url.startswith("ws://"):
             http_monitor_url = monitor_url.replace("ws://", "http://").replace(":8765", ":8080")
         else:
             http_monitor_url = monitor_url
 
-        print(f"\n{TerminalColor.CYAN.apply('→ Checking Monitor Agent...')}")
-        print(f"  URL: {http_monitor_url}")
+        print(f"\n{TerminalColor.CYAN.apply('→ Monitor Agent:')} {http_monitor_url}")
         try:
-            async with ClientSession(timeout=aiohttp.ClientTimeout(total=5)) as session:
+            async with ClientSession(timeout=aiohttp.ClientTimeout(total=2)) as session:
                 async with session.get(f"{http_monitor_url}/health") as resp:
                     if resp.status == 200:
                         data = await resp.json()
-                        print(f"  {TerminalColor.GREEN.apply('✓')} Monitor: Connected")
-                        print(f"  {TerminalColor.GREEN.apply('✓')} Status: {data.get('status', 'unknown')}")
-                        print(f"  {TerminalColor.GREEN.apply('✓')} Active workflows: {data.get('active_workflows', 0)}")
+                        print(f"  {TerminalColor.GREEN.apply('✓')} Status: Connected")
                     else:
-                        print(f"  {TerminalColor.RED.apply('✗')} Monitor: HTTP {resp.status}")
+                        print(f"  {TerminalColor.YELLOW.apply('○')} Status: Not ready (HTTP {resp.status})")
         except Exception as e:
-            print(f"  {TerminalColor.RED.apply('✗')} Monitor: Not reachable")
-            print(f"  {TerminalColor.YELLOW.apply('⚠')} Error: {str(e)[:60]}")
-            print(f"  {TerminalColor.YELLOW.apply('⚠')} Will wait for Monitor to connect")
+            print(f"  {TerminalColor.YELLOW.apply('○')} Status: Not started yet")
 
         print(f"\n{'='*80}")
 

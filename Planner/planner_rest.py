@@ -748,63 +748,49 @@ class PlannerHTTPServer:
 
 
 async def verify_agent_connections(config):
-    """Verify connections to other agents at startup"""
-    print(f"\n{TerminalColor.BRIGHT_CYAN.apply('🔗 VERIFYING AGENT CONNECTIONS')}")
+    """Verify connections to other agents (non-blocking)"""
+    print(f"\n{TerminalColor.BRIGHT_CYAN.apply('🔗 CHECKING AGENT CONNECTIONS')}")
     print(f"{'='*80}")
+    print(f"{TerminalColor.YELLOW.apply('ℹ')} Agents may not be started yet - will retry periodically")
 
     # Check Analyzer connection
     analyzer_url = config.get("analyzer_url", "http://localhost:8081")
-    print(f"\n{TerminalColor.CYAN.apply('→ Checking Analyzer Agent...')}")
-    print(f"  URL: {analyzer_url}")
+    print(f"\n{TerminalColor.CYAN.apply('→ Analyzer Agent:')} {analyzer_url}")
     try:
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=5)) as session:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=2)) as session:
             async with session.get(f"{analyzer_url}/health") as resp:
                 if resp.status == 200:
-                    data = await resp.json()
-                    print(f"  {TerminalColor.GREEN.apply('✓')} Analyzer: Connected")
-                    print(f"  {TerminalColor.GREEN.apply('✓')} Status: {data.get('status', 'unknown')}")
+                    print(f"  {TerminalColor.GREEN.apply('✓')} Status: Connected")
                 else:
-                    print(f"  {TerminalColor.RED.apply('✗')} Analyzer: HTTP {resp.status}")
+                    print(f"  {TerminalColor.YELLOW.apply('○')} Status: Not ready (HTTP {resp.status})")
     except Exception as e:
-        print(f"  {TerminalColor.RED.apply('✗')} Analyzer: Not reachable")
-        print(f"  {TerminalColor.YELLOW.apply('⚠')} Error: {str(e)[:60]}")
-        print(f"  {TerminalColor.YELLOW.apply('⚠')} Will wait for Analyzer to send analysis")
+        print(f"  {TerminalColor.YELLOW.apply('○')} Status: Not started yet")
 
     # Check Executor connection (future)
     executor_url = config.get("executor_url", "http://localhost:8083")
-    print(f"\n{TerminalColor.CYAN.apply('→ Checking Executor Agent...')}")
-    print(f"  URL: {executor_url}")
+    print(f"\n{TerminalColor.CYAN.apply('→ Executor Agent:')} {executor_url}")
     try:
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=5)) as session:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=2)) as session:
             async with session.get(f"{executor_url}/health") as resp:
                 if resp.status == 200:
-                    data = await resp.json()
-                    print(f"  {TerminalColor.GREEN.apply('✓')} Executor: Connected")
-                    print(f"  {TerminalColor.GREEN.apply('✓')} Status: {data.get('status', 'unknown')}")
+                    print(f"  {TerminalColor.GREEN.apply('✓')} Status: Connected")
                 else:
-                    print(f"  {TerminalColor.RED.apply('✗')} Executor: HTTP {resp.status}")
+                    print(f"  {TerminalColor.YELLOW.apply('○')} Status: Not ready (HTTP {resp.status})")
     except Exception as e:
-        print(f"  {TerminalColor.RED.apply('✗')} Executor: Not reachable")
-        print(f"  {TerminalColor.YELLOW.apply('⚠')} Error: {str(e)[:60]}")
-        print(f"  {TerminalColor.YELLOW.apply('⚠')} Plan execution features will be unavailable")
+        print(f"  {TerminalColor.YELLOW.apply('○')} Status: Not started yet")
 
     # Check Monitor connection
     monitor_url = config.get("monitor_url", "http://localhost:8080")
-    print(f"\n{TerminalColor.CYAN.apply('→ Checking Monitor Agent...')}")
-    print(f"  URL: {monitor_url}")
+    print(f"\n{TerminalColor.CYAN.apply('→ Monitor Agent:')} {monitor_url}")
     try:
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=5)) as session:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=2)) as session:
             async with session.get(f"{monitor_url}/health") as resp:
                 if resp.status == 200:
-                    data = await resp.json()
-                    print(f"  {TerminalColor.GREEN.apply('✓')} Monitor: Connected")
-                    print(f"  {TerminalColor.GREEN.apply('✓')} Status: {data.get('status', 'unknown')}")
-                    print(f"  {TerminalColor.GREEN.apply('✓')} Active workflows: {data.get('active_workflows', 0)}")
+                    print(f"  {TerminalColor.GREEN.apply('✓')} Status: Connected")
                 else:
-                    print(f"  {TerminalColor.RED.apply('✗')} Monitor: HTTP {resp.status}")
+                    print(f"  {TerminalColor.YELLOW.apply('○')} Status: Not ready (HTTP {resp.status})")
     except Exception as e:
-        print(f"  {TerminalColor.RED.apply('✗')} Monitor: Not reachable")
-        print(f"  {TerminalColor.YELLOW.apply('⚠')} Error: {str(e)[:60]}")
+        print(f"  {TerminalColor.YELLOW.apply('○')} Status: Not started yet")
 
     print(f"\n{'='*80}")
 
