@@ -604,7 +604,7 @@ class PlannerHTTPServer:
             print(f"{TerminalColor.BRIGHT_MAGENTA.apply('🤖 STEP 2: GENERATING REPAIR PLAN WITH LLM')}")
             print(f"{'='*80}")
             print(f"{TerminalColor.CYAN.apply('→')} Building catalog-aware prompt...")
-            print(f"{TerminalColor.CYAN.apply('→')} Calling Ollama LLM ({self.planner.ollama_manager.model})...")
+            print(f"{TerminalColor.CYAN.apply('→')} Calling Ollama LLM ({self.planner.ollama_manager.ollama_model})...")
 
             plan = await self.planner.generate_plan_with_llm(
                 analysis_result,
