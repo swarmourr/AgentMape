@@ -337,7 +337,7 @@ class PegasusWorkflowManager:
                     "requester": request_data["requester"],
                     "catalogs": {
                         k: {"path": v.get("path"), "format": v.get("format"), "embedded": v.get("embedded")}
-                        for k, v in catalogs.items() if v
+                        for k, v in catalogs.items() if v and isinstance(v, dict)  # FIX: Only include dict values
                     },
                     "workflow_files": wf_summary if wf_summary else {}
                 }
