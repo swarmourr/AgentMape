@@ -843,9 +843,13 @@ class PlannerHTTPServer:
             print(f"{'='*80}")
             print(f"{TerminalColor.YELLOW.apply('Workflow ID:')} {workflow_id}")
             print(f"{TerminalColor.YELLOW.apply('Workflow Dir:')} {workflow_context.get('workflow_dir')}")
-            print(f"{TerminalColor.YELLOW.apply('Catalogs Received:')} {len(catalogs)}")
+
+            # Count only dict-type catalogs (exclude metadata fields)
+            catalog_count = sum(1 for k, v in catalogs.items() if isinstance(v, dict))
+            print(f"{TerminalColor.YELLOW.apply('Catalogs Received:')} {catalog_count}")
             for cat_type, cat_info in catalogs.items():
-                print(f"  {TerminalColor.GREEN.apply('✓')} {cat_type}: {cat_info.get('path')} ({cat_info.get('format')})")
+                if isinstance(cat_info, dict):  # Only process dict-type catalogs
+                    print(f"  {TerminalColor.GREEN.apply('✓')} {cat_type}: {cat_info.get('path')} ({cat_info.get('format')})")
             print(f"{TerminalColor.YELLOW.apply('Workflow Files Received:')} {len(workflow_files)}")
             if workflow_files.get('workflow_yaml'):
                 wf = workflow_files['workflow_yaml']
