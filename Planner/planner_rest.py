@@ -330,6 +330,34 @@ Generate the plan now:
             info.append("  → This file defines the workflow structure and catalogs")
             info.append("  → Can be regenerated if needed")
 
+            # Include parsed structure first for quick reference
+            parsed = wf.get('parsed_structure', {})
+            if parsed:
+                info.append("\n=== PARSED WORKFLOW STRUCTURE (JSON) ===")
+                info.append("This structured data can be used to extract and modify specific elements:")
+
+                if parsed.get('jobs'):
+                    info.append(f"\nJOBS ({len(parsed['jobs'])} total):")
+                    import json
+                    info.append(json.dumps(parsed['jobs'], indent=2))
+
+                if parsed.get('transformations'):
+                    info.append(f"\nTRANSFORMATIONS ({len(parsed['transformations'])} total - EMBEDDED):")
+                    info.append(json.dumps(parsed['transformations'], indent=2))
+                    info.append("  → To modify: Use 'yq' on workflow.yml at path: .pegasus.transformations")
+
+                if parsed.get('replicas'):
+                    info.append(f"\nREPLICAS ({len(parsed['replicas'])} total - EMBEDDED):")
+                    info.append(json.dumps(parsed['replicas'], indent=2))
+                    info.append("  → To modify: Use 'yq' on workflow.yml at path: .pegasus.replicas")
+
+                if parsed.get('sites'):
+                    info.append(f"\nSITES ({len(parsed['sites'])} total - EMBEDDED):")
+                    info.append(json.dumps(parsed['sites'], indent=2))
+                    info.append("  → To modify: Use 'yq' on workflow.yml at path: .pegasus.sites[INDEX]")
+
+                info.append("=== END PARSED STRUCTURE ===\n")
+
             # Include the YAML content that Monitor already read
             yaml_content = wf.get('content', '')
             if yaml_content:
@@ -762,6 +790,25 @@ class PlannerHTTPServer:
             if workflow_files.get('workflow_yaml'):
                 wf = workflow_files['workflow_yaml']
                 print(f"  {TerminalColor.GREEN.apply('✓')} Workflow YAML: {wf.get('filename')} ({wf.get('size')} bytes)")
+
+                # Show parsed structure details
+                parsed = wf.get('parsed_structure', {})
+                if parsed:
+                    if parsed.get('jobs'):
+                        print(f"    • Jobs: {len(parsed['jobs'])}")
+                    if parsed.get('transformations'):
+                        print(f"    • Transformations: {len(parsed['transformations'])} (embedded)")
+                        for trans in parsed['transformations'][:3]:  # Show first 3
+                            print(f"      - {trans.get('namespace', '')}::{trans.get('name', '')}")
+                        if len(parsed['transformations']) > 3:
+                            print(f"      - ... and {len(parsed['transformations']) - 3} more")
+                    if parsed.get('replicas'):
+                        print(f"    • Replicas: {len(parsed['replicas'])} (embedded)")
+                    if parsed.get('sites'):
+                        print(f"    • Sites: {len(parsed['sites'])} (embedded)")
+                        for site in parsed['sites']:
+                            print(f"      - {site.get('name', 'unknown')}")
+
             if workflow_files.get('generator_script'):
                 gs = workflow_files['generator_script']
                 print(f"  {TerminalColor.GREEN.apply('✓')} Generator Script: {gs.get('filename')} ({gs.get('size')} bytes)")

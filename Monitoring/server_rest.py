@@ -256,8 +256,22 @@ class PegasusWorkflowManager:
         workflow_files = self.read_workflow_files(workflow_dir)
 
         if workflow_files.get('workflow_yaml'):
-            print(f"    {TerminalColor.GREEN.apply('✓')} Workflow descriptor: {workflow_files['workflow_yaml']['filename']}")
-            print(f"      - Size: {workflow_files['workflow_yaml']['size']} bytes")
+            wf_yaml = workflow_files['workflow_yaml']
+            print(f"    {TerminalColor.GREEN.apply('✓')} Workflow descriptor: {wf_yaml['filename']}")
+            print(f"      - Size: {wf_yaml['size']} bytes")
+
+            # Show parsed structure summary
+            parsed = wf_yaml.get('parsed_structure', {})
+            if parsed:
+                print(f"      - Parsed structure:")
+                if parsed.get('jobs'):
+                    print(f"        • Jobs: {len(parsed['jobs'])}")
+                if parsed.get('transformations'):
+                    print(f"        • Transformations: {len(parsed['transformations'])} (embedded)")
+                if parsed.get('replicas'):
+                    print(f"        • Replicas: {len(parsed['replicas'])} (embedded)")
+                if parsed.get('sites'):
+                    print(f"        • Sites: {len(parsed['sites'])} (embedded)")
 
         if workflow_files.get('generator_script'):
             print(f"    {TerminalColor.GREEN.apply('✓')} Generator script: {workflow_files['generator_script']['filename']}")
@@ -280,6 +294,43 @@ class PegasusWorkflowManager:
                     "catalogs": catalogs,  # ENHANCED: Include catalog information
                     "workflow_files": workflow_files  # ENHANCED: Include workflow descriptor and generator
                 }
+
+                # Print request payload
+                print(f"\n  {TerminalColor.BRIGHT_BLUE.apply('📤 REQUEST PAYLOAD TO ANALYZER:')}")
+                print(f"  {TerminalColor.BRIGHT_BLUE.apply('='*78)}")
+
+                # Create a summary version (don't print full YAML content)
+                import json
+                summary_data = {
+                    "workflow_id": request_data["workflow_id"],
+                    "workflow_dir": request_data["workflow_dir"],
+                    "analysis_type": request_data["analysis_type"],
+                    "request_id": request_data["request_id"],
+                    "requester": request_data["requester"],
+                    "catalogs": {
+                        k: {"path": v.get("path"), "format": v.get("format"), "embedded": v.get("embedded")}
+                        for k, v in catalogs.items() if v
+                    },
+                    "workflow_files": {
+                        "workflow_yaml": {
+                            "filename": workflow_files.get("workflow_yaml", {}).get("filename"),
+                            "size": workflow_files.get("workflow_yaml", {}).get("size"),
+                            "parsed_structure_summary": {
+                                "jobs_count": len(workflow_files.get("workflow_yaml", {}).get("parsed_structure", {}).get("jobs", [])),
+                                "transformations_count": len(workflow_files.get("workflow_yaml", {}).get("parsed_structure", {}).get("transformations", [])),
+                                "replicas_count": len(workflow_files.get("workflow_yaml", {}).get("parsed_structure", {}).get("replicas", [])),
+                                "sites_count": len(workflow_files.get("workflow_yaml", {}).get("parsed_structure", {}).get("sites", []))
+                            }
+                        } if workflow_files.get("workflow_yaml") else None,
+                        "generator_script": {
+                            "filename": workflow_files.get("generator_script", {}).get("filename"),
+                            "size": workflow_files.get("generator_script", {}).get("size")
+                        } if workflow_files.get("generator_script") else None
+                    }
+                }
+
+                print(f"  {json.dumps(summary_data, indent=2)}")
+                print(f"  {TerminalColor.BRIGHT_BLUE.apply('='*78)}\n")
 
                 url = f"{healthy_analyzer['http_url']}/api/analyze"
                 async with session.post(url, json=request_data) as resp:
@@ -558,8 +609,87 @@ class PegasusWorkflowManager:
             return {"error": f"Error acknowledging analysis: {str(e)}"}
 
     # Catalog Discovery Methods
+    def parse_workflow_yaml_structure(self, yaml_content: str) -> Dict[str, Any]:
+        """Parse workflow YAML to extract structured information"""
+        import yaml
+
+        parsed_structure = {
+            "jobs": [],
+            "transformations": [],
+            "replicas": [],
+            "sites": [],
+            "profiles": {},
+            "catalog_locations": {}
+        }
+
+        try:
+            workflow_data = yaml.safe_load(yaml_content)
+
+            if not workflow_data:
+                return parsed_structure
+
+            # Extract jobs
+            if 'jobs' in workflow_data:
+                for job in workflow_data['jobs']:
+                    parsed_structure['jobs'].append({
+                        "id": job.get('id', job.get('name', 'unknown')),
+                        "namespace": job.get('namespace', ''),
+                        "name": job.get('name', ''),
+                        "arguments": job.get('arguments', []),
+                        "uses": job.get('uses', [])
+                    })
+
+            # Extract transformation catalog (if embedded)
+            if 'transformationCatalog' in workflow_data or 'pegasus' in workflow_data:
+                pegasus_section = workflow_data.get('pegasus', {})
+                if 'transformations' in pegasus_section:
+                    parsed_structure['catalog_locations']['transformation'] = 'embedded'
+                    for trans in pegasus_section['transformations']:
+                        parsed_structure['transformations'].append({
+                            "namespace": trans.get('namespace', ''),
+                            "name": trans.get('name', ''),
+                            "version": trans.get('version', ''),
+                            "site": trans.get('site', ''),
+                            "pfn": trans.get('pfn', ''),
+                            "type": trans.get('type', 'STAGEABLE')
+                        })
+
+            # Extract replica catalog (if embedded)
+            if 'replicaCatalog' in workflow_data or ('pegasus' in workflow_data and 'replicas' in workflow_data['pegasus']):
+                pegasus_section = workflow_data.get('pegasus', {})
+                if 'replicas' in pegasus_section:
+                    parsed_structure['catalog_locations']['replica'] = 'embedded'
+                    for replica in pegasus_section['replicas']:
+                        parsed_structure['replicas'].append({
+                            "lfn": replica.get('lfn', ''),
+                            "pfn": replica.get('pfn', ''),
+                            "site": replica.get('site', 'local')
+                        })
+
+            # Extract site catalog (if embedded)
+            if 'siteCatalog' in workflow_data or ('pegasus' in workflow_data and 'sites' in workflow_data['pegasus']):
+                pegasus_section = workflow_data.get('pegasus', {})
+                if 'sites' in pegasus_section:
+                    parsed_structure['catalog_locations']['site'] = 'embedded'
+                    for site in pegasus_section['sites']:
+                        parsed_structure['sites'].append({
+                            "name": site.get('name', ''),
+                            "arch": site.get('arch', ''),
+                            "os": site.get('os', ''),
+                            "profiles": site.get('profiles', {})
+                        })
+
+            # Extract profiles
+            if 'profiles' in workflow_data:
+                parsed_structure['profiles'] = workflow_data['profiles']
+
+        except Exception as e:
+            logger.error(f"Error parsing workflow YAML structure: {e}")
+
+        return parsed_structure
+
     def read_workflow_files(self, workflow_dir: str) -> Dict[str, Any]:
-        """Read workflow descriptor and generator files"""
+        """Read workflow descriptor and generator files with parsed structure"""
         import glob
 
         workflow_files = {}
@@ -575,6 +705,11 @@ class PegasusWorkflowManager:
             try:
                 with open(workflow_yamls[0], 'r') as f:
                     content = f.read()
+                    original_size = len(content)
+
+                    # Parse YAML structure BEFORE truncating
+                    parsed_structure = self.parse_workflow_yaml_structure(content)
+
                     # Limit size to avoid excessive data transfer (max 5KB)
                     if len(content) > 5000:
                         content = content[:5000] + "\n... (truncated - file too large)"
@@ -584,7 +719,9 @@ class PegasusWorkflowManager:
                         "path": workflow_yamls[0],
                         "content": content,
                         "size": len(content),
-                        "type": "yaml"
+                        "original_size": original_size,
+                        "type": "yaml",
+                        "parsed_structure": parsed_structure  # ENHANCED: Include parsed structure
                     }
             except Exception as e:
                 logger.error(f"Error reading workflow YAML: {e}")

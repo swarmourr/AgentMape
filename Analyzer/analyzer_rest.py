@@ -2248,12 +2248,48 @@ class EnhancedAnalyzerAgent:
                 "timestamp": datetime.now().isoformat()
             }
 
-            if workflow_files:
-                print(f"      - Workflow files included: {len(workflow_files)}")
-                if workflow_files.get('workflow_yaml'):
-                    print(f"        • {workflow_files['workflow_yaml']['filename']}")
-                if workflow_files.get('generator_script'):
-                    print(f"        • {workflow_files['generator_script']['filename']}")
+            # Print request payload to Planner
+            print(f"\n    {TerminalColor.BRIGHT_MAGENTA.apply('📤 REQUEST PAYLOAD TO PLANNER:')}")
+            print(f"    {TerminalColor.BRIGHT_MAGENTA.apply('='*76)}")
+
+            # Create summary version (don't print full analysis)
+            import json
+            summary_payload = {
+                "workflow_id": webhook_data["workflow_id"],
+                "workflow_dir": webhook_data["workflow_dir"],
+                "timestamp": webhook_data["timestamp"],
+                "result_summary": {
+                    "problems_count": len(analysis_data.get("analysis", {}).get("problems_and_solutions", [])),
+                    "analysis_status": analysis_data.get("status"),
+                    "request_id": analysis_data.get("request_id")
+                },
+                "catalogs": {
+                    k: {"path": v.get("path"), "format": v.get("format"), "embedded": v.get("embedded")}
+                    for k, v in catalogs.items() if v
+                },
+                "workflow_files": {
+                    "workflow_yaml": {
+                        "filename": workflow_files.get("workflow_yaml", {}).get("filename"),
+                        "size": workflow_files.get("workflow_yaml", {}).get("size"),
+                        "parsed_structure_summary": {
+                            "jobs_count": len(workflow_files.get("workflow_yaml", {}).get("parsed_structure", {}).get("jobs", [])),
+                            "transformations_count": len(workflow_files.get("workflow_yaml", {}).get("parsed_structure", {}).get("transformations", [])),
+                            "replicas_count": len(workflow_files.get("workflow_yaml", {}).get("parsed_structure", {}).get("replicas", [])),
+                            "sites_count": len(workflow_files.get("workflow_yaml", {}).get("parsed_structure", {}).get("sites", []))
+                        }
+                    } if workflow_files.get("workflow_yaml") else None,
+                    "generator_script": {
+                        "filename": workflow_files.get("generator_script", {}).get("filename"),
+                        "size": workflow_files.get("generator_script", {}).get("size")
+                    } if workflow_files.get("generator_script") else None
+                }
+            }
+
+            # Indent the JSON output
+            json_str = json.dumps(summary_payload, indent=2)
+            for line in json_str.split('\n'):
+                print(f"    {line}")
+            print(f"    {TerminalColor.BRIGHT_MAGENTA.apply('='*76)}\n")
 
             print(f"    {TerminalColor.YELLOW.apply('◆')} Sending to Planner: {webhook_url}")
 
