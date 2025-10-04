@@ -2057,66 +2057,190 @@ class EnhancedAnalyzerAgent:
             workflow_id = analysis_request["workflow_id"]
             workflow_dir = analysis_request["workflow_dir"]
             analysis_type = analysis_request["analysis_type"]
-            
+
             # Update status
             self.active_analyses[request_id]["status"] = "processing"
             self.active_analyses[request_id]["started_at"] = datetime.now().isoformat()
-            
+
             self.logger.info(f"Starting analysis for workflow {workflow_id} (request: {request_id})")
-            
+
+            # STEP 1: Print analysis start
+            print(f"\n{'='*80}")
+            print(f"{TerminalColor.BRIGHT_CYAN.apply('🔄 STEP 1: STARTING WORKFLOW ANALYSIS')}")
+            print(f"{'='*80}")
+            print(f"{TerminalColor.YELLOW.apply('Request ID:')} {request_id}")
+            print(f"{TerminalColor.YELLOW.apply('Workflow ID:')} {workflow_id}")
+            print(f"{TerminalColor.YELLOW.apply('Workflow Dir:')} {workflow_dir}")
+            print(f"{TerminalColor.YELLOW.apply('Analysis Type:')} {analysis_type}")
+            print(f"{'='*80}\n")
+
             # Perform analysis
             if analysis_type == "held":
                 result = await self.analyze_held_workflow(workflow_id, workflow_dir)
             else:
                 result = await self.analyze_failed_workflow(workflow_id, workflow_dir)
-            
+
             # Update status
             self.active_analyses[request_id]["status"] = "completed"
             self.active_analyses[request_id]["completed_at"] = datetime.now().isoformat()
             self.active_analyses[request_id]["result"] = result
-            
-            # Notify requester via HTTP webhook
+
+            # STEP 2: Analysis completed (already printed in analyze_failed_workflow)
+
+            # STEP 3: Notify requester via HTTP webhook
+            print(f"\n{'='*80}")
+            print(f"{TerminalColor.BRIGHT_MAGENTA.apply('🔄 STEP 2: NOTIFYING CONNECTED AGENTS')}")
+            print(f"{'='*80}\n")
+
             await self.notify_analysis_complete(analysis_request, result)
-            
+
             self.logger.info(f"Completed analysis for workflow {workflow_id} (request: {request_id})")
-            
+
+            print(f"\n{'='*80}")
+            print(f"{TerminalColor.BRIGHT_GREEN.apply('✅ ANALYSIS WORKFLOW COMPLETED SUCCESSFULLY')}")
+            print(f"{'='*80}\n")
+
         except Exception as e:
             self.logger.error(f"Error processing analysis request {request_id}: {e}")
             self.active_analyses[request_id]["status"] = "failed"
             self.active_analyses[request_id]["error"] = str(e)
 
+            print(f"\n{'='*80}")
+            print(f"{TerminalColor.RED.apply('❌ ANALYSIS WORKFLOW FAILED')}")
+            print(f"{TerminalColor.RED.apply('Error:')} {str(e)}")
+            print(f"{'='*80}\n")
+
     async def notify_analysis_complete(self, analysis_request: Dict[str, Any], result: Dict[str, Any]):
         """Notify requester that analysis is complete via HTTP webhook"""
         requester = analysis_request.get("requester")
-        
+        workflow_id = analysis_request["workflow_id"]
+        workflow_dir = analysis_request["workflow_dir"]
+
         if requester == "monitor_agent":
+            print(f"  {TerminalColor.CYAN.apply('→ Step 2.1:')} Notifying Monitor Agent")
+
             monitor_agents = self.agent_registry.get_agents_by_type("monitor")
-            
+
             for monitor in monitor_agents:
                 if monitor.get('status') == 'healthy':
                     try:
                         async with ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
                             webhook_data = {
                                 "request_id": analysis_request["request_id"],
-                                "workflow_id": analysis_request["workflow_id"],
+                                "workflow_id": workflow_id,
                                 "analysis_type": analysis_request["analysis_type"],
                                 "status": "completed",
                                 "result": result,
                                 "completed_at": datetime.now().isoformat(),
                                 "analyzer_id": "analyzer_001"
                             }
-                            
+
                             url = f"{monitor['http_url']}/webhooks/analysis-complete"
                             async with session.post(url, json=webhook_data) as resp:
                                 if resp.status == 200:
-                                    self.logger.info(f"Notified monitor of analysis completion for {analysis_request['workflow_id']}")
-                                    return
+                                    self.logger.info(f"Notified monitor of analysis completion for {workflow_id}")
+                                    print(f"    {TerminalColor.GREEN.apply('✓')} Monitor webhook sent: {url}")
+                                    print(f"    {TerminalColor.GREEN.apply('✓')} Response: HTTP {resp.status}")
                                 else:
                                     self.logger.error(f"Failed to notify monitor: HTTP {resp.status}")
-                                    
+                                    print(f"    {TerminalColor.RED.apply('✗')} Monitor notification failed: HTTP {resp.status}")
+
                     except Exception as e:
                         self.logger.error(f"Error notifying monitor: {e}")
+                        print(f"    {TerminalColor.RED.apply('✗')} Error: {e}")
                         continue
+
+        # NOTIFY PLANNER: Send analysis to Planner for plan generation
+        print(f"\n  {TerminalColor.CYAN.apply('→ Step 2.2:')} Notifying Planner Agent")
+        await self.notify_planner_of_analysis(workflow_id, workflow_dir, result)
+
+    async def notify_planner_of_analysis(self, workflow_id: str, workflow_dir: str, analysis_data: Dict[str, Any]):
+        """Notify Planner agent with analysis results and catalog information"""
+        try:
+            planner_url = self.config.get("planner_url", "http://localhost:8082")
+            webhook_url = f"{planner_url}/webhooks/analysis-complete"
+
+            print(f"    {TerminalColor.YELLOW.apply('◆')} Discovering catalogs in workflow directory...")
+
+            # Get catalog information from Monitor's discovery
+            # The catalog info should be in the analysis_request or we need to discover it here
+            from pathlib import Path
+            catalogs = {}
+
+            # Try to discover catalogs if not already in result
+            if workflow_dir and Path(workflow_dir).exists():
+                # Basic catalog discovery - looking for common files
+                workflow_path = Path(workflow_dir)
+
+                # Look for replica catalog
+                rc_files = list(workflow_path.glob("*rc.txt")) + list(workflow_path.glob("*replicas*"))
+                if rc_files:
+                    catalogs["replica_catalog"] = {
+                        "path": str(rc_files[0]),
+                        "format": "text" if rc_files[0].suffix == ".txt" else "yaml",
+                        "embedded": False
+                    }
+                    print(f"    {TerminalColor.GREEN.apply('✓')} Found replica catalog: {rc_files[0].name}")
+
+                # Look for site catalog
+                sc_files = list(workflow_path.glob("*sites.y*ml")) + list(workflow_path.glob("*sc.txt"))
+                if sc_files:
+                    catalogs["site_catalog"] = {
+                        "path": str(sc_files[0]),
+                        "format": "yaml" if ".y" in sc_files[0].suffix else "text",
+                        "embedded": False
+                    }
+                    print(f"    {TerminalColor.GREEN.apply('✓')} Found site catalog: {sc_files[0].name}")
+
+                # Look for transformation catalog
+                tc_files = list(workflow_path.glob("*tc.txt")) + list(workflow_path.glob("*transformations*"))
+                if tc_files:
+                    catalogs["transformation_catalog"] = {
+                        "path": str(tc_files[0]),
+                        "format": "text" if tc_files[0].suffix == ".txt" else "yaml",
+                        "embedded": False
+                    }
+                    print(f"    {TerminalColor.GREEN.apply('✓')} Found transformation catalog: {tc_files[0].name}")
+
+            if not catalogs:
+                print(f"    {TerminalColor.YELLOW.apply('⚠')} No catalogs found in workflow directory")
+
+            print(f"    {TerminalColor.YELLOW.apply('◆')} Building webhook payload...")
+            print(f"      - Workflow ID: {workflow_id}")
+            print(f"      - Catalogs included: {len(catalogs)}")
+            print(f"      - Analysis problems: {len(analysis_data.get('analysis', {}).get('problems_and_solutions', []))}")
+
+            # Build webhook payload for Planner
+            webhook_data = {
+                "workflow_id": workflow_id,
+                "workflow_dir": workflow_dir,
+                "result": analysis_data,
+                "catalogs": catalogs,
+                "timestamp": datetime.now().isoformat()
+            }
+
+            print(f"    {TerminalColor.YELLOW.apply('◆')} Sending to Planner: {webhook_url}")
+
+            # Send to Planner
+            async with ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
+                async with session.post(webhook_url, json=webhook_data) as resp:
+                    if resp.status == 200:
+                        response_data = await resp.json()
+                        self.logger.info(f"✅ Notified Planner of analysis completion for {workflow_id}")
+                        print(f"    {TerminalColor.BRIGHT_GREEN.apply('✓')} Planner webhook sent successfully")
+                        print(f"    {TerminalColor.GREEN.apply('✓')} Response: HTTP {resp.status}")
+                        if response_data.get("plan_id"):
+                            print(f"    {TerminalColor.GREEN.apply('✓')} Plan ID: {response_data.get('plan_id')}")
+                            print(f"    {TerminalColor.GREEN.apply('✓')} Auto-execute: {response_data.get('auto_execute', False)}")
+                    else:
+                        error_text = await resp.text()
+                        self.logger.error(f"Failed to notify Planner: HTTP {resp.status} - {error_text}")
+                        print(f"    {TerminalColor.RED.apply('✗')} Planner notification failed: HTTP {resp.status}")
+                        print(f"    {TerminalColor.RED.apply('✗')} Error: {error_text[:200]}")
+
+        except Exception as e:
+            self.logger.error(f"Error notifying Planner: {e}")
+            print(f"    {TerminalColor.RED.apply('✗')} Error notifying Planner: {e}")
 
     async def handle_get_analysis_status(self, request):
         """Get analysis request status"""

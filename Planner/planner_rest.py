@@ -585,31 +585,99 @@ class PlannerHTTPServer:
                 "state": "failed"
             }
 
+            # STEP 1: Received webhook
+            print(f"\n{'='*80}")
+            print(f"{TerminalColor.BRIGHT_CYAN.apply('📥 STEP 1: RECEIVED ANALYSIS FROM ANALYZER')}")
+            print(f"{'='*80}")
+            print(f"{TerminalColor.YELLOW.apply('Workflow ID:')} {workflow_id}")
+            print(f"{TerminalColor.YELLOW.apply('Workflow Dir:')} {workflow_context.get('workflow_dir')}")
+            print(f"{TerminalColor.YELLOW.apply('Catalogs Received:')} {len(catalogs)}")
+            for cat_type, cat_info in catalogs.items():
+                print(f"  {TerminalColor.GREEN.apply('✓')} {cat_type}: {cat_info.get('path')} ({cat_info.get('format')})")
+            print(f"{TerminalColor.YELLOW.apply('Problems to solve:')} {len(analysis_result.get('problems_and_solutions', []))}")
+            print(f"{'='*80}\n")
+
             logger.info(f"Received analysis completion for workflow {workflow_id}")
 
-            # Generate plan with LLM
+            # STEP 2: Generate plan with LLM
+            print(f"{'='*80}")
+            print(f"{TerminalColor.BRIGHT_MAGENTA.apply('🤖 STEP 2: GENERATING REPAIR PLAN WITH LLM')}")
+            print(f"{'='*80}")
+            print(f"{TerminalColor.CYAN.apply('→')} Building catalog-aware prompt...")
+            print(f"{TerminalColor.CYAN.apply('→')} Calling Ollama LLM ({self.planner.ollama_manager.model})...")
+
             plan = await self.planner.generate_plan_with_llm(
                 analysis_result,
                 catalogs,
                 workflow_context
             )
 
-            # Check if we should auto-execute
+            print(f"{TerminalColor.GREEN.apply('✓')} Plan generated successfully")
+            print(f"{'='*80}\n")
+
+            # STEP 3: Validation and risk assessment
+            print(f"{'='*80}")
+            print(f"{TerminalColor.BRIGHT_YELLOW.apply('🔍 STEP 3: VALIDATING PLAN & ASSESSING RISK')}")
+            print(f"{'='*80}")
+
             validation = plan.get("validation_result", {})
-            if validation.get("risk_assessment", {}).get("auto_execute", False):
+            risk = validation.get("risk_assessment", {})
+
+            print(f"{TerminalColor.CYAN.apply('Plan ID:')} {plan.get('plan_id')}")
+            print(f"{TerminalColor.CYAN.apply('Risk Level:')} {plan.get('risk_level', 'unknown')}")
+            print(f"{TerminalColor.CYAN.apply('Confidence Score:')} {plan.get('confidence_score', {}).get('score', 'N/A')}")
+            print(f"{TerminalColor.CYAN.apply('Repair Steps:')} {len(plan.get('repair_steps', []))}")
+            print(f"{TerminalColor.CYAN.apply('Requires Approval:')} {plan.get('requires_approval', True)}")
+            print(f"{TerminalColor.CYAN.apply('Auto Execute:')} {risk.get('auto_execute', False)}")
+
+            if validation.get("valid"):
+                print(f"{TerminalColor.GREEN.apply('✓')} Plan validation: PASSED")
+            else:
+                print(f"{TerminalColor.RED.apply('✗')} Plan validation: FAILED")
+                for issue in validation.get("issues", []):
+                    print(f"  {TerminalColor.RED.apply('•')} {issue}")
+
+            print(f"{'='*80}\n")
+
+            # STEP 4: Check auto-execution
+            if risk.get("auto_execute", False):
+                print(f"{'='*80}")
+                print(f"{TerminalColor.BRIGHT_GREEN.apply('🚀 STEP 4: AUTO-EXECUTION APPROVED')}")
+                print(f"{'='*80}")
+                print(f"{TerminalColor.GREEN.apply('✓')} Low risk plan approved for auto-execution")
+                print(f"{TerminalColor.YELLOW.apply('→')} TODO: Send to Executor agent (port 8083)")
+                print(f"{'='*80}\n")
+
                 logger.info(f"Plan {plan['plan_id']} approved for auto-execution")
                 # TODO: Send to executor
                 # await self.send_to_executor(plan)
+            else:
+                print(f"{'='*80}")
+                print(f"{TerminalColor.YELLOW.apply('⚠️  STEP 4: MANUAL APPROVAL REQUIRED')}")
+                print(f"{'='*80}")
+                print(f"{TerminalColor.YELLOW.apply('⚠')} Plan requires manual approval before execution")
+                print(f"{TerminalColor.CYAN.apply('→')} Reason: {plan.get('risk_level', 'medium/high')} risk level")
+                print(f"{'='*80}\n")
+
+            print(f"{'='*80}")
+            print(f"{TerminalColor.BRIGHT_GREEN.apply('✅ PLANNING WORKFLOW COMPLETED SUCCESSFULLY')}")
+            print(f"{'='*80}\n")
 
             return web.json_response({
                 "status": "success",
                 "plan_id": plan.get("plan_id"),
-                "auto_execute": validation.get("risk_assessment", {}).get("auto_execute", False),
+                "auto_execute": risk.get("auto_execute", False),
                 "requires_approval": plan.get("requires_approval", False)
             })
 
         except Exception as e:
             logger.error(f"Error handling analysis completion: {e}")
+
+            print(f"\n{'='*80}")
+            print(f"{TerminalColor.RED.apply('❌ PLANNING WORKFLOW FAILED')}")
+            print(f"{TerminalColor.RED.apply('Error:')} {str(e)}")
+            print(f"{'='*80}\n")
+
             return web.json_response({"error": str(e)}, status=500)
 
     async def handle_create_plan(self, request):

@@ -190,9 +190,23 @@ class PegasusWorkflowManager:
 
     async def request_workflow_analysis(self, workflow_id: str, workflow_dir: str, analysis_type: str = "failed") -> Dict[str, Any]:
         """Request analysis from analyzer agent via HTTP - ENHANCED with catalog context"""
+
+        # STEP 1: Find available analyzer
+        print(f"\n{'='*80}")
+        print(f"{TerminalColor.BRIGHT_CYAN.apply('🔍 STEP 1: REQUESTING WORKFLOW ANALYSIS')}")
+        print(f"{'='*80}")
+        print(f"{TerminalColor.YELLOW.apply('Workflow ID:')} {workflow_id}")
+        print(f"{TerminalColor.YELLOW.apply('Workflow Dir:')} {workflow_dir}")
+        print(f"{TerminalColor.YELLOW.apply('Analysis Type:')} {analysis_type}")
+        print(f"{'='*80}\n")
+
+        print(f"  {TerminalColor.CYAN.apply('→ Step 1.1:')} Finding available Analyzer agent...")
+
         analyzers = self.agent_registry.get_agents_by_type("analyzer")
 
         if not analyzers:
+            print(f"    {TerminalColor.RED.apply('✗')} No analyzer agents registered")
+            print(f"{'='*80}\n")
             return {"error": "No analyzer agents available"}
 
         # Find a healthy analyzer
@@ -200,18 +214,34 @@ class PegasusWorkflowManager:
         for analyzer in analyzers:
             if await self.agent_registry.health_check_agent(analyzer['agent_id']):
                 healthy_analyzer = analyzer
+                print(f"    {TerminalColor.GREEN.apply('✓')} Found healthy analyzer: {analyzer['agent_id']}")
+                print(f"    {TerminalColor.GREEN.apply('✓')} Analyzer URL: {analyzer['http_url']}")
                 break
 
         if not healthy_analyzer:
+            print(f"    {TerminalColor.RED.apply('✗')} No healthy analyzer agents available")
+            print(f"{'='*80}\n")
             return {"error": "No healthy analyzer agents available"}
 
         # Generate analysis request ID
         request_id = str(uuid.uuid4())
+        print(f"    {TerminalColor.GREEN.apply('✓')} Request ID: {request_id}")
 
-        # ENHANCED: Discover catalogs before sending to analyzer
+        # STEP 2: Discover catalogs
+        print(f"\n  {TerminalColor.CYAN.apply('→ Step 1.2:')} Discovering workflow catalogs...")
         catalogs = self.discover_catalogs(workflow_dir)
 
+        catalog_count = sum(1 for k in ['replica_catalog', 'transformation_catalog', 'site_catalog'] if k in catalogs)
+        if catalog_count > 0:
+            print(f"    {TerminalColor.GREEN.apply('✓')} Found {catalog_count} catalog(s)")
+            for cat_type, cat_info in catalogs.items():
+                print(f"      • {cat_type}: {cat_info.get('path', 'N/A')}")
+        else:
+            print(f"    {TerminalColor.YELLOW.apply('⚠')} No catalogs discovered")
+
         # Send analysis request via HTTP
+        print(f"\n  {TerminalColor.CYAN.apply('→ Step 1.3:')} Sending analysis request to Analyzer...")
+
         try:
             async with ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
                 request_data = {
@@ -238,6 +268,14 @@ class PegasusWorkflowManager:
                         }
 
                         logger.info(f"Analysis requested for workflow {workflow_id} with catalog context (request_id: {request_id})")
+
+                        print(f"    {TerminalColor.BRIGHT_GREEN.apply('✓')} Analysis request sent successfully")
+                        print(f"    {TerminalColor.GREEN.apply('✓')} Response: HTTP {resp.status}")
+                        print(f"    {TerminalColor.GREEN.apply('✓')} Status: {result.get('status', 'queued')}")
+                        print(f"\n{'='*80}")
+                        print(f"{TerminalColor.BRIGHT_GREEN.apply('✅ ANALYSIS REQUEST COMPLETED')}")
+                        print(f"{'='*80}\n")
+
                         return {
                             "success": True,
                             "request_id": request_id,
@@ -246,10 +284,14 @@ class PegasusWorkflowManager:
                             "catalogs_discovered": bool(catalogs.get('replica_catalog') or catalogs.get('transformation_catalog') or catalogs.get('site_catalog'))
                         }
                     else:
+                        print(f"    {TerminalColor.RED.apply('✗')} Analysis request failed: HTTP {resp.status}")
+                        print(f"{'='*80}\n")
                         return {"error": f"Analysis request failed: HTTP {resp.status}"}
 
         except Exception as e:
             logger.error(f"Error requesting analysis for {workflow_id}: {e}")
+            print(f"    {TerminalColor.RED.apply('✗')} Error: {str(e)}")
+            print(f"{'='*80}\n")
             return {"error": f"Failed to request analysis: {str(e)}"}
 
     async def handle_analysis_complete(self, analysis_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -258,38 +300,66 @@ class PegasusWorkflowManager:
             request_id = analysis_data.get("request_id")
             workflow_id = analysis_data.get("workflow_id")
 
+            # STEP 1: Received analysis completion
+            print(f"\n{'='*80}")
+            print(f"{TerminalColor.BRIGHT_GREEN.apply('📥 RECEIVED ANALYSIS COMPLETION FROM ANALYZER')}")
+            print(f"{'='*80}")
+            print(f"{TerminalColor.YELLOW.apply('Workflow ID:')} {workflow_id}")
+            print(f"{TerminalColor.YELLOW.apply('Request ID:')} {request_id}")
+            print(f"{TerminalColor.YELLOW.apply('Analysis Type:')} {analysis_data.get('analysis_type', 'N/A')}")
+            print(f"{'='*80}\n")
+
             if request_id in self.analysis_requests:
                 self.analysis_requests[request_id]["status"] = "completed"
                 self.analysis_requests[request_id]["completed_at"] = datetime.now().isoformat()
 
                 logger.info(f"Analysis completed for workflow {workflow_id} (request_id: {request_id})")
 
-                # PRINT ANALYSIS OUTPUT TO CONSOLE
-                print(f"\n{'='*80}")
-                print(f"{TerminalColor.GREEN.apply('📊 ANALYSIS COMPLETED')}")
-                print(f"{'='*80}")
-                print(f"{TerminalColor.CYAN.apply('Workflow ID:')} {workflow_id}")
-                print(f"{TerminalColor.CYAN.apply('Request ID:')} {request_id}")
-                print(f"{TerminalColor.CYAN.apply('Analysis Type:')} {analysis_data.get('analysis_type', 'N/A')}")
-                print(f"{TerminalColor.CYAN.apply('Completed At:')} {analysis_data.get('completed_at', 'N/A')}")
-                print(f"\n{TerminalColor.YELLOW.apply('Analysis Result:')}")
-                print(json.dumps(analysis_data.get('result', {}), indent=2))
-                print(f"{'='*80}\n")
+                # STEP 2: Print analysis result summary
+                print(f"  {TerminalColor.CYAN.apply('→ Analysis Result Summary:')}")
+                result = analysis_data.get('result', {})
+                analysis = result.get('analysis', {})
+                problems = analysis.get('problems_and_solutions', [])
 
-                # Update workflow record with analysis results
+                if problems:
+                    print(f"    {TerminalColor.YELLOW.apply(f'Problems identified: {len(problems)}')}")
+                    for idx, problem in enumerate(problems[:3], 1):  # Show first 3
+                        print(f"      {idx}. {problem.get('problem', 'N/A')[:80]}")
+                    if len(problems) > 3:
+                        print(f"      ... and {len(problems) - 3} more")
+                else:
+                    print(f"    {TerminalColor.GREEN.apply('✓')} No critical problems identified")
+
+                llm_used = result.get('llm_used', False)
+                print(f"    {TerminalColor.CYAN.apply('LLM Analysis:')} {'✓ Used' if llm_used else '✗ Not used (fallback)'}")
+                print(f"    {TerminalColor.CYAN.apply('Completed at:')} {analysis_data.get('completed_at', 'N/A')}")
+
+                # STEP 3: Update workflow record
+                print(f"\n  {TerminalColor.CYAN.apply('→ Updating workflow record...')}")
                 workflows_table.update({
                     "analysis_status": "completed",
                     "analysis_completed_at": datetime.now().isoformat(),
                     "analysis_summary": analysis_data.get("summary", {})
                 }, Query().workflow_id == workflow_id)
+                print(f"    {TerminalColor.GREEN.apply('✓')} Workflow record updated")
+
+                print(f"\n{'='*80}")
+                print(f"{TerminalColor.BRIGHT_GREEN.apply('✅ ANALYSIS COMPLETION HANDLED SUCCESSFULLY')}")
+                print(f"{'='*80}\n")
 
                 return {"acknowledged": True, "workflow_id": workflow_id}
             else:
                 logger.warning(f"Received analysis completion for unknown request_id: {request_id}")
+                print(f"  {TerminalColor.RED.apply('✗')} Unknown request_id: {request_id}")
+                print(f"{'='*80}\n")
                 return {"acknowledged": False, "error": "Unknown request_id"}
 
         except Exception as e:
             logger.error(f"Error handling analysis completion: {e}")
+            print(f"\n{'='*80}")
+            print(f"{TerminalColor.RED.apply('❌ ERROR HANDLING ANALYSIS COMPLETION')}")
+            print(f"{TerminalColor.RED.apply('Error:')} {str(e)}")
+            print(f"{'='*80}\n")
             return {"acknowledged": False, "error": str(e)}
 
     # FIXED: Enhanced notification methods - removed async calls from sync context

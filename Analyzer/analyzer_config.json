@@ -5,6 +5,7 @@
     "ollama_check_interval": 30,
     "monitor_url": "ws://localhost:8765",
     "monitor_check_interval": 120,
+    "planner_url": "http://localhost:8082",
     "push_notifications_enabled": true,
     "auto_analysis_enabled": true,
     "fallback_mode": true,
