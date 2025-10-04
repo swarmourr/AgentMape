@@ -152,18 +152,50 @@ TYPES OF REPAIRS:
    - Re-run: pegasus-plan workflow.yml
    - This creates fresh workflow with updated settings
 
+WORKFLOW REPLANNING AFTER FIXES:
+After modifying the workflow descriptor (YAML), you MUST replan the workflow:
+
+1. BASIC REPLAN (if workflow not submitted yet):
+   pegasus-plan --dir <workflow.yml> --output-sites <site> --submit
+
+2. REPLAN EXISTING WORKFLOW (already submitted):
+   pegasus-plan --cleanup inplace --dir <workflow.yml> --output-sites <site> --submit
+
+   The --cleanup inplace option:
+   - Cleans up the previous workflow instance
+   - Keeps the same submit directory
+   - Replans with updated configuration
+   - Automatically submits the new plan
+
+3. REPLAN WITHOUT AUTO-SUBMIT:
+   pegasus-plan --cleanup inplace --dir <workflow.yml> --output-sites <site>
+   # Then manually: pegasus-run <submit-dir>
+
+4. VALIDATION AFTER REPLAN:
+   pegasus-status <submit-dir>
+   pegasus-analyzer <submit-dir>
+
+COMPLETE REPAIR WORKFLOW:
+Step 1: Fix the issue (modify YAML/catalog)
+Step 2: Replan the workflow (pegasus-plan --cleanup inplace)
+Step 3: Validate (pegasus-status)
+Step 4: Monitor execution
+
 You must provide:
 1. Specific bash/Pegasus commands to fix issues
-2. Validation steps to verify the fix
-3. Rollback commands if needed
-4. Risk assessment (low/medium/high)
-5. Whether workflow regeneration is needed
+2. REPLANNING commands (pegasus-plan --cleanup inplace)
+3. Validation steps (pegasus-status, pegasus-analyzer)
+4. Rollback commands if needed
+5. Risk assessment (low/medium/high)
+6. Whether workflow regeneration is needed
 
 Output format: JSON with executable commands.
 
 IMPORTANT RULES:
+- ALWAYS include replanning step after modifying workflow YAML
+- Use --cleanup inplace for existing workflows
 - ALWAYS consider if the fix should be in the GENERATOR script (for permanent fix)
-- For resource problems: update site catalog AND suggest generator changes
+- For resource problems: update transformation/site catalog AND suggest generator changes
 - Only generate commands you are confident will work
 - Always include validation after modifications
 - Provide rollback strategy for file modifications
@@ -171,7 +203,7 @@ IMPORTANT RULES:
 - If unsure, recommend manual intervention
 - For embedded catalogs, use 'yq' YAML editor
 - For text catalogs, use 'echo' or 'sed'
-- Specify if workflow needs to be regenerated vs just resubmitted
+- Include working directory context (from braindump submit_dir)
 """
 
     @staticmethod
@@ -187,13 +219,26 @@ IMPORTANT RULES:
         # Get workflow files info from context (sent by Monitor via Analyzer)
         workflow_files_info = PromptBuilder._discover_workflow_files(workflow_context)
 
+        # Extract braindump metadata for paths
+        workflow_files = workflow_context.get('workflow_files', {})
+        braindump_metadata = workflow_files.get('braindump_metadata', {})
+        submit_dir = braindump_metadata.get('submit_dir', workflow_context.get('workflow_dir'))
+        dax_path = braindump_metadata.get('dax', 'workflow.yml')
+
         prompt = f"""
 Given the following workflow failure analysis, generate a detailed executable repair plan.
 
 === WORKFLOW INFORMATION ===
 Workflow ID: {workflow_context.get('workflow_id')}
 Workflow Directory: {workflow_context.get('workflow_dir')}
+Submit Directory: {submit_dir}
+Workflow Descriptor (DAX): {dax_path}
 Current State: {workflow_context.get('state', 'unknown')}
+
+IMPORTANT PATHS FOR COMMANDS:
+- Submit Dir: {submit_dir} (use for pegasus-status, pegasus-analyzer)
+- Workflow YAML: {dax_path} (use for modifications with yq)
+- Working Dir: {workflow_context.get('workflow_dir')}
 
 === WORKFLOW FILES ===
 {workflow_files_info}
@@ -260,31 +305,46 @@ Generate a repair plan with the following JSON structure:
 
 EXAMPLES OF PEGASUS-SPECIFIC REPAIRS:
 
-Example 1 - MEMORY ISSUE (Quick Fix):
-  Step 1: Update site catalog memory in workflow.yml
-    yq eval '.sites[0].profiles.condor.request_memory = "8GB"' -i /workflow/workflow.yml
-  Step 2: Release held jobs
-    condor_release -constraint 'DAGManJobId =?= <cluster_id>'
-  Step 3: Suggest permanent fix
-    "NOTE: For permanent fix, update memory in workflow generator script"
+Example 1 - MEMORY ISSUE (Transformation Catalog - EMBEDDED):
+  Problem: Job exceeded memory limit (10GB requested, needs 15GB)
 
-Example 2 - MEMORY ISSUE (Permanent Fix):
-  Step 1: Backup generator
-    cp /workflow/generate_workflow.py /workflow/generate_workflow.py.backup
-  Step 2: Update generator memory settings
-    sed -i 's/request_memory.*=.*/request_memory = "8GB"/' /workflow/generate_workflow.py
-  Step 3: Regenerate workflow
-    cd /workflow && python generate_workflow.py
-  Step 4: Plan new workflow
-    pegasus-plan --submit workflow.yml
+  Step 1: Update transformation memory in workflow YAML
+    yq eval '.transformationCatalog.transformations[0].profiles.pegasus.memory = 15000' -i /path/to/workflow.yml
 
-Example 3 - MISSING FILE (Replica Catalog):
+  Step 2: Replan workflow with updated configuration
+    cd /path/to/submit_dir
+    pegasus-plan --cleanup inplace --dir /path/to/workflow.yml --output-sites local --submit
+
+  Step 3: Validate replanning
+    pegasus-status /path/to/submit_dir
+
+  Step 4: Monitor execution
+    pegasus-analyzer /path/to/submit_dir
+
+  Note: For permanent fix, update memory in generator script and regenerate
+
+Example 2 - MEMORY ISSUE (Site Catalog - EMBEDDED):
+  Step 1: Update site catalog memory
+    yq eval '.siteCatalog.sites[] | select(.name == "condorpool") | .profiles.condor.request_memory = "8GB"' -i workflow.yml
+
+  Step 2: Replan and submit
+    pegasus-plan --cleanup inplace --dir /path/to/workflow.yml --output-sites local --submit
+
+  Step 3: Validate
+    pegasus-status /path/to/submit_dir
+
+Example 3 - MISSING FILE (Replica Catalog - EMBEDDED):
   Step 1: Verify file exists
     test -f /data/input.csv || echo "ERROR: File not found"
-  Step 2: Add to replica catalog
+
+  Step 2: Add to replica catalog in workflow YAML
     yq eval '.replicaCatalog.replicas += [{{"lfn": "input.csv", "pfn": "file:///data/input.csv", "site": "local"}}]' -i workflow.yml
-  Step 3: Resubmit
-    pegasus-run /workflow/submit-dir
+
+  Step 3: Replan workflow
+    pegasus-plan --cleanup inplace --dir /path/to/workflow.yml --output-sites local --submit
+
+  Step 4: Validate
+    pegasus-status /path/to/submit_dir
 
 Example 4 - DISK SPACE ISSUE:
   Step 1: Update disk requirement in site catalog

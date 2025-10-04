@@ -330,7 +330,7 @@ class PegasusWorkflowManager:
                 print(f"\n  {TerminalColor.BRIGHT_BLUE.apply('📤 REQUEST PAYLOAD TO ANALYZER:')}")
                 print(f"  {TerminalColor.BRIGHT_BLUE.apply('='*78)}")
 
-                # Create a summary version (don't print full YAML content)
+                # Create a summary version for display (full data still sent in request)
                 import json
 
                 # Build workflow_files summary safely
@@ -341,6 +341,8 @@ class PegasusWorkflowManager:
                         wf_summary["workflow_yaml"] = {
                             "filename": wf.get("filename"),
                             "size": wf.get("size"),
+                            "content_included": "YES" if wf.get("content") else "NO",  # Show content is included
+                            "content_preview": wf.get("content", "")[:200] + "..." if wf.get("content") else None,  # First 200 chars
                             "parsed_structure_summary": {
                                 "jobs_count": len(wf.get("parsed_structure", {}).get("jobs", [])),
                                 "transformations_count": len(wf.get("parsed_structure", {}).get("transformations", [])),
@@ -352,7 +354,8 @@ class PegasusWorkflowManager:
                         gs = workflow_files["generator_script"]
                         wf_summary["generator_script"] = {
                             "filename": gs.get("filename"),
-                            "size": gs.get("size")
+                            "size": gs.get("size"),
+                            "content_included": "YES" if gs.get("content") else "NO"
                         }
 
                 summary_data = {
@@ -369,6 +372,8 @@ class PegasusWorkflowManager:
                     "pegasus_analyzer": {
                         "ran": pegasus_analyzer_output.get("ran", False),
                         "exit_code": pegasus_analyzer_output.get("exit_code"),
+                        "output_included": "YES" if pegasus_analyzer_output.get("output") else "NO",  # Show output is included
+                        "output_preview": pegasus_analyzer_output.get("output", "")[:300] + "..." if pegasus_analyzer_output.get("output") else None,  # First 300 chars
                         "issues_found": len(pegasus_analyzer_output.get("parsed_issues", [])),
                         "error": pegasus_analyzer_output.get("error")
                     }
