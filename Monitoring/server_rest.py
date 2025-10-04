@@ -255,6 +255,10 @@ class PegasusWorkflowManager:
         print(f"\n  {TerminalColor.CYAN.apply('→ Step 1.2.5:')} Reading workflow files...")
         workflow_files = self.read_workflow_files(workflow_dir)
 
+        # Ensure workflow_files is always a dict
+        if not isinstance(workflow_files, dict):
+            workflow_files = {}
+
         if workflow_files.get('workflow_yaml'):
             wf_yaml = workflow_files['workflow_yaml']
             print(f"    {TerminalColor.GREEN.apply('✓')} Workflow descriptor: {wf_yaml['filename']}")
@@ -301,6 +305,29 @@ class PegasusWorkflowManager:
 
                 # Create a summary version (don't print full YAML content)
                 import json
+
+                # Build workflow_files summary safely
+                wf_summary = {}
+                if workflow_files and isinstance(workflow_files, dict):
+                    if workflow_files.get("workflow_yaml"):
+                        wf = workflow_files["workflow_yaml"]
+                        wf_summary["workflow_yaml"] = {
+                            "filename": wf.get("filename"),
+                            "size": wf.get("size"),
+                            "parsed_structure_summary": {
+                                "jobs_count": len(wf.get("parsed_structure", {}).get("jobs", [])),
+                                "transformations_count": len(wf.get("parsed_structure", {}).get("transformations", [])),
+                                "replicas_count": len(wf.get("parsed_structure", {}).get("replicas", [])),
+                                "sites_count": len(wf.get("parsed_structure", {}).get("sites", []))
+                            }
+                        }
+                    if workflow_files.get("generator_script"):
+                        gs = workflow_files["generator_script"]
+                        wf_summary["generator_script"] = {
+                            "filename": gs.get("filename"),
+                            "size": gs.get("size")
+                        }
+
                 summary_data = {
                     "workflow_id": request_data["workflow_id"],
                     "workflow_dir": request_data["workflow_dir"],
@@ -311,22 +338,7 @@ class PegasusWorkflowManager:
                         k: {"path": v.get("path"), "format": v.get("format"), "embedded": v.get("embedded")}
                         for k, v in catalogs.items() if v
                     },
-                    "workflow_files": {
-                        "workflow_yaml": {
-                            "filename": workflow_files.get("workflow_yaml", {}).get("filename"),
-                            "size": workflow_files.get("workflow_yaml", {}).get("size"),
-                            "parsed_structure_summary": {
-                                "jobs_count": len(workflow_files.get("workflow_yaml", {}).get("parsed_structure", {}).get("jobs", [])),
-                                "transformations_count": len(workflow_files.get("workflow_yaml", {}).get("parsed_structure", {}).get("transformations", [])),
-                                "replicas_count": len(workflow_files.get("workflow_yaml", {}).get("parsed_structure", {}).get("replicas", [])),
-                                "sites_count": len(workflow_files.get("workflow_yaml", {}).get("parsed_structure", {}).get("sites", []))
-                            }
-                        } if workflow_files.get("workflow_yaml") else None,
-                        "generator_script": {
-                            "filename": workflow_files.get("generator_script", {}).get("filename"),
-                            "size": workflow_files.get("generator_script", {}).get("size")
-                        } if workflow_files.get("generator_script") else None
-                    }
+                    "workflow_files": wf_summary if wf_summary else {}
                 }
 
                 print(f"  {json.dumps(summary_data, indent=2)}")
