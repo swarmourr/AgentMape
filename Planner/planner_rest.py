@@ -484,7 +484,9 @@ class LLMPlanner:
 
         print(f"\n{TerminalColor.BRIGHT_YELLOW.apply('🔧 Repair Steps:')}")
         for step in plan.get("repair_steps", []):
-            print(f"\n  {TerminalColor.WHITE.apply(f'Step {step.get(\"step_number\")}:')} {step.get('description')}")
+            step_num = step.get("step_number")
+            step_desc = step.get("description")
+            print(f"\n  {TerminalColor.WHITE.apply(f'Step {step_num}:')} {step_desc}")
             for cmd in step.get("commands", []):
                 print(f"    {TerminalColor.GREEN.apply('$')} {cmd}")
 
