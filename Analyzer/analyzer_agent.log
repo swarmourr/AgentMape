@@ -228,3 +228,472 @@
 2025-10-03 12:20:20,940 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:12:20:20 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
 2025-10-03 12:21:21,418 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:12:21:21 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
 2025-10-03 12:22:21,912 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:12:22:21 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 12:23:22,513 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:12:23:22 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 12:24:22,988 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:12:24:22 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 12:25:23,461 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:12:25:23 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 12:26:23,906 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:12:26:23 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 12:27:24,396 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:12:27:24 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 12:28:24,900 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:12:28:24 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 12:29:25,592 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:12:29:25 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 12:30:26,258 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:12:30:26 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 12:31:26,839 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:12:31:26 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 12:32:27,502 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:12:32:27 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 12:33:28,471 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:12:33:28 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 12:34:29,140 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:12:34:29 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 12:35:29,771 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:12:35:29 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 12:36:31,166 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:12:36:31 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 12:37:31,998 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:12:37:31 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 12:38:32,677 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:12:38:32 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 12:39:33,507 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:12:39:33 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 12:40:34,164 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:12:40:34 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 12:41:34,850 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:12:41:34 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 12:42:35,884 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:12:42:35 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 12:43:36,499 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:12:43:36 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 12:44:37,342 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:12:44:37 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 12:45:37,977 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:12:45:37 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 12:46:38,763 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:12:46:38 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 12:47:39,516 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:12:47:39 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 12:48:40,178 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:12:48:40 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 12:49:40,758 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:12:49:40 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 12:50:41,686 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:12:50:41 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 12:51:42,668 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:12:51:42 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 12:52:43,150 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:12:52:43 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 12:53:44,048 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:12:53:44 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:02:19,596 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:02:19 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:02:33,850 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:02:33 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:02:33,906 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:02:33 +0000] "POST /api/analyze HTTP/1.1" 200 358 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:02:33,906 - __main__ - INFO - Starting analysis for workflow 4ddc0377-0222-447e-a6d4-5e83c8474dea (request: b9d66384-4ffb-460c-aae2-28fc405d390e)
+2025-10-03 13:02:33,906 - __main__ - INFO - Analyzing held workflow: 4ddc0377-0222-447e-a6d4-5e83c8474dea
+2025-10-03 13:02:37,138 - __main__ - WARNING - Ollama not healthy: HTTPSConnectionPool(host='gzeuj-2a02-8428-f963-1801-b5c3-65e7-4fba-45c0.a.free.pinggy.link', port=443): Max retries exceeded with url: /api/tags (Caused by NameResolutionError("<urllib3.connection.HTTPSConnection object at 0x7fd8a4f31210>: Failed to resolve 'gzeuj-2a02-8428-f963-1801-b5c3-65e7-4fba-45c0.a.free.pinggy.link' ([Errno -2] Name or service not known)"))
+2025-10-03 13:02:37,139 - __main__ - INFO - LLM request attempt 1/3 (JSON format: True)
+2025-10-03 13:02:37,167 - __main__ - ERROR - Connection error on attempt 1: HTTPSConnectionPool(host='gzeuj-2a02-8428-f963-1801-b5c3-65e7-4fba-45c0.a.free.pinggy.link', port=443): Max retries exceeded with url: /api/generate (Caused by NameResolutionError("<urllib3.connection.HTTPSConnection object at 0x7fd8a4f46050>: Failed to resolve 'gzeuj-2a02-8428-f963-1801-b5c3-65e7-4fba-45c0.a.free.pinggy.link' ([Errno -2] Name or service not known)"))
+2025-10-03 13:02:37,167 - __main__ - INFO - Waiting 1s before retry...
+2025-10-03 13:02:38,168 - __main__ - INFO - LLM request attempt 2/3 (JSON format: True)
+2025-10-03 13:02:38,187 - __main__ - ERROR - Connection error on attempt 2: HTTPSConnectionPool(host='gzeuj-2a02-8428-f963-1801-b5c3-65e7-4fba-45c0.a.free.pinggy.link', port=443): Max retries exceeded with url: /api/generate (Caused by NameResolutionError("<urllib3.connection.HTTPSConnection object at 0x7fd8a4f45450>: Failed to resolve 'gzeuj-2a02-8428-f963-1801-b5c3-65e7-4fba-45c0.a.free.pinggy.link' ([Errno -2] Name or service not known)"))
+2025-10-03 13:02:38,187 - __main__ - INFO - Waiting 2s before retry...
+2025-10-03 13:02:40,187 - __main__ - INFO - LLM request attempt 3/3 (JSON format: True)
+2025-10-03 13:02:40,207 - __main__ - ERROR - Connection error on attempt 3: HTTPSConnectionPool(host='gzeuj-2a02-8428-f963-1801-b5c3-65e7-4fba-45c0.a.free.pinggy.link', port=443): Max retries exceeded with url: /api/generate (Caused by NameResolutionError("<urllib3.connection.HTTPSConnection object at 0x7fd8a4f3c450>: Failed to resolve 'gzeuj-2a02-8428-f963-1801-b5c3-65e7-4fba-45c0.a.free.pinggy.link' ([Errno -2] Name or service not known)"))
+2025-10-03 13:02:40,207 - __main__ - INFO - JSON format failed, trying without format parameter
+2025-10-03 13:02:40,207 - __main__ - INFO - LLM request attempt 1/3 (JSON format: False)
+2025-10-03 13:02:40,226 - __main__ - ERROR - Connection error on attempt 1: HTTPSConnectionPool(host='gzeuj-2a02-8428-f963-1801-b5c3-65e7-4fba-45c0.a.free.pinggy.link', port=443): Max retries exceeded with url: /api/generate (Caused by NameResolutionError("<urllib3.connection.HTTPSConnection object at 0x7fd8a4f45dd0>: Failed to resolve 'gzeuj-2a02-8428-f963-1801-b5c3-65e7-4fba-45c0.a.free.pinggy.link' ([Errno -2] Name or service not known)"))
+2025-10-03 13:02:40,226 - __main__ - INFO - Waiting 1s before retry...
+2025-10-03 13:02:41,226 - __main__ - INFO - LLM request attempt 2/3 (JSON format: False)
+2025-10-03 13:02:41,255 - __main__ - ERROR - Connection error on attempt 2: HTTPSConnectionPool(host='gzeuj-2a02-8428-f963-1801-b5c3-65e7-4fba-45c0.a.free.pinggy.link', port=443): Max retries exceeded with url: /api/generate (Caused by NameResolutionError("<urllib3.connection.HTTPSConnection object at 0x7fd8a4f22550>: Failed to resolve 'gzeuj-2a02-8428-f963-1801-b5c3-65e7-4fba-45c0.a.free.pinggy.link' ([Errno -2] Name or service not known)"))
+2025-10-03 13:02:41,255 - __main__ - INFO - Waiting 2s before retry...
+2025-10-03 13:02:43,258 - __main__ - INFO - LLM request attempt 3/3 (JSON format: False)
+2025-10-03 13:02:43,288 - __main__ - ERROR - Connection error on attempt 3: HTTPSConnectionPool(host='gzeuj-2a02-8428-f963-1801-b5c3-65e7-4fba-45c0.a.free.pinggy.link', port=443): Max retries exceeded with url: /api/generate (Caused by NameResolutionError("<urllib3.connection.HTTPSConnection object at 0x7fd8a4f3e090>: Failed to resolve 'gzeuj-2a02-8428-f963-1801-b5c3-65e7-4fba-45c0.a.free.pinggy.link' ([Errno -2] Name or service not known)"))
+2025-10-03 13:02:43,288 - __main__ - ERROR - All LLM request attempts failed
+2025-10-03 13:02:43,288 - __main__ - WARNING - Using fallback hold analysis for 4ddc0377-0222-447e-a6d4-5e83c8474dea
+2025-10-03 13:02:43,288 - __main__ - INFO - Generating fallback analysis for 4ddc0377-0222-447e-a6d4-5e83c8474dea (type: held)
+2025-10-03 13:02:43,335 - __main__ - INFO - Notified monitor of analysis completion for 4ddc0377-0222-447e-a6d4-5e83c8474dea
+2025-10-03 13:02:43,335 - __main__ - INFO - Completed analysis for workflow 4ddc0377-0222-447e-a6d4-5e83c8474dea (request: b9d66384-4ffb-460c-aae2-28fc405d390e)
+2025-10-03 13:03:20,081 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:03:20 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:04:00,727 - __main__ - INFO - Configuration loaded from analyzer_config.json
+2025-10-03 13:04:00,739 - root - INFO - Registered agent monitor_001 (monitor)
+2025-10-03 13:04:00,739 - __main__ - INFO - Enhanced Analyzer Agent initialized with 19 MCP tools
+2025-10-03 13:04:00,739 - __main__ - INFO - Ollama Manager: http://jyhto-2a02-8428-f963-1801-b5c3-65e7-4fba-45c0.a.free.pinggy.link
+2025-10-03 13:04:00,739 - __main__ - INFO - Starting Enhanced Analyzer Agent
+2025-10-03 13:04:00,739 - __main__ - INFO - WebSocket MCP Server: ws://localhost:8766
+2025-10-03 13:04:00,739 - __main__ - INFO - HTTP API Server: http://localhost:8081
+2025-10-03 13:04:37,972 - __main__ - INFO - Configuration loaded from analyzer_config.json
+2025-10-03 13:04:38,006 - root - INFO - Registered agent monitor_001 (monitor)
+2025-10-03 13:04:38,006 - __main__ - INFO - Enhanced Analyzer Agent initialized with 19 MCP tools
+2025-10-03 13:04:38,006 - __main__ - INFO - Ollama Manager: http://jyhto-2a02-8428-f963-1801-b5c3-65e7-4fba-45c0.a.free.pinggy.link
+2025-10-03 13:04:38,007 - __main__ - INFO - Starting Enhanced Analyzer Agent
+2025-10-03 13:04:38,007 - __main__ - INFO - WebSocket MCP Server: ws://localhost:8766
+2025-10-03 13:04:38,007 - __main__ - INFO - HTTP API Server: http://localhost:8081
+2025-10-03 13:04:38,465 - __main__ - INFO - HTTP server started on http://localhost:8081
+2025-10-03 13:04:38,495 - websockets.server - INFO - server listening on 127.0.0.1:8766
+2025-10-03 13:04:38,496 - __main__ - INFO - WebSocket MCP server started on ws://localhost:8766
+2025-10-03 13:05:33,254 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:05:32 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:06:34,172 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:06:33 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:07:35,209 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:07:34 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:08:36,340 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:08:35 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:09:37,459 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:09:37 +0000] "GET /health HTTP/1.1" 200 742 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:10:38,705 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:10:38 +0000] "GET /health HTTP/1.1" 200 743 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:11:39,531 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:11:39 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:14:02,996 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:14:02 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:15:03,819 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:15:03 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:15:32,965 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:15:32 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:15:33,008 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:15:33 +0000] "POST /api/analyze HTTP/1.1" 200 358 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:15:33,008 - __main__ - INFO - Starting analysis for workflow 4ddc0377-0222-447e-a6d4-5e83c8474dea (request: b5bb9350-c073-491a-892d-56c4d3a07505)
+2025-10-03 13:15:33,008 - __main__ - INFO - Analyzing held workflow: 4ddc0377-0222-447e-a6d4-5e83c8474dea
+2025-10-03 13:15:37,187 - __main__ - INFO - LLM request attempt 1/3 (JSON format: True)
+2025-10-03 13:15:46,304 - __main__ - INFO - LLM hold analysis successful for 4ddc0377-0222-447e-a6d4-5e83c8474dea
+2025-10-03 13:15:46,369 - __main__ - INFO - Notified monitor of analysis completion for 4ddc0377-0222-447e-a6d4-5e83c8474dea
+2025-10-03 13:15:46,382 - __main__ - INFO - Completed analysis for workflow 4ddc0377-0222-447e-a6d4-5e83c8474dea (request: b5bb9350-c073-491a-892d-56c4d3a07505)
+2025-10-03 13:16:04,905 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:16:04 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:17:05,611 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:17:05 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:18:06,334 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:18:06 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:19:06,687 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:19:06 +0000] "GET /health HTTP/1.1" 200 743 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:20:07,410 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:20:07 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:21:08,065 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:21:08 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:22:08,841 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:22:08 +0000] "GET /health HTTP/1.1" 200 742 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:23:09,658 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:23:09 +0000] "GET /health HTTP/1.1" 200 743 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:23:45,563 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:23:45 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:24:46,849 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:24:46 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:25:47,741 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:25:47 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:26:48,736 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:26:48 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:27:51,631 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:27:49 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:28:52,319 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:28:52 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:29:52,888 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:29:52 +0000] "GET /health HTTP/1.1" 200 743 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:30:53,485 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:30:53 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:31:54,017 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:31:54 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:32:54,637 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:32:54 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:33:55,363 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:33:55 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:34:56,234 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:34:56 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:35:57,234 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:35:57 +0000] "GET /health HTTP/1.1" 200 743 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:36:57,849 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:36:57 +0000] "GET /health HTTP/1.1" 200 743 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:37:41,042 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:37:40 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:37:41,057 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:37:41 +0000] "POST /api/analyze HTTP/1.1" 200 358 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:37:41,057 - __main__ - INFO - Starting analysis for workflow df7a9a25-d911-4d7a-8e8f-d96fb4d17636 (request: 4ec5e57b-1305-4c4d-8bdb-2ff342b67fa0)
+2025-10-03 13:37:41,057 - __main__ - INFO - Analyzing held workflow: df7a9a25-d911-4d7a-8e8f-d96fb4d17636
+2025-10-03 13:37:45,342 - __main__ - INFO - LLM request attempt 1/3 (JSON format: True)
+2025-10-03 13:37:53,066 - __main__ - INFO - LLM hold analysis successful for df7a9a25-d911-4d7a-8e8f-d96fb4d17636
+2025-10-03 13:37:53,120 - __main__ - INFO - Notified monitor of analysis completion for df7a9a25-d911-4d7a-8e8f-d96fb4d17636
+2025-10-03 13:37:53,120 - __main__ - INFO - Completed analysis for workflow df7a9a25-d911-4d7a-8e8f-d96fb4d17636 (request: 4ec5e57b-1305-4c4d-8bdb-2ff342b67fa0)
+2025-10-03 13:37:58,451 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:37:58 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:38:59,215 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:38:59 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:39:59,826 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:39:59 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:41:00,751 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:41:00 +0000] "GET /health HTTP/1.1" 200 743 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:42:01,552 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:42:01 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:43:02,160 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:43:02 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:44:02,951 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:44:02 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:45:03,659 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:45:03 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:46:04,429 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:46:04 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:47:05,185 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:47:05 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:48:06,088 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:48:06 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:49:06,758 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:49:06 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:50:07,478 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:50:07 +0000] "GET /health HTTP/1.1" 200 743 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:51:08,363 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:51:08 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:52:09,015 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:52:09 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:53:09,745 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:53:09 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:54:10,474 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:54:10 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:54:42,961 - __main__ - INFO - Configuration loaded from analyzer_config.json
+2025-10-03 13:54:42,991 - root - INFO - Registered agent monitor_001 (monitor)
+2025-10-03 13:54:42,991 - __main__ - INFO - Enhanced Analyzer Agent initialized with 19 MCP tools
+2025-10-03 13:54:42,991 - __main__ - INFO - Ollama Manager: http://jyhto-2a02-8428-f963-1801-b5c3-65e7-4fba-45c0.a.free.pinggy.link
+2025-10-03 13:54:42,991 - __main__ - INFO - Starting Enhanced Analyzer Agent
+2025-10-03 13:54:42,991 - __main__ - INFO - WebSocket MCP Server: ws://localhost:8766
+2025-10-03 13:54:42,991 - __main__ - INFO - HTTP API Server: http://localhost:8081
+2025-10-03 13:54:43,454 - __main__ - INFO - HTTP server started on http://localhost:8081
+2025-10-03 13:54:43,470 - websockets.server - INFO - server listening on 127.0.0.1:8766
+2025-10-03 13:54:43,470 - __main__ - INFO - WebSocket MCP server started on ws://localhost:8766
+2025-10-03 13:55:11,342 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:55:11 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:56:12,111 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:56:12 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:57:12,831 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:57:12 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:58:13,910 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:58:13 +0000] "GET /health HTTP/1.1" 200 743 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 13:58:38,196 - __main__ - INFO - Configuration loaded from analyzer_config.json
+2025-10-03 13:58:38,209 - root - INFO - Registered agent monitor_001 (monitor)
+2025-10-03 13:58:38,209 - __main__ - INFO - Enhanced Analyzer Agent initialized with 19 MCP tools
+2025-10-03 13:58:38,209 - __main__ - INFO - Ollama Manager: http://jyhto-2a02-8428-f963-1801-b5c3-65e7-4fba-45c0.a.free.pinggy.link
+2025-10-03 13:58:38,209 - __main__ - INFO - Starting Enhanced Analyzer Agent
+2025-10-03 13:58:38,209 - __main__ - INFO - WebSocket MCP Server: ws://localhost:8766
+2025-10-03 13:58:38,209 - __main__ - INFO - HTTP API Server: http://localhost:8081
+2025-10-03 13:58:38,642 - __main__ - INFO - HTTP server started on http://localhost:8081
+2025-10-03 13:58:38,656 - websockets.server - INFO - server listening on 127.0.0.1:8766
+2025-10-03 13:58:38,657 - __main__ - INFO - WebSocket MCP server started on ws://localhost:8766
+2025-10-03 13:59:15,127 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:13:59:14 +0000] "GET /health HTTP/1.1" 200 743 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:00:16,243 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:00:15 +0000] "GET /health HTTP/1.1" 200 743 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:00:53,724 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:00:53 +0000] "GET /health HTTP/1.1" 200 743 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:00:53,749 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:00:53 +0000] "POST /api/analyze HTTP/1.1" 200 358 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:00:53,749 - __main__ - INFO - Starting analysis for workflow df7a9a25-d911-4d7a-8e8f-d96fb4d17636 (request: 483e2727-2d41-4aad-b1b2-290cccd93100)
+2025-10-03 14:00:53,749 - __main__ - INFO - Analyzing held workflow: df7a9a25-d911-4d7a-8e8f-d96fb4d17636
+2025-10-03 14:00:57,771 - __main__ - INFO - LLM request attempt 1/3 (JSON format: True)
+2025-10-03 14:01:04,330 - __main__ - INFO - LLM hold analysis successful for df7a9a25-d911-4d7a-8e8f-d96fb4d17636
+2025-10-03 14:01:04,376 - __main__ - INFO - Notified monitor of analysis completion for df7a9a25-d911-4d7a-8e8f-d96fb4d17636
+2025-10-03 14:01:04,376 - __main__ - INFO - Completed analysis for workflow df7a9a25-d911-4d7a-8e8f-d96fb4d17636 (request: 483e2727-2d41-4aad-b1b2-290cccd93100)
+2025-10-03 14:01:17,022 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:01:17 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:02:18,131 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:02:17 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:03:18,884 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:03:18 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:04:19,737 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:04:19 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:05:20,624 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:05:20 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:06:21,376 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:06:21 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:07:22,150 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:07:22 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:08:22,921 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:08:22 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:09:28,556 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:09:23 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:10:29,372 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:10:29 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:11:30,134 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:11:30 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:12:30,823 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:12:30 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:13:31,662 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:13:31 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:14:32,406 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:14:32 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:15:33,146 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:15:33 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:16:33,857 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:16:33 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:17:34,717 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:17:34 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:18:35,695 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:18:35 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:19:36,419 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:19:36 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:20:37,397 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:20:37 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:21:38,288 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:21:38 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:22:39,217 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:22:39 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:23:39,911 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:23:39 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:24:40,679 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:24:40 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:25:41,254 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:25:41 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:26:49,527 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:26:49 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:27:50,303 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:27:50 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:28:51,010 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:28:51 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:29:51,802 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:29:51 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:30:52,502 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:30:52 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:31:53,203 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:31:53 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:32:54,028 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:32:54 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:33:54,763 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:33:54 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:34:55,491 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:34:55 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:35:56,300 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:35:56 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:36:56,912 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:36:56 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:37:57,704 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:37:57 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:38:58,384 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:38:58 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:39:59,254 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:39:59 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:41:00,124 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:41:00 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:42:00,904 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:42:00 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:43:01,761 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:43:01 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:44:02,375 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:44:02 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:45:03,161 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:45:03 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:46:03,969 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:46:03 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:47:04,618 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:47:04 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:48:05,341 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:48:05 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:49:06,010 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:49:06 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:50:06,811 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:50:06 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:51:07,255 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:51:07 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:52:07,959 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:52:07 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:53:08,742 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:53:08 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:54:09,823 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:54:09 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:55:10,433 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:55:10 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:56:11,343 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:56:11 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:57:12,092 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:57:12 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:58:12,877 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:58:12 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 14:59:13,637 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:14:59:13 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:00:14,341 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:00:14 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:01:15,024 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:01:15 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:02:15,755 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:02:15 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:03:16,492 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:03:16 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:04:17,182 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:04:17 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:05:18,044 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:05:18 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:06:18,944 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:06:18 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:07:19,581 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:07:19 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:08:20,368 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:08:20 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:09:21,127 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:09:21 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:10:21,873 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:10:21 +0000] "GET /health HTTP/1.1" 200 743 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:11:22,500 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:11:22 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:12:23,231 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:12:23 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:13:25,666 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:13:23 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:14:26,444 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:14:26 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:15:27,157 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:15:27 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:16:28,091 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:16:28 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:17:28,829 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:17:28 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:18:29,701 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:18:29 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:19:30,587 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:19:30 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:20:31,395 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:20:31 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:21:32,192 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:21:32 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:22:32,944 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:22:32 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:23:33,731 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:23:33 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:24:35,385 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:24:34 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:25:36,137 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:25:36 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:26:36,795 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:26:36 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:27:37,680 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:27:37 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:28:38,362 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:28:38 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:29:39,025 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:29:38 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:30:39,842 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:30:39 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:31:40,513 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:31:40 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:32:41,256 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:32:41 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:33:42,893 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:33:41 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:34:43,657 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:34:43 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:35:44,460 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:35:44 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:36:45,503 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:36:45 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:37:46,370 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:37:46 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:38:47,153 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:38:47 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:39:47,851 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:39:47 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:40:48,770 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:40:48 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:41:49,557 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:41:49 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:42:50,280 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:42:50 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:43:51,179 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:43:51 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:44:56,904 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:44:51 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:45:57,612 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:45:57 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:46:58,257 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:46:58 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:48:07,430 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:48:07 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:49:08,114 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:49:08 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:50:08,799 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:50:08 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:51:09,586 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:51:09 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:52:10,795 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:52:10 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:53:11,554 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:53:11 +0000] "GET /health HTTP/1.1" 200 743 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:54:12,249 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:54:12 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:55:13,044 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:55:13 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:56:13,937 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:56:13 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:57:14,817 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:57:14 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:58:15,512 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:58:15 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 15:59:16,287 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:15:59:16 +0000] "GET /health HTTP/1.1" 200 743 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:00:17,198 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:00:17 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:01:17,874 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:01:17 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:02:18,679 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:02:18 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:03:19,356 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:03:19 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:04:20,158 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:04:20 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:05:20,832 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:05:20 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:06:21,659 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:06:21 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:07:22,599 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:07:22 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:08:23,334 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:08:23 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:09:24,107 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:09:24 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:10:24,761 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:10:24 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:11:25,736 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:11:25 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:12:26,300 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:12:26 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:13:27,013 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:13:27 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:14:27,710 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:14:27 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:15:28,444 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:15:28 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:16:29,056 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:16:29 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:17:29,855 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:17:29 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:18:30,743 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:18:30 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:19:31,415 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:19:31 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:20:32,078 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:20:32 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:21:32,706 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:21:32 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:22:53,140 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:22:53 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:23:53,528 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:23:53 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:24:53,942 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:24:53 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:25:54,328 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:25:54 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:26:54,694 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:26:54 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:27:55,104 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:27:55 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:28:55,460 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:28:55 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:29:55,820 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:29:55 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:30:56,190 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:30:56 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:31:56,587 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:31:56 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:32:57,009 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:32:56 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:33:57,354 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:33:57 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:34:57,748 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:34:57 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:35:58,116 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:35:58 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:36:58,492 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:36:58 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:37:58,864 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:37:58 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:38:59,374 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:38:59 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:39:59,736 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:39:59 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:41:00,505 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:41:00 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:42:00,898 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:42:00 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:43:01,252 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:43:01 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:44:01,666 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:44:01 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:45:02,028 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:45:02 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:46:02,416 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:46:02 +0000] "GET /health HTTP/1.1" 200 743 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:47:02,775 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:47:02 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:48:03,149 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:48:03 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:49:03,513 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:49:03 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:50:03,870 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:50:03 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:51:04,235 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:51:04 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:52:04,587 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:52:04 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:53:04,959 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:53:04 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:53:25,775 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:53:25 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:54:26,122 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:54:26 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:55:26,452 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:55:26 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:56:00,657 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:56:00 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:56:00,690 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:56:00 +0000] "POST /api/analyze HTTP/1.1" 200 358 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:56:00,690 - __main__ - INFO - Starting analysis for workflow df7a9a25-d911-4d7a-8e8f-d96fb4d17636 (request: 7a24145f-0baa-4c7f-a7c5-137706c34d36)
+2025-10-03 16:56:00,690 - __main__ - INFO - Analyzing held workflow: df7a9a25-d911-4d7a-8e8f-d96fb4d17636
+2025-10-03 16:56:02,022 - __main__ - WARNING - Ollama not healthy: HTTPConnectionPool(host='jyhto-2a02-8428-f963-1801-b5c3-65e7-4fba-45c0.a.free.pinggy.link', port=80): Max retries exceeded with url: /api/tags (Caused by NameResolutionError("<urllib3.connection.HTTPConnection object at 0x7ff6b8957310>: Failed to resolve 'jyhto-2a02-8428-f963-1801-b5c3-65e7-4fba-45c0.a.free.pinggy.link' ([Errno -2] Name or service not known)"))
+2025-10-03 16:56:02,022 - __main__ - INFO - LLM request attempt 1/3 (JSON format: True)
+2025-10-03 16:56:02,035 - __main__ - ERROR - Connection error on attempt 1: HTTPConnectionPool(host='jyhto-2a02-8428-f963-1801-b5c3-65e7-4fba-45c0.a.free.pinggy.link', port=80): Max retries exceeded with url: /api/generate (Caused by NameResolutionError("<urllib3.connection.HTTPConnection object at 0x7ff6b8977310>: Failed to resolve 'jyhto-2a02-8428-f963-1801-b5c3-65e7-4fba-45c0.a.free.pinggy.link' ([Errno -2] Name or service not known)"))
+2025-10-03 16:56:02,035 - __main__ - INFO - Waiting 1s before retry...
+2025-10-03 16:56:03,035 - __main__ - INFO - LLM request attempt 2/3 (JSON format: True)
+2025-10-03 16:56:03,037 - __main__ - ERROR - Connection error on attempt 2: HTTPConnectionPool(host='jyhto-2a02-8428-f963-1801-b5c3-65e7-4fba-45c0.a.free.pinggy.link', port=80): Max retries exceeded with url: /api/generate (Caused by NameResolutionError("<urllib3.connection.HTTPConnection object at 0x7ff6b897a290>: Failed to resolve 'jyhto-2a02-8428-f963-1801-b5c3-65e7-4fba-45c0.a.free.pinggy.link' ([Errno -2] Name or service not known)"))
+2025-10-03 16:56:03,038 - __main__ - INFO - Waiting 2s before retry...
+2025-10-03 16:56:05,038 - __main__ - INFO - LLM request attempt 3/3 (JSON format: True)
+2025-10-03 16:56:05,041 - __main__ - ERROR - Connection error on attempt 3: HTTPConnectionPool(host='jyhto-2a02-8428-f963-1801-b5c3-65e7-4fba-45c0.a.free.pinggy.link', port=80): Max retries exceeded with url: /api/generate (Caused by NameResolutionError("<urllib3.connection.HTTPConnection object at 0x7ff6b8967ad0>: Failed to resolve 'jyhto-2a02-8428-f963-1801-b5c3-65e7-4fba-45c0.a.free.pinggy.link' ([Errno -2] Name or service not known)"))
+2025-10-03 16:56:05,041 - __main__ - INFO - JSON format failed, trying without format parameter
+2025-10-03 16:56:05,041 - __main__ - INFO - LLM request attempt 1/3 (JSON format: False)
+2025-10-03 16:56:05,043 - __main__ - ERROR - Connection error on attempt 1: HTTPConnectionPool(host='jyhto-2a02-8428-f963-1801-b5c3-65e7-4fba-45c0.a.free.pinggy.link', port=80): Max retries exceeded with url: /api/generate (Caused by NameResolutionError("<urllib3.connection.HTTPConnection object at 0x7ff6b89ccad0>: Failed to resolve 'jyhto-2a02-8428-f963-1801-b5c3-65e7-4fba-45c0.a.free.pinggy.link' ([Errno -2] Name or service not known)"))
+2025-10-03 16:56:05,043 - __main__ - INFO - Waiting 1s before retry...
+2025-10-03 16:56:06,043 - __main__ - INFO - LLM request attempt 2/3 (JSON format: False)
+2025-10-03 16:56:06,046 - __main__ - ERROR - Connection error on attempt 2: HTTPConnectionPool(host='jyhto-2a02-8428-f963-1801-b5c3-65e7-4fba-45c0.a.free.pinggy.link', port=80): Max retries exceeded with url: /api/generate (Caused by NameResolutionError("<urllib3.connection.HTTPConnection object at 0x7ff6b89cc690>: Failed to resolve 'jyhto-2a02-8428-f963-1801-b5c3-65e7-4fba-45c0.a.free.pinggy.link' ([Errno -2] Name or service not known)"))
+2025-10-03 16:56:06,046 - __main__ - INFO - Waiting 2s before retry...
+2025-10-03 16:56:08,046 - __main__ - INFO - LLM request attempt 3/3 (JSON format: False)
+2025-10-03 16:56:08,049 - __main__ - ERROR - Connection error on attempt 3: HTTPConnectionPool(host='jyhto-2a02-8428-f963-1801-b5c3-65e7-4fba-45c0.a.free.pinggy.link', port=80): Max retries exceeded with url: /api/generate (Caused by NameResolutionError("<urllib3.connection.HTTPConnection object at 0x7ff6b89cf590>: Failed to resolve 'jyhto-2a02-8428-f963-1801-b5c3-65e7-4fba-45c0.a.free.pinggy.link' ([Errno -2] Name or service not known)"))
+2025-10-03 16:56:08,049 - __main__ - ERROR - All LLM request attempts failed
+2025-10-03 16:56:08,049 - __main__ - WARNING - Using fallback hold analysis for df7a9a25-d911-4d7a-8e8f-d96fb4d17636
+2025-10-03 16:56:08,049 - __main__ - INFO - Generating fallback analysis for df7a9a25-d911-4d7a-8e8f-d96fb4d17636 (type: held)
+2025-10-03 16:56:08,084 - __main__ - INFO - Notified monitor of analysis completion for df7a9a25-d911-4d7a-8e8f-d96fb4d17636
+2025-10-03 16:56:08,085 - __main__ - INFO - Completed analysis for workflow df7a9a25-d911-4d7a-8e8f-d96fb4d17636 (request: 7a24145f-0baa-4c7f-a7c5-137706c34d36)
+2025-10-03 16:56:26,801 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:56:26 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:56:47,493 - __main__ - INFO - Configuration loaded from analyzer_config.json
+2025-10-03 16:56:47,501 - root - INFO - Registered agent monitor_001 (monitor)
+2025-10-03 16:56:47,501 - __main__ - INFO - Enhanced Analyzer Agent initialized with 19 MCP tools
+2025-10-03 16:56:47,502 - __main__ - INFO - Ollama Manager: http://jyhto-2a02-8428-f963-1801-b5c3-65e7-4fba-45c0.a.free.pinggy.link
+2025-10-03 16:56:47,502 - __main__ - INFO - Starting Enhanced Analyzer Agent
+2025-10-03 16:56:47,502 - __main__ - INFO - WebSocket MCP Server: ws://localhost:8766
+2025-10-03 16:56:47,502 - __main__ - INFO - HTTP API Server: http://localhost:8081
+2025-10-03 16:56:47,537 - __main__ - INFO - HTTP server started on http://localhost:8081
+2025-10-03 16:56:47,547 - websockets.server - INFO - server listening on 127.0.0.1:8766
+2025-10-03 16:56:47,547 - __main__ - INFO - WebSocket MCP server started on ws://localhost:8766
+2025-10-03 16:57:27,204 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:57:27 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:58:27,598 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:58:27 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 16:59:27,987 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:16:59:27 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 17:00:28,341 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:17:00:28 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 17:01:28,719 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:17:01:28 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 17:03:05,929 - __main__ - INFO - Configuration loaded from analyzer_config.json
+2025-10-03 17:03:05,935 - root - INFO - Registered agent monitor_001 (monitor)
+2025-10-03 17:03:05,936 - __main__ - INFO - Enhanced Analyzer Agent initialized with 19 MCP tools
+2025-10-03 17:03:05,936 - __main__ - INFO - Ollama Manager: http://zovck-37-66-209-93.a.free.pinggy.link
+2025-10-03 17:03:05,936 - __main__ - INFO - Starting Enhanced Analyzer Agent
+2025-10-03 17:03:05,936 - __main__ - INFO - WebSocket MCP Server: ws://localhost:8766
+2025-10-03 17:03:05,936 - __main__ - INFO - HTTP API Server: http://localhost:8081
+2025-10-03 17:03:06,433 - __main__ - INFO - HTTP server started on http://localhost:8081
+2025-10-03 17:03:06,444 - websockets.server - INFO - server listening on 127.0.0.1:8766
+2025-10-03 17:03:06,444 - __main__ - INFO - WebSocket MCP server started on ws://localhost:8766
+2025-10-03 17:03:29,404 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:17:03:29 +0000] "GET /health HTTP/1.1" 200 743 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 17:04:29,773 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:17:04:29 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 17:05:30,114 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:17:05:30 +0000] "GET /health HTTP/1.1" 200 743 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 17:06:30,458 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:17:06:30 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 17:07:30,832 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:17:07:30 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 17:08:31,176 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:17:08:31 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 17:09:31,513 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:17:09:31 +0000] "GET /health HTTP/1.1" 200 743 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 17:10:31,847 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:17:10:31 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 17:11:32,201 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:17:11:32 +0000] "GET /health HTTP/1.1" 200 742 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-03 17:12:32,548 - aiohttp.access - INFO - 127.0.0.1 [03/Oct/2025:17:12:32 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-04 13:10:13,127 - __main__ - INFO - Configuration loaded from analyzer_config.json
+2025-10-04 13:10:13,137 - root - INFO - Registered agent monitor_001 (monitor)
+2025-10-04 13:10:13,137 - __main__ - INFO - Enhanced Analyzer Agent initialized with 19 MCP tools
+2025-10-04 13:10:13,137 - __main__ - INFO - Ollama Manager: http://zovck-37-66-209-93.a.free.pinggy.link
+2025-10-04 13:10:13,137 - __main__ - INFO - Starting Enhanced Analyzer Agent
+2025-10-04 13:10:13,137 - __main__ - INFO - WebSocket MCP Server: ws://localhost:8766
+2025-10-04 13:10:13,137 - __main__ - INFO - HTTP API Server: http://localhost:8081
+2025-10-04 13:10:13,270 - __main__ - INFO - HTTP server started on http://localhost:8081
+2025-10-04 13:10:13,279 - websockets.server - INFO - server listening on 127.0.0.1:8766
+2025-10-04 13:10:13,279 - __main__ - INFO - WebSocket MCP server started on ws://localhost:8766
+2025-10-04 13:10:48,264 - aiohttp.access - INFO - 127.0.0.1 [04/Oct/2025:13:10:48 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-04 13:11:48,569 - aiohttp.access - INFO - 127.0.0.1 [04/Oct/2025:13:11:48 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-04 13:12:23,280 - __main__ - INFO - Configuration loaded from analyzer_config.json
+2025-10-04 13:12:23,285 - root - INFO - Registered agent monitor_001 (monitor)
+2025-10-04 13:12:23,285 - __main__ - INFO - Enhanced Analyzer Agent initialized with 19 MCP tools
+2025-10-04 13:12:23,286 - __main__ - INFO - Ollama Manager: http://djiwj-2001-863-3aa-3d5d-c07e-50a6-e6ce-c727.a.free.pinggy.link
+2025-10-04 13:12:23,286 - __main__ - INFO - Starting Enhanced Analyzer Agent
+2025-10-04 13:12:23,286 - __main__ - INFO - WebSocket MCP Server: ws://localhost:8766
+2025-10-04 13:12:23,286 - __main__ - INFO - HTTP API Server: http://localhost:8081
+2025-10-04 13:12:46,868 - __main__ - INFO - Configuration loaded from analyzer_config.json
+2025-10-04 13:12:46,874 - root - INFO - Registered agent monitor_001 (monitor)
+2025-10-04 13:12:46,874 - __main__ - INFO - Enhanced Analyzer Agent initialized with 19 MCP tools
+2025-10-04 13:12:46,874 - __main__ - INFO - Ollama Manager: http://djiwj-2001-863-3aa-3d5d-c07e-50a6-e6ce-c727.a.free.pinggy.link
+2025-10-04 13:12:46,874 - __main__ - INFO - Starting Enhanced Analyzer Agent
+2025-10-04 13:12:46,874 - __main__ - INFO - WebSocket MCP Server: ws://localhost:8766
+2025-10-04 13:12:46,874 - __main__ - INFO - HTTP API Server: http://localhost:8081
+2025-10-04 13:13:16,659 - __main__ - INFO - Configuration loaded from analyzer_config.json
+2025-10-04 13:13:16,665 - root - INFO - Registered agent monitor_001 (monitor)
+2025-10-04 13:13:16,665 - __main__ - INFO - Enhanced Analyzer Agent initialized with 19 MCP tools
+2025-10-04 13:13:16,666 - __main__ - INFO - Ollama Manager: http://djiwj-2001-863-3aa-3d5d-c07e-50a6-e6ce-c727.a.free.pinggy.link
+2025-10-04 13:13:16,666 - __main__ - INFO - Starting Enhanced Analyzer Agent
+2025-10-04 13:13:16,666 - __main__ - INFO - WebSocket MCP Server: ws://localhost:8766
+2025-10-04 13:13:16,666 - __main__ - INFO - HTTP API Server: http://localhost:8081
+2025-10-04 13:13:45,507 - __main__ - INFO - Configuration loaded from analyzer_config.json
+2025-10-04 13:13:45,513 - root - INFO - Registered agent monitor_001 (monitor)
+2025-10-04 13:13:45,513 - __main__ - INFO - Enhanced Analyzer Agent initialized with 19 MCP tools
+2025-10-04 13:13:45,513 - __main__ - INFO - Ollama Manager: http://djiwj-2001-863-3aa-3d5d-c07e-50a6-e6ce-c727.a.free.pinggy.link
+2025-10-04 13:13:45,513 - __main__ - INFO - Starting Enhanced Analyzer Agent
+2025-10-04 13:13:45,514 - __main__ - INFO - WebSocket MCP Server: ws://localhost:8766
+2025-10-04 13:13:45,514 - __main__ - INFO - HTTP API Server: http://localhost:8081
+2025-10-04 13:13:46,108 - __main__ - INFO - HTTP server started on http://localhost:8081
+2025-10-04 13:13:46,118 - websockets.server - INFO - server listening on 127.0.0.1:8766
+2025-10-04 13:13:46,118 - __main__ - INFO - WebSocket MCP server started on ws://localhost:8766
+2025-10-04 13:14:41,104 - aiohttp.access - INFO - 127.0.0.1 [04/Oct/2025:13:14:40 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-04 13:15:42,256 - aiohttp.access - INFO - 127.0.0.1 [04/Oct/2025:13:15:41 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-04 13:16:43,190 - aiohttp.access - INFO - 127.0.0.1 [04/Oct/2025:13:16:42 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-04 13:16:59,839 - aiohttp.access - INFO - 127.0.0.1 [04/Oct/2025:13:16:59 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-04 13:16:59,887 - aiohttp.access - INFO - 127.0.0.1 [04/Oct/2025:13:16:59 +0000] "POST /api/analyze HTTP/1.1" 200 358 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-04 13:16:59,888 - __main__ - INFO - Starting analysis for workflow df7a9a25-d911-4d7a-8e8f-d96fb4d17636 (request: 74c5471c-45c4-4187-aeb5-a57466750116)
+2025-10-04 13:16:59,888 - __main__ - INFO - Analyzing held workflow: df7a9a25-d911-4d7a-8e8f-d96fb4d17636
+2025-10-04 13:17:01,115 - __main__ - INFO - LLM request attempt 1/3 (JSON format: True)
+2025-10-04 13:17:10,202 - __main__ - INFO - LLM hold analysis successful for df7a9a25-d911-4d7a-8e8f-d96fb4d17636
+2025-10-04 13:17:10,219 - __main__ - INFO - Notified monitor of analysis completion for df7a9a25-d911-4d7a-8e8f-d96fb4d17636
+2025-10-04 13:17:10,219 - __main__ - INFO - Completed analysis for workflow df7a9a25-d911-4d7a-8e8f-d96fb4d17636 (request: 74c5471c-45c4-4187-aeb5-a57466750116)
+2025-10-04 13:17:44,038 - aiohttp.access - INFO - 127.0.0.1 [04/Oct/2025:13:17:43 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-04 13:18:44,878 - aiohttp.access - INFO - 127.0.0.1 [04/Oct/2025:13:18:44 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-04 13:19:45,885 - aiohttp.access - INFO - 127.0.0.1 [04/Oct/2025:13:19:45 +0000] "GET /health HTTP/1.1" 200 744 "-" "Python/3.11 aiohttp/3.12.15"
+2025-10-04 13:20:46,973 - aiohttp.access - INFO - 127.0.0.1 [04/Oct/2025:13:20:46 +0000] "GET /health HTTP/1.1" 200 745 "-" "Python/3.11 aiohttp/3.12.15"

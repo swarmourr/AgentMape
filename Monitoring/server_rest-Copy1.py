@@ -189,28 +189,25 @@ class PegasusWorkflowManager:
             logger.error(f"Error queuing analysis request: {e}")
 
     async def request_workflow_analysis(self, workflow_id: str, workflow_dir: str, analysis_type: str = "failed") -> Dict[str, Any]:
-        """Request analysis from analyzer agent via HTTP - ENHANCED with catalog context"""
+        """Request analysis from analyzer agent via HTTP"""
         analyzers = self.agent_registry.get_agents_by_type("analyzer")
-
+        
         if not analyzers:
             return {"error": "No analyzer agents available"}
-
+        
         # Find a healthy analyzer
         healthy_analyzer = None
         for analyzer in analyzers:
             if await self.agent_registry.health_check_agent(analyzer['agent_id']):
                 healthy_analyzer = analyzer
                 break
-
+        
         if not healthy_analyzer:
             return {"error": "No healthy analyzer agents available"}
-
+        
         # Generate analysis request ID
         request_id = str(uuid.uuid4())
-
-        # ENHANCED: Discover catalogs before sending to analyzer
-        catalogs = self.discover_catalogs(workflow_dir)
-
+        
         # Send analysis request via HTTP
         try:
             async with ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
@@ -219,35 +216,32 @@ class PegasusWorkflowManager:
                     "workflow_dir": workflow_dir,
                     "analysis_type": analysis_type,
                     "request_id": request_id,
-                    "requester": "monitor_agent",
-                    "catalogs": catalogs  # ENHANCED: Include catalog information
+                    "requester": "monitor_agent"
                 }
-
+                
                 url = f"{healthy_analyzer['http_url']}/api/analyze"
                 async with session.post(url, json=request_data) as resp:
                     if resp.status == 200:
                         result = await resp.json()
-
+                        
                         # Track pending request
                         self.analysis_requests[request_id] = {
                             "workflow_id": workflow_id,
                             "analyzer_id": healthy_analyzer['agent_id'],
                             "requested_at": datetime.now().isoformat(),
-                            "status": "pending",
-                            "catalogs_included": True
+                            "status": "pending"
                         }
-
-                        logger.info(f"Analysis requested for workflow {workflow_id} with catalog context (request_id: {request_id})")
+                        
+                        logger.info(f"Analysis requested for workflow {workflow_id} (request_id: {request_id})")
                         return {
                             "success": True,
                             "request_id": request_id,
                             "analyzer_id": healthy_analyzer['agent_id'],
-                            "message": "Analysis request sent successfully with catalog context",
-                            "catalogs_discovered": bool(catalogs.get('replica_catalog') or catalogs.get('transformation_catalog') or catalogs.get('site_catalog'))
+                            "message": "Analysis request sent successfully"
                         }
                     else:
                         return {"error": f"Analysis request failed: HTTP {resp.status}"}
-
+                        
         except Exception as e:
             logger.error(f"Error requesting analysis for {workflow_id}: {e}")
             return {"error": f"Failed to request analysis: {str(e)}"}
@@ -345,57 +339,27 @@ class PegasusWorkflowManager:
 
     # MCP Tools for Inter-Agent Communication
     async def get_workflow_details_for_analysis(self, workflow_id: str) -> Dict[str, Any]:
-        """MCP tool: Get detailed workflow information for analysis - ENHANCED with catalog discovery"""
+        """MCP tool: Get detailed workflow information for analysis"""
         try:
             workflow_record = workflows_table.get(Query().workflow_id == workflow_id)
             if not workflow_record:
                 return {"error": f"Workflow {workflow_id} not found"}
-
-            workflow_dir = workflow_record['iwd']
-
+            
             # Get current status
             status_data = await self.get_workflow_status(workflow_id)
-
+            
             # Get log files
-            log_files = self.find_workflow_log_files(workflow_dir, workflow_id)
-
+            log_files = self.find_workflow_log_files(workflow_record['iwd'], workflow_id)
+            
             # Get recent error logs
-            recent_errors = self.get_recent_error_logs(workflow_dir, hours=24)
-
-            # ENHANCED: Discover catalog files
-            catalogs = self.discover_catalogs(workflow_dir)
-
-            # Print catalog discovery results to console
-            print(f"\n{TerminalColor.CYAN.apply('📂 Catalog Discovery Results for')} {workflow_id}:")
-            if catalogs.get('replica_catalog'):
-                rc = catalogs['replica_catalog']
-                print(f"  {TerminalColor.GREEN.apply('✓ Replica Catalog:')} {rc['path']} ({rc['format']}, {'embedded' if rc['embedded'] else 'separate file'})")
-            else:
-                print(f"  {TerminalColor.YELLOW.apply('⚠ Replica Catalog:')} Not found")
-
-            if catalogs.get('transformation_catalog'):
-                tc = catalogs['transformation_catalog']
-                print(f"  {TerminalColor.GREEN.apply('✓ Transformation Catalog:')} {tc['path']} ({tc['format']}, {'embedded' if tc['embedded'] else 'separate file'})")
-            else:
-                print(f"  {TerminalColor.YELLOW.apply('⚠ Transformation Catalog:')} Not found")
-
-            if catalogs.get('site_catalog'):
-                sc = catalogs['site_catalog']
-                print(f"  {TerminalColor.GREEN.apply('✓ Site Catalog:')} {sc['path']} ({sc['format']}, {'embedded' if sc['embedded'] else 'separate file'})")
-            else:
-                print(f"  {TerminalColor.YELLOW.apply('⚠ Site Catalog:')} Not found")
-
-            if catalogs.get('embedded_in_workflow'):
-                print(f"  {TerminalColor.BLUE.apply('ℹ Embedded catalogs detected in:')} {catalogs.get('workflow_file')}")
-            print()
-
+            recent_errors = self.get_recent_error_logs(workflow_record['iwd'], hours=24)
+            
             return {
                 "workflow_id": workflow_id,
-                "workflow_dir": workflow_dir,
+                "workflow_dir": workflow_record['iwd'],
                 "status": status_data,
                 "log_files": log_files,
                 "recent_errors": recent_errors,
-                "catalogs": catalogs,  # ENHANCED: Include catalog information
                 "database_record": workflow_record
             }
         except Exception as e:
@@ -458,262 +422,6 @@ class PegasusWorkflowManager:
             }
         except Exception as e:
             return {"error": f"Error acknowledging analysis: {str(e)}"}
-
-    # Catalog Discovery Methods
-    def discover_catalogs(self, workflow_dir: str) -> Dict[str, Any]:
-        """Discover all catalog files and their formats"""
-        catalogs = {
-            "replica_catalog": None,
-            "transformation_catalog": None,
-            "site_catalog": None,
-            "catalog_format": {},
-            "embedded_in_workflow": False
-        }
-
-        # 1. Check for braindump.txt (contains Pegasus config)
-        braindump_path = os.path.join(workflow_dir, "braindump.txt")
-        if os.path.exists(braindump_path):
-            braindump_info = self.parse_braindump(braindump_path)
-            catalogs.update(braindump_info)
-
-        # 2. Search for common catalog file patterns
-        catalog_patterns = {
-            "replica_catalog": ["rc.txt", "rc.yml", "replicas.txt", "replicas.yml", "*replica*.txt"],
-            "transformation_catalog": ["tc.txt", "tc.yml", "transformations.txt", "transformations.yml", "*trans*.txt"],
-            "site_catalog": ["sites.xml", "sites.yml", "sites.yaml", "sc.txt", "site*.yml"]
-        }
-
-        for catalog_type, patterns in catalog_patterns.items():
-            if not catalogs.get(catalog_type):  # Only search if not found in braindump
-                found = self.find_catalog_file(workflow_dir, patterns)
-                if found:
-                    catalogs[catalog_type] = {
-                        "path": found,
-                        "format": self.detect_catalog_format(found),
-                        "exists": True,
-                        "writable": os.access(found, os.W_OK),
-                        "source": "file",
-                        "embedded": False
-                    }
-
-        # 3. Check if catalogs are embedded in workflow file
-        workflow_file = self.find_main_workflow_file(workflow_dir)
-        if workflow_file:
-            embedded = self.check_embedded_catalogs(workflow_file)
-            if any(embedded.values()):
-                catalogs["embedded_in_workflow"] = True
-                catalogs["workflow_file"] = workflow_file
-                catalogs["embedded_catalogs"] = embedded
-
-                # Add embedded catalog info
-                if embedded.get("has_replica_catalog") and not catalogs.get("replica_catalog"):
-                    catalogs["replica_catalog"] = {
-                        "path": embedded.get("replica_catalog_path", "embedded.replicaCatalog"),
-                        "format": "yaml",
-                        "exists": True,
-                        "writable": os.access(workflow_file, os.W_OK),
-                        "source": "workflow_yaml",
-                        "embedded": True,
-                        "parent_file": workflow_file
-                    }
-
-                if embedded.get("has_transformation_catalog") and not catalogs.get("transformation_catalog"):
-                    catalogs["transformation_catalog"] = {
-                        "path": embedded.get("transformation_catalog_path", "embedded.transformationCatalog"),
-                        "format": "yaml",
-                        "exists": True,
-                        "writable": os.access(workflow_file, os.W_OK),
-                        "source": "workflow_yaml",
-                        "embedded": True,
-                        "parent_file": workflow_file
-                    }
-
-                if embedded.get("has_site_catalog") and not catalogs.get("site_catalog"):
-                    catalogs["site_catalog"] = {
-                        "path": embedded.get("site_catalog_path", "embedded.sites"),
-                        "format": "yaml",
-                        "exists": True,
-                        "writable": os.access(workflow_file, os.W_OK),
-                        "source": "workflow_yaml",
-                        "embedded": True,
-                        "parent_file": workflow_file
-                    }
-
-        return catalogs
-
-    def parse_braindump(self, braindump_path: str) -> Dict[str, Any]:
-        """Parse braindump.txt to find catalog locations"""
-        braindump_data = {}
-
-        try:
-            with open(braindump_path, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if not line or line.startswith('#'):
-                        continue
-
-                    if 'replica' in line.lower() and '=' in line:
-                        parts = line.split('=', 1)
-                        if len(parts) == 2:
-                            catalog_path = parts[1].strip().strip('"\'')
-                            if os.path.exists(catalog_path):
-                                braindump_data['replica_catalog'] = {
-                                    "path": catalog_path,
-                                    "format": self.detect_catalog_format(catalog_path),
-                                    "source": "braindump",
-                                    "exists": True,
-                                    "writable": os.access(catalog_path, os.W_OK),
-                                    "embedded": False
-                                }
-
-                    elif ('transformation' in line.lower() or 'tc' in line.lower()) and '=' in line:
-                        parts = line.split('=', 1)
-                        if len(parts) == 2:
-                            catalog_path = parts[1].strip().strip('"\'')
-                            if os.path.exists(catalog_path):
-                                braindump_data['transformation_catalog'] = {
-                                    "path": catalog_path,
-                                    "format": self.detect_catalog_format(catalog_path),
-                                    "source": "braindump",
-                                    "exists": True,
-                                    "writable": os.access(catalog_path, os.W_OK),
-                                    "embedded": False
-                                }
-
-                    elif ('site' in line.lower() or 'sc' in line.lower()) and '=' in line:
-                        parts = line.split('=', 1)
-                        if len(parts) == 2:
-                            catalog_path = parts[1].strip().strip('"\'')
-                            if os.path.exists(catalog_path):
-                                braindump_data['site_catalog'] = {
-                                    "path": catalog_path,
-                                    "format": self.detect_catalog_format(catalog_path),
-                                    "source": "braindump",
-                                    "exists": True,
-                                    "writable": os.access(catalog_path, os.W_OK),
-                                    "embedded": False
-                                }
-
-        except Exception as e:
-            logger.error(f"Error parsing braindump: {e}")
-
-        return braindump_data
-
-    def find_catalog_file(self, workflow_dir: str, patterns: List[str]) -> Optional[str]:
-        """Find catalog file matching patterns"""
-        # Search in workflow directory and parent
-        search_dirs = [
-            workflow_dir,
-            os.path.dirname(workflow_dir),  # Parent directory
-            os.path.join(workflow_dir, "submit"),  # Submit directory
-        ]
-
-        for search_dir in search_dirs:
-            if not os.path.exists(search_dir):
-                continue
-
-            for pattern in patterns:
-                matches = glob.glob(os.path.join(search_dir, pattern))
-                if matches:
-                    return matches[0]  # Return first match
-
-        return None
-
-    def detect_catalog_format(self, file_path: str) -> str:
-        """Detect catalog file format"""
-        if not os.path.exists(file_path):
-            return "unknown"
-
-        ext = os.path.splitext(file_path)[1].lower()
-
-        if ext in ['.yml', '.yaml']:
-            return "yaml"
-        elif ext in ['.xml']:
-            return "xml"
-        elif ext in ['.txt']:
-            try:
-                with open(file_path, 'r') as f:
-                    first_line = f.readline()
-                    if first_line.startswith('#!') and 'python' in first_line:
-                        return "python"
-                    else:
-                        return "text"
-            except:
-                return "text"
-        else:
-            return "text"
-
-    def find_main_workflow_file(self, workflow_dir: str) -> Optional[str]:
-        """Find the main workflow YAML/DAX file"""
-        workflow_patterns = [
-            "*.yml",
-            "*.yaml",
-            "*.dax",
-            "workflow.yml",
-            "pipeline.yml"
-        ]
-
-        for pattern in workflow_patterns:
-            matches = glob.glob(os.path.join(workflow_dir, pattern))
-            # Filter out pegasus-generated files
-            matches = [m for m in matches if 'pegasus' not in os.path.basename(m).lower() and 'braindump' not in m]
-            if matches:
-                # Return the first non-pegasus file
-                return matches[0]
-
-        return None
-
-    def check_embedded_catalogs(self, workflow_file: str) -> Dict[str, Any]:
-        """Check if workflow YAML has embedded catalogs"""
-        embedded = {
-            "has_replica_catalog": False,
-            "has_transformation_catalog": False,
-            "has_site_catalog": False
-        }
-
-        try:
-            import yaml
-
-            with open(workflow_file, 'r') as f:
-                workflow_data = yaml.safe_load(f)
-
-            if not workflow_data:
-                return embedded
-
-            # Check for replica catalog section (various naming conventions)
-            if 'replicaCatalog' in workflow_data or 'replicas' in workflow_data or 'x-pegasus' in workflow_data:
-                if 'replicaCatalog' in workflow_data:
-                    embedded["has_replica_catalog"] = True
-                    embedded["replica_catalog_path"] = "replicaCatalog"
-                elif 'replicas' in workflow_data:
-                    embedded["has_replica_catalog"] = True
-                    embedded["replica_catalog_path"] = "replicas"
-                elif 'x-pegasus' in workflow_data and 'replicas' in workflow_data['x-pegasus']:
-                    embedded["has_replica_catalog"] = True
-                    embedded["replica_catalog_path"] = "x-pegasus.replicas"
-
-            # Check for transformation catalog section
-            if 'transformationCatalog' in workflow_data or 'transformations' in workflow_data:
-                if 'transformationCatalog' in workflow_data:
-                    embedded["has_transformation_catalog"] = True
-                    embedded["transformation_catalog_path"] = "transformationCatalog"
-                elif 'transformations' in workflow_data:
-                    embedded["has_transformation_catalog"] = True
-                    embedded["transformation_catalog_path"] = "transformations"
-
-            # Check for site catalog section
-            if 'siteCatalog' in workflow_data or 'sites' in workflow_data:
-                if 'siteCatalog' in workflow_data:
-                    embedded["has_site_catalog"] = True
-                    embedded["site_catalog_path"] = "siteCatalog.sites"
-                elif 'sites' in workflow_data:
-                    embedded["has_site_catalog"] = True
-                    embedded["site_catalog_path"] = "sites"
-
-        except Exception as e:
-            logger.error(f"Error checking embedded catalogs: {e}")
-
-        return embedded
 
     # Keep all existing helper methods (no changes needed)
     def find_workflow_log_files(self, workflow_dir: str, workflow_id: str = None) -> Dict[str, Any]:

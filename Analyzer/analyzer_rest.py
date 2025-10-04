@@ -1237,7 +1237,38 @@ class EnhancedAnalyzerAgent:
                 "ollama_status": self.ollama_manager.get_connection_status()
             }
             self.analysis_table.insert(analysis_record)
-            
+
+            # PRINT ANALYSIS OUTPUT TO CONSOLE
+            print(f"\n{'='*80}")
+            print(f"{TerminalColor.BRIGHT_GREEN.apply('🔍 WORKFLOW ANALYSIS COMPLETED')}")
+            print(f"{'='*80}")
+            print(f"{TerminalColor.CYAN.apply('Workflow ID:')} {workflow_id}")
+            print(f"{TerminalColor.CYAN.apply('Workflow Dir:')} {workflow_dir}")
+            print(f"{TerminalColor.CYAN.apply('Analysis Type:')} Failed Workflow")
+            print(f"{TerminalColor.CYAN.apply('LLM Used:')} {bool(llm_response)}")
+            print(f"{TerminalColor.CYAN.apply('Fallback Mode:')} {'fallback_mode' in analysis_result}")
+            print(f"{TerminalColor.CYAN.apply('Ollama Healthy:')} {self.ollama_manager.is_healthy}")
+
+            print(f"\n{TerminalColor.BRIGHT_YELLOW.apply('📋 Problems & Solutions:')}")
+            problems = analysis_result.get("problems_and_solutions", [])
+            if problems:
+                for idx, problem in enumerate(problems, 1):
+                    print(f"\n  {TerminalColor.WHITE.apply(f'Issue #{idx}:')}")
+                    print(f"    {TerminalColor.RED.apply('Problem:')} {problem.get('problem', 'N/A')}")
+                    print(f"    {TerminalColor.GREEN.apply('Solution:')} {problem.get('solution', 'N/A')}")
+                    print(f"    {TerminalColor.YELLOW.apply('Priority:')} {problem.get('priority', 'N/A')}")
+                    print(f"    {TerminalColor.BLUE.apply('Error Level:')} {problem.get('error_level', 'N/A')}")
+                    if problem.get('file_path'):
+                        print(f"    {TerminalColor.CYAN.apply('File:')} {problem.get('file_path')}")
+            else:
+                print(f"  {TerminalColor.YELLOW.apply('No specific problems identified')}")
+
+            confidence = analysis_result.get("confidence_score", {})
+            if confidence:
+                print(f"\n{TerminalColor.BRIGHT_MAGENTA.apply('📊 Confidence Score:')} {confidence.get('score', 'N/A')}")
+                print(f"  {confidence.get('explanation', 'N/A')}")
+            print(f"{'='*80}\n")
+
             return {
                 "status": "success",
                 "message": f"Analysis completed for workflow {workflow_id}",
@@ -1319,7 +1350,41 @@ class EnhancedAnalyzerAgent:
                 "fallback_used": analysis_result.get("fallback_mode", False)
             }
             self.analysis_table.insert(analysis_record)
-            
+
+            # PRINT HELD WORKFLOW ANALYSIS OUTPUT
+            print(f"\n{'='*80}")
+            print(f"{TerminalColor.BRIGHT_YELLOW.apply('⚠️  HELD WORKFLOW ANALYSIS COMPLETED')}")
+            print(f"{'='*80}")
+            print(f"{TerminalColor.CYAN.apply('Workflow ID:')} {workflow_id}")
+            print(f"{TerminalColor.CYAN.apply('Workflow Dir:')} {workflow_dir}")
+            print(f"{TerminalColor.CYAN.apply('Analysis Type:')} Held Workflow")
+            print(f"{TerminalColor.CYAN.apply('Hold Reason:')} {hold_reason or 'Not specified'}")
+            print(f"{TerminalColor.CYAN.apply('Fallback Mode:')} {analysis_result.get('fallback_mode', False)}")
+
+            print(f"\n{TerminalColor.BRIGHT_YELLOW.apply('🔍 Hold Analysis:')}")
+            hold_analyses = analysis_result.get("hold_analysis", [])
+            if hold_analyses:
+                for idx, hold_item in enumerate(hold_analyses, 1):
+                    print(f"\n  {TerminalColor.WHITE.apply(f'Hold Issue #{idx}:')}")
+                    print(f"    {TerminalColor.RED.apply('Reason:')} {hold_item.get('reason', 'N/A')}")
+                    print(f"    {TerminalColor.GREEN.apply('Solution:')} {hold_item.get('solution', 'N/A')}")
+                    print(f"    {TerminalColor.YELLOW.apply('Priority:')} {hold_item.get('priority', 'N/A')}")
+                    print(f"    {TerminalColor.BLUE.apply('Category:')} {hold_item.get('category', 'N/A')}")
+            else:
+                print(f"  {TerminalColor.YELLOW.apply('No specific hold reasons identified')}")
+
+            recommended_actions = analysis_result.get("recommended_actions", [])
+            if recommended_actions:
+                print(f"\n{TerminalColor.BRIGHT_CYAN.apply('💡 Recommended Actions:')}")
+                for idx, action in enumerate(recommended_actions, 1):
+                    print(f"  {idx}. {action}")
+
+            confidence = analysis_result.get("confidence_score", {})
+            if confidence:
+                print(f"\n{TerminalColor.BRIGHT_MAGENTA.apply('📊 Confidence Score:')} {confidence.get('score', 'N/A')}")
+                print(f"  {confidence.get('explanation', 'N/A')}")
+            print(f"{'='*80}\n")
+
             return {
                 "status": "success",
                 "message": f"Hold analysis completed for workflow {workflow_id}",
