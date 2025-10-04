@@ -2030,7 +2030,9 @@ class EnhancedAnalyzerAgent:
                 "requester": requester,
                 "status": "queued",
                 "queued_at": datetime.now().isoformat(),
-                "workflow_files": data.get('workflow_files', {})  # ENHANCED: Store workflow files
+                "workflow_files": data.get('workflow_files', {}),  # ENHANCED: Store workflow files
+                "catalogs": data.get('catalogs', {}),  # ENHANCED: Store catalogs from Monitor
+                "pegasus_analyzer": data.get('pegasus_analyzer', {})  # ENHANCED: Store pegasus-analyzer output
             }
             
             self.analysis_queue.append(analysis_request)
@@ -2181,70 +2183,55 @@ class EnhancedAnalyzerAgent:
                 print(f"    {TerminalColor.YELLOW.apply('⚠')} Skipping Planner notification")
                 return
 
-            print(f"    {TerminalColor.YELLOW.apply('◆')} Discovering catalogs in workflow directory...")
+            print(f"    {TerminalColor.YELLOW.apply('◆')} Retrieving catalogs from Monitor data...")
 
-            # Get catalog information from Monitor's discovery
-            # The catalog info should be in the analysis_request or we need to discover it here
-            from pathlib import Path
+            # FIXED: Get catalogs and workflow files from stored analysis request (from Monitor)
+            request_id = analysis_data.get('request_id')
             catalogs = {}
+            workflow_files = {}
+            pegasus_analyzer = {}
 
-            # Try to discover catalogs if not already in result
-            if workflow_dir and Path(workflow_dir).exists():
-                # Basic catalog discovery - looking for common files
-                workflow_path = Path(workflow_dir)
+            if request_id and request_id in self.active_analyses:
+                stored_request = self.active_analyses[request_id]
+                catalogs = stored_request.get('catalogs', {})
+                workflow_files = stored_request.get('workflow_files', {})
+                pegasus_analyzer = stored_request.get('pegasus_analyzer', {})
 
-                # Look for replica catalog
-                rc_files = list(workflow_path.glob("*rc.txt")) + list(workflow_path.glob("*replicas*"))
-                if rc_files:
-                    catalogs["replica_catalog"] = {
-                        "path": str(rc_files[0]),
-                        "format": "text" if rc_files[0].suffix == ".txt" else "yaml",
-                        "embedded": False
-                    }
-                    print(f"    {TerminalColor.GREEN.apply('✓')} Found replica catalog: {rc_files[0].name}")
+                # Count only dict-type catalogs (exclude metadata fields)
+                catalog_count = sum(1 for k, v in catalogs.items() if isinstance(v, dict))
+                print(f"    {TerminalColor.GREEN.apply('✓')} Retrieved {catalog_count} catalog(s) from Monitor")
 
-                # Look for site catalog
-                sc_files = list(workflow_path.glob("*sites.y*ml")) + list(workflow_path.glob("*sc.txt"))
-                if sc_files:
-                    catalogs["site_catalog"] = {
-                        "path": str(sc_files[0]),
-                        "format": "yaml" if ".y" in sc_files[0].suffix else "text",
-                        "embedded": False
-                    }
-                    print(f"    {TerminalColor.GREEN.apply('✓')} Found site catalog: {sc_files[0].name}")
+                # Show catalog details
+                for cat_type, cat_info in catalogs.items():
+                    if isinstance(cat_info, dict):
+                        print(f"      • {cat_type}: {cat_info.get('path')} ({'embedded' if cat_info.get('embedded') else 'separate'})")
 
-                # Look for transformation catalog
-                tc_files = list(workflow_path.glob("*tc.txt")) + list(workflow_path.glob("*transformations*"))
-                if tc_files:
-                    catalogs["transformation_catalog"] = {
-                        "path": str(tc_files[0]),
-                        "format": "text" if tc_files[0].suffix == ".txt" else "yaml",
-                        "embedded": False
-                    }
-                    print(f"    {TerminalColor.GREEN.apply('✓')} Found transformation catalog: {tc_files[0].name}")
+                # Show workflow files
+                if workflow_files.get('workflow_yaml'):
+                    print(f"    {TerminalColor.GREEN.apply('✓')} Workflow YAML: {workflow_files['workflow_yaml'].get('filename')}")
+                if workflow_files.get('generator_script'):
+                    print(f"    {TerminalColor.GREEN.apply('✓')} Generator script: {workflow_files['generator_script'].get('filename')}")
 
-            if not catalogs:
-                print(f"    {TerminalColor.YELLOW.apply('⚠')} No catalogs found in workflow directory")
+                # Show pegasus-analyzer
+                if pegasus_analyzer.get('ran'):
+                    print(f"    {TerminalColor.GREEN.apply('✓')} Pegasus-analyzer output: {len(pegasus_analyzer.get('parsed_issues', []))} issues")
+
+            else:
+                print(f"    {TerminalColor.YELLOW.apply('⚠')} No stored request data found, catalogs unavailable")
 
             print(f"    {TerminalColor.YELLOW.apply('◆')} Building webhook payload...")
             print(f"      - Workflow ID: {workflow_id}")
-            print(f"      - Catalogs included: {len(catalogs)}")
+            print(f"      - Catalogs included: {sum(1 for k, v in catalogs.items() if isinstance(v, dict))}")
             print(f"      - Analysis problems: {len(analysis_data.get('analysis', {}).get('problems_and_solutions', []))}")
 
-            # Get workflow files - they should be passed through from the analysis request
-            # We need to retrieve them from the active analysis record
-            workflow_files = {}
-            request_id = analysis_data.get('request_id')
-            if request_id and request_id in self.active_analyses:
-                workflow_files = self.active_analyses[request_id].get('workflow_files', {})
-
-            # Build webhook payload for Planner
+            # Build webhook payload for Planner (using data retrieved above)
             webhook_data = {
                 "workflow_id": workflow_id,
                 "workflow_dir": workflow_dir,
                 "result": analysis_data,
-                "catalogs": catalogs,
-                "workflow_files": workflow_files,  # ENHANCED: Include workflow descriptor and generator
+                "catalogs": catalogs,  # From Monitor
+                "workflow_files": workflow_files,  # From Monitor
+                "pegasus_analyzer": pegasus_analyzer,  # From Monitor
                 "timestamp": datetime.now().isoformat()
             }
 
@@ -2252,14 +2239,39 @@ class EnhancedAnalyzerAgent:
             print(f"\n    {TerminalColor.BRIGHT_MAGENTA.apply('📤 REQUEST PAYLOAD TO PLANNER:')}")
             print(f"    {TerminalColor.BRIGHT_MAGENTA.apply('='*76)}")
 
-            # Create summary version (don't print full analysis)
+            # Create summary version for display
             import json
+
+            # Build workflow files summary
+            wf_summary = {}
+            if workflow_files.get("workflow_yaml"):
+                wf = workflow_files["workflow_yaml"]
+                wf_summary["workflow_yaml"] = {
+                    "filename": wf.get("filename"),
+                    "size": wf.get("size"),
+                    "content_included": "YES" if wf.get("content") else "NO",
+                    "parsed_structure_summary": {
+                        "jobs_count": len(wf.get("parsed_structure", {}).get("jobs", [])),
+                        "transformations_count": len(wf.get("parsed_structure", {}).get("transformations", [])),
+                        "replicas_count": len(wf.get("parsed_structure", {}).get("replicas", [])),
+                        "sites_count": len(wf.get("parsed_structure", {}).get("sites", []))
+                    }
+                }
+            if workflow_files.get("generator_script"):
+                gs = workflow_files["generator_script"]
+                wf_summary["generator_script"] = {
+                    "filename": gs.get("filename"),
+                    "size": gs.get("size"),
+                    "content_included": "YES" if gs.get("content") else "NO"
+                }
+
             summary_payload = {
                 "workflow_id": webhook_data["workflow_id"],
                 "workflow_dir": webhook_data["workflow_dir"],
                 "timestamp": webhook_data["timestamp"],
                 "result_summary": {
                     "problems_count": len(analysis_data.get("analysis", {}).get("problems_and_solutions", [])),
+                    "hold_issues_count": len(analysis_data.get("hold_analysis", {}).get("hold_issues", [])),
                     "analysis_status": analysis_data.get("status"),
                     "request_id": analysis_data.get("request_id")
                 },
@@ -2267,21 +2279,12 @@ class EnhancedAnalyzerAgent:
                     k: {"path": v.get("path"), "format": v.get("format"), "embedded": v.get("embedded")}
                     for k, v in catalogs.items() if v and isinstance(v, dict)  # FIX: Only include dict values
                 },
-                "workflow_files": {
-                    "workflow_yaml": {
-                        "filename": workflow_files.get("workflow_yaml", {}).get("filename"),
-                        "size": workflow_files.get("workflow_yaml", {}).get("size"),
-                        "parsed_structure_summary": {
-                            "jobs_count": len(workflow_files.get("workflow_yaml", {}).get("parsed_structure", {}).get("jobs", [])),
-                            "transformations_count": len(workflow_files.get("workflow_yaml", {}).get("parsed_structure", {}).get("transformations", [])),
-                            "replicas_count": len(workflow_files.get("workflow_yaml", {}).get("parsed_structure", {}).get("replicas", [])),
-                            "sites_count": len(workflow_files.get("workflow_yaml", {}).get("parsed_structure", {}).get("sites", []))
-                        }
-                    } if workflow_files.get("workflow_yaml") else None,
-                    "generator_script": {
-                        "filename": workflow_files.get("generator_script", {}).get("filename"),
-                        "size": workflow_files.get("generator_script", {}).get("size")
-                    } if workflow_files.get("generator_script") else None
+                "workflow_files": wf_summary,
+                "pegasus_analyzer": {
+                    "ran": pegasus_analyzer.get("ran", False),
+                    "exit_code": pegasus_analyzer.get("exit_code"),
+                    "output_included": "YES" if pegasus_analyzer.get("output") else "NO",
+                    "issues_found": len(pegasus_analyzer.get("parsed_issues", []))
                 }
             }
 
