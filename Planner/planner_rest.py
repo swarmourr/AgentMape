@@ -235,10 +235,27 @@ Submit Directory: {submit_dir}
 Workflow Descriptor (DAX): {dax_path}
 Current State: {workflow_context.get('state', 'unknown')}
 
-IMPORTANT PATHS FOR COMMANDS:
-- Submit Dir: {submit_dir} (use for pegasus-status, pegasus-analyzer)
-- Workflow YAML: {dax_path} (use for modifications with yq)
+🚨 CRITICAL: USE THESE EXACT PATHS IN ALL COMMANDS 🚨
+NEVER use placeholders like /path/to/workflow.yml or <workflow.yml>
+ALWAYS use the EXACT paths provided below:
+
+MANDATORY PATHS TO USE IN COMMANDS:
+- Submit Dir: {submit_dir}
+  → Use in: pegasus-status {submit_dir}
+  → Use in: pegasus-analyzer {submit_dir}
+  → Use in: cd {submit_dir}
+
+- Workflow YAML: {dax_path}
+  → Use in: yq eval '...' -i {dax_path}
+  → Use in: pegasus-plan --dir {dax_path} ...
+
 - Working Dir: {workflow_context.get('workflow_dir')}
+
+EXAMPLE CORRECT COMMAND:
+  yq eval '.transformationCatalog.transformations[0].profiles.pegasus.memory = 15000' -i {dax_path}
+
+EXAMPLE WRONG COMMAND (DO NOT DO THIS):
+  yq eval '...' -i /path/to/workflow.yml  ❌ WRONG - This is a placeholder!
 
 === WORKFLOW FILES ===
 {workflow_files_info}
@@ -303,23 +320,23 @@ Generate a repair plan with the following JSON structure:
   "regeneration_reason": "Why workflow needs to be regenerated (if applicable)"
 }}
 
-EXAMPLES OF PEGASUS-SPECIFIC REPAIRS:
+EXAMPLES OF PEGASUS-SPECIFIC REPAIRS (USING ACTUAL PATHS FOR THIS WORKFLOW):
 
 Example 1 - MEMORY ISSUE (Transformation Catalog - EMBEDDED):
   Problem: Job exceeded memory limit (10GB requested, needs 15GB)
 
   Step 1: Update transformation memory in workflow YAML
-    yq eval '.transformationCatalog.transformations[0].profiles.pegasus.memory = 15000' -i /path/to/workflow.yml
+    yq eval '.transformationCatalog.transformations[0].profiles.pegasus.memory = 15000' -i {dax_path}
 
   Step 2: Replan workflow with updated configuration
-    cd /path/to/submit_dir
-    pegasus-plan --cleanup inplace --dir /path/to/workflow.yml --output-sites local --submit
+    cd {submit_dir}
+    pegasus-plan --cleanup inplace --dir {dax_path} --output-sites local --submit
 
   Step 3: Validate replanning
-    pegasus-status /path/to/submit_dir
+    pegasus-status {submit_dir}
 
   Step 4: Monitor execution
-    pegasus-analyzer /path/to/submit_dir
+    pegasus-analyzer {submit_dir}
 
   Note: For permanent fix, update memory in generator script and regenerate
 
@@ -370,7 +387,27 @@ REPAIR STRATEGY DECISION:
 - Use WORKFLOW REGENERATION if: Major changes needed, multiple catalog updates
 - ALWAYS mention both quick and permanent fix options in the plan
 
-Generate the plan now:
+🚨 CRITICAL REMINDERS BEFORE GENERATING PLAN 🚨:
+
+1. ALWAYS use the exact paths provided above:
+   - Submit Dir: {submit_dir}
+   - Workflow YAML: {dax_path}
+
+2. ALWAYS include BOTH steps for workflow modifications:
+   Step 1: Modify the file (yq/sed/echo command)
+   Step 2: Replan the workflow (pegasus-plan --cleanup inplace --dir {dax_path} ...)
+
+3. DO NOT use placeholders like:
+   ❌ /path/to/workflow.yml
+   ❌ <workflow.yml>
+   ❌ /workflow/submit-dir
+
+4. Memory issues REQUIRE:
+   - Step 1: Update memory value with yq in {dax_path}
+   - Step 2: Replan with: pegasus-plan --cleanup inplace --dir {dax_path} --output-sites local --submit
+   - Step 3: Validate with: pegasus-status {submit_dir}
+
+Generate the plan now with EXACT paths and ALL required steps:
 """
         return prompt
 
@@ -541,10 +578,19 @@ class PlanValidator:
             if not step.get("commands"):
                 issues.append(f"Step {step.get('step_number')} has no commands")
 
-        # Check 3: Dangerous commands
-        dangerous_patterns = ["rm -rf /", "dd if=", "> /dev/", "mkfs", "format"]
+        # Check 3: Dangerous commands (more specific patterns)
+        dangerous_patterns = [
+            "rm -rf /",           # Delete root
+            "dd if=/dev/zero",    # Overwrite disk
+            "> /dev/sd",          # Write to disk device
+            "mkfs.",              # Format disk
+            "fdisk",              # Partition disk
+            "chmod 777 /",        # Chmod root
+            "chown root /",       # Chown root
+        ]
         for step in plan.get("repair_steps", []):
             for cmd in step.get("commands", []):
+                # Only flag truly dangerous commands, not yq/pegasus commands
                 if any(pattern in cmd for pattern in dangerous_patterns):
                     issues.append(f"Dangerous command detected: {cmd}")
                     plan["risk_level"] = "high"
@@ -828,6 +874,36 @@ class PlannerHTTPServer:
         except Exception as e:
             logger.error(f"Error writing workflow step: {e}")
 
+    def export_plan_to_file(self, plan: Dict[str, Any], workflow_id: str):
+        """Export plan to a separate JSON file for easy reading"""
+        try:
+            # Create plans directory if it doesn't exist
+            plans_dir = "plans"
+            if not os.path.exists(plans_dir):
+                os.makedirs(plans_dir)
+
+            plan_id = plan.get("plan_id", "unknown")
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"{plans_dir}/plan_{workflow_id}_{plan_id}_{timestamp}.json"
+
+            with open(filename, "w") as f:
+                json.dump(plan, f, indent=2, default=str)
+
+            print(f"{TerminalColor.GREEN.apply('✓')} Plan exported to: {filename}")
+            logger.info(f"Plan exported to {filename}")
+
+            # Also write plan location to shared log
+            self.write_workflow_step(
+                workflow_id,
+                "PLANNER",
+                "8. PLAN EXPORTED",
+                f"Plan file: {filename}\nPlan ID: {plan_id}",
+                "INFO"
+            )
+
+        except Exception as e:
+            logger.error(f"Error exporting plan to file: {e}")
+
     def setup_routes(self):
         """Setup HTTP routes"""
         self.app.router.add_get('/health', self.handle_health)
@@ -1007,6 +1083,9 @@ class PlannerHTTPServer:
                 plan_summary,
                 "SUCCESS"
             )
+
+            # ENHANCED: Export plan to separate JSON file for easy reading
+            self.export_plan_to_file(plan, workflow_id)
 
             return web.json_response({
                 "status": "success",
