@@ -1,5 +1,5 @@
 {
-    "ollama_url": "http://djiwj-2001-863-3aa-3d5d-c07e-50a6-e6ce-c727.a.free.pinggy.link/api/generate",
+     "ollama_url": "http://djiwj-2001-863-3aa-3d5d-c07e-50a6-e6ce-c727.a.free.pinggy.link/api/generate",
     "ollama_api_base": "http://djiwj-2001-863-3aa-3d5d-c07e-50a6-e6ce-c727.a.free.pinggy.link",
     "ollama_model": "llama3:latest",
     "ollama_check_interval": 30,
