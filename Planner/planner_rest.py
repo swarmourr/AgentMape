@@ -795,6 +795,39 @@ class PlannerHTTPServer:
         self.app = web.Application()
         self.setup_routes()
 
+    def write_workflow_step(self, workflow_id: str, agent: str, step: str, message: str, status: str = "INFO"):
+        """Write workflow processing step to shared log file"""
+        try:
+            log_file = f"logs/workflow_{workflow_id}_steps.log"
+
+            # Create logs directory if it doesn't exist
+            if not os.path.exists("logs"):
+                os.makedirs("logs")
+
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+            # Create colored status indicators
+            status_color = {
+                "INFO": TerminalColor.CYAN,
+                "SUCCESS": TerminalColor.GREEN,
+                "ERROR": TerminalColor.RED,
+                "WARNING": TerminalColor.YELLOW
+            }.get(status, TerminalColor.WHITE)
+
+            log_entry = f"\n{'='*80}\n"
+            log_entry += f"[{timestamp}] [{status_color.apply(status)}] {agent.upper()}\n"
+            log_entry += f"{'='*80}\n"
+            log_entry += f"STEP: {step}\n"
+            log_entry += f"{'-'*80}\n"
+            log_entry += f"{message}\n"
+            log_entry += f"{'='*80}\n"
+
+            with open(log_file, "a") as f:
+                f.write(log_entry)
+
+        except Exception as e:
+            logger.error(f"Error writing workflow step: {e}")
+
     def setup_routes(self):
         """Setup HTTP routes"""
         self.app.router.add_get('/health', self.handle_health)
@@ -836,6 +869,20 @@ class PlannerHTTPServer:
                 "state": "failed",
                 "workflow_files": workflow_files  # ENHANCED: Include workflow files in context
             }
+
+            # Write to shared log
+            catalog_count = sum(1 for k, v in catalogs.items() if isinstance(v, dict))
+            receive_summary = f"Catalogs Received: {catalog_count}\n"
+            receive_summary += f"Workflow Files Received: {len(workflow_files)}\n"
+            receive_summary += f"Problems to Solve: {len(analysis_result.get('problems_and_solutions', []))}"
+
+            self.write_workflow_step(
+                workflow_id,
+                "PLANNER",
+                "6. RECEIVED FROM ANALYZER - STARTING PLAN GENERATION",
+                receive_summary,
+                "INFO"
+            )
 
             # STEP 1: Received webhook
             print(f"\n{'='*80}")
@@ -945,6 +992,22 @@ class PlannerHTTPServer:
             print(f"{TerminalColor.BRIGHT_GREEN.apply('✅ PLANNING WORKFLOW COMPLETED SUCCESSFULLY')}")
             print(f"{'='*80}\n")
 
+            # Write to shared log
+            plan_summary = f"Plan ID: {plan.get('plan_id')}\n"
+            plan_summary += f"Risk Level: {plan.get('risk_level', 'unknown')}\n"
+            plan_summary += f"Repair Steps: {len(plan.get('repair_steps', []))}\n"
+            plan_summary += f"Auto Execute: {risk.get('auto_execute', False)}\n"
+            plan_summary += f"Requires Approval: {plan.get('requires_approval', True)}\n"
+            plan_summary += f"Validation: {'PASSED' if validation.get('valid') else 'FAILED'}"
+
+            self.write_workflow_step(
+                workflow_id,
+                "PLANNER",
+                "7. PLAN GENERATED SUCCESSFULLY",
+                plan_summary,
+                "SUCCESS"
+            )
+
             return web.json_response({
                 "status": "success",
                 "plan_id": plan.get("plan_id"),
@@ -959,6 +1022,16 @@ class PlannerHTTPServer:
             print(f"{TerminalColor.RED.apply('❌ PLANNING WORKFLOW FAILED')}")
             print(f"{TerminalColor.RED.apply('Error:')} {str(e)}")
             print(f"{'='*80}\n")
+
+            # Write error to shared log
+            if 'workflow_id' in locals():
+                self.write_workflow_step(
+                    workflow_id,
+                    "PLANNER",
+                    "7. PLAN GENERATION FAILED",
+                    f"Error: {str(e)}",
+                    "ERROR"
+                )
 
             return web.json_response({"error": str(e)}, status=500)
 

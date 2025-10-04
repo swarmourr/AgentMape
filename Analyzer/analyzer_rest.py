@@ -691,6 +691,39 @@ class EnhancedAnalyzerAgent:
         self.logger.info(f"Enhanced Analyzer Agent initialized with {len(self.tools)} MCP tools")
         self.logger.info(f"Ollama Manager: {self.ollama_manager.ollama_api_base}")
 
+    def write_workflow_step(self, workflow_id: str, agent: str, step: str, message: str, status: str = "INFO"):
+        """Write workflow processing step to shared log file"""
+        try:
+            log_file = f"logs/workflow_{workflow_id}_steps.log"
+
+            # Create logs directory if it doesn't exist
+            if not os.path.exists("logs"):
+                os.makedirs("logs")
+
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+            # Create colored status indicators
+            status_color = {
+                "INFO": TerminalColor.CYAN,
+                "SUCCESS": TerminalColor.GREEN,
+                "ERROR": TerminalColor.RED,
+                "WARNING": TerminalColor.YELLOW
+            }.get(status, TerminalColor.WHITE)
+
+            log_entry = f"\n{'='*80}\n"
+            log_entry += f"[{timestamp}] [{status_color.apply(status)}] {agent.upper()}\n"
+            log_entry += f"{'='*80}\n"
+            log_entry += f"STEP: {step}\n"
+            log_entry += f"{'-'*80}\n"
+            log_entry += f"{message}\n"
+            log_entry += f"{'='*80}\n"
+
+            with open(log_file, "a") as f:
+                f.write(log_entry)
+
+        except Exception as e:
+            self.logger.error(f"Error writing workflow step: {e}")
+
     def load_config(self) -> Dict[str, Any]:
         """Load configuration with better defaults"""
         default_config = {
@@ -2067,6 +2100,15 @@ class EnhancedAnalyzerAgent:
 
             self.logger.info(f"Starting analysis for workflow {workflow_id} (request: {request_id})")
 
+            # Write to shared log
+            self.write_workflow_step(
+                workflow_id,
+                "ANALYZER",
+                "3. RECEIVED FROM MONITOR - STARTING ANALYSIS",
+                f"Request ID: {request_id}\nWorkflow Dir: {workflow_dir}\nAnalysis Type: {analysis_type}",
+                "INFO"
+            )
+
             # STEP 1: Print analysis start
             print(f"\n{'='*80}")
             print(f"{TerminalColor.BRIGHT_CYAN.apply('🔄 STEP 1: STARTING WORKFLOW ANALYSIS')}")
@@ -2090,6 +2132,22 @@ class EnhancedAnalyzerAgent:
             self.active_analyses[request_id]["status"] = "completed"
             self.active_analyses[request_id]["completed_at"] = datetime.now().isoformat()
             self.active_analyses[request_id]["result"] = result
+
+            # Write to shared log
+            problems_count = len(result.get("analysis", {}).get("problems_and_solutions", []))
+            hold_issues_count = len(result.get("hold_analysis", {}).get("hold_issues", []))
+
+            analysis_summary = f"Problems Found: {problems_count}\n"
+            analysis_summary += f"Hold Issues: {hold_issues_count}\n"
+            analysis_summary += f"Status: {result.get('status', 'completed')}"
+
+            self.write_workflow_step(
+                workflow_id,
+                "ANALYZER",
+                "4. ANALYSIS COMPLETED",
+                analysis_summary,
+                "SUCCESS"
+            )
 
             # STEP 2: Analysis completed (already printed in analyze_failed_workflow)
 
@@ -2310,6 +2368,20 @@ class EnhancedAnalyzerAgent:
                         if response_data.get("plan_id"):
                             print(f"    {TerminalColor.GREEN.apply('✓')} Plan ID: {response_data.get('plan_id')}")
                             print(f"    {TerminalColor.GREEN.apply('✓')} Auto-execute: {response_data.get('auto_execute', False)}")
+
+                        # Write to shared log
+                        planner_summary = f"Catalogs Sent: {sum(1 for k, v in catalogs.items() if isinstance(v, dict))}\n"
+                        planner_summary += f"Workflow Files Sent: {len(workflow_files)}\n"
+                        planner_summary += f"Pegasus Analyzer Sent: {'YES' if pegasus_analyzer.get('ran') else 'NO'}\n"
+                        planner_summary += f"Plan ID: {response_data.get('plan_id', 'N/A')}"
+
+                        self.write_workflow_step(
+                            workflow_id,
+                            "ANALYZER",
+                            "5. SENT TO PLANNER",
+                            planner_summary,
+                            "SUCCESS"
+                        )
                     else:
                         error_text = await resp.text()
                         self.logger.error(f"Failed to notify Planner: HTTP {resp.status} - {error_text}")

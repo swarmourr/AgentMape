@@ -151,6 +151,34 @@ class PegasusWorkflowManager:
         if not os.path.exists("logs"):
             os.makedirs("logs")
 
+    def write_workflow_step(self, workflow_id: str, agent: str, step: str, message: str, status: str = "INFO"):
+        """Write workflow processing step to shared log file"""
+        try:
+            log_file = f"logs/workflow_{workflow_id}_steps.log"
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+            # Create colored status indicators
+            status_color = {
+                "INFO": TerminalColor.CYAN,
+                "SUCCESS": TerminalColor.GREEN,
+                "ERROR": TerminalColor.RED,
+                "WARNING": TerminalColor.YELLOW
+            }.get(status, TerminalColor.WHITE)
+
+            log_entry = f"\n{'='*80}\n"
+            log_entry += f"[{timestamp}] [{status_color.apply(status)}] {agent.upper()}\n"
+            log_entry += f"{'='*80}\n"
+            log_entry += f"STEP: {step}\n"
+            log_entry += f"{'-'*80}\n"
+            log_entry += f"{message}\n"
+            log_entry += f"{'='*80}\n"
+
+            with open(log_file, "a") as f:
+                f.write(log_entry)
+
+        except Exception as e:
+            logger.error(f"Error writing workflow step: {e}")
+
     def setup_logger(self, workflow_id=None):
         """Setup a logger for each workflow"""
         if workflow_id is None:
@@ -205,6 +233,15 @@ class PegasusWorkflowManager:
 
     async def request_workflow_analysis(self, workflow_id: str, workflow_dir: str, analysis_type: str = "failed") -> Dict[str, Any]:
         """Request analysis from analyzer agent via HTTP - ENHANCED with catalog context"""
+
+        # Write to shared log
+        self.write_workflow_step(
+            workflow_id,
+            "MONITOR",
+            "1. INITIATING ANALYSIS REQUEST",
+            f"Workflow Dir: {workflow_dir}\nAnalysis Type: {analysis_type}",
+            "INFO"
+        )
 
         # STEP 1: Find available analyzer
         print(f"\n{'='*80}")
@@ -411,6 +448,20 @@ class PegasusWorkflowManager:
                         print(f"\n{'='*80}")
                         print(f"{TerminalColor.BRIGHT_GREEN.apply('✅ ANALYSIS REQUEST COMPLETED')}")
                         print(f"{'='*80}\n")
+
+                        # Write to shared log
+                        catalog_summary = f"Catalogs: {sum(1 for k, v in catalogs.items() if isinstance(v, dict))}\n"
+                        catalog_summary += f"Workflow Files: {len(workflow_files)}\n"
+                        catalog_summary += f"Pegasus Analyzer: {'YES' if pegasus_analyzer_output.get('ran') else 'NO'}\n"
+                        catalog_summary += f"Request ID: {request_id}"
+
+                        self.write_workflow_step(
+                            workflow_id,
+                            "MONITOR",
+                            "2. SENT TO ANALYZER",
+                            catalog_summary,
+                            "SUCCESS"
+                        )
 
                         return {
                             "success": True,
