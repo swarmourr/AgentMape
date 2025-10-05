@@ -1024,7 +1024,8 @@ class PlanValidator:
                     plan["requires_approval"] = True
 
         # Check 4: Confidence score
-        confidence = plan.get("confidence_score", {}).get("score", 0)
+        confidence_obj = plan.get("confidence_score") or {}
+        confidence = confidence_obj.get("score", 0)
         if confidence < 0.6:
             issues.append("Low confidence score - requires approval")
             plan["requires_approval"] = True
@@ -1624,8 +1625,9 @@ IMPORTANT: Keep your response concise. Only include the JSON object, no extra te
         }.get(risk_level, TerminalColor.WHITE)
         print(f"  {TerminalColor.CYAN.apply('Risk Level:')} {risk_color.apply(risk_level.upper())}")
 
-        validation = plan.get('validation_result', {})
-        auto_exec = validation.get('risk_assessment', {}).get('auto_execute', False)
+        validation = plan.get('validation_result') or {}
+        risk_assessment = validation.get('risk_assessment') or {}
+        auto_exec = risk_assessment.get('auto_execute', False)
         auto_color = TerminalColor.GREEN if auto_exec else TerminalColor.YELLOW
         print(f"  {TerminalColor.CYAN.apply('Auto Execute:')} {auto_color.apply(str(auto_exec))}")
 
@@ -1871,10 +1873,13 @@ class PlannerHTTPServer:
             self.save_request_to_file("analysis_complete", data, "planner")
 
             workflow_id = data.get("workflow_id")
-            analysis_result = data.get("result", {}).get("analysis", {})
-            catalogs = data.get("catalogs", {})
-            workflow_files = data.get("workflow_files", {})  # ENHANCED: Get workflow files from Monitor
-            parent_error_analysis = data.get("parent_error_analysis")  # ENHANCED: Get root cause analysis
+
+            # Defensive extraction with None handling
+            result = data.get("result") or {}
+            analysis_result = result.get("analysis") or {}
+            catalogs = data.get("catalogs") or {}
+            workflow_files = data.get("workflow_files") or {}
+            parent_error_analysis = data.get("parent_error_analysis")
 
             workflow_context = {
                 "workflow_id": workflow_id,
