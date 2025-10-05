@@ -1210,10 +1210,19 @@ class LLMPlanner:
         stage1_prompt = self._build_file_identification_prompt(analysis_result, workflow_context)
 
         logger.info(f"Stage 1 prompt size: {len(stage1_prompt)} chars")
-        stage1_response = self.ollama_manager.call_llm(stage1_prompt, "You are a Pegasus workflow debugging assistant. Identify which files are needed to fix errors.")
+
+        try:
+            stage1_response = self.ollama_manager.call_llm(stage1_prompt, "You are a Pegasus workflow debugging assistant. Identify which files are needed to fix errors.")
+        except Exception as e:
+            logger.error(f"Stage 1 LLM call failed: {e}")
+            print(f"{TerminalColor.RED.apply('✗ Error:')} LLM call failed: {str(e)}")
+            print(f"{TerminalColor.YELLOW.apply('→')} Falling back to single-stage approach\n")
+            return await self.generate_plan_with_llm(analysis_result, catalogs, workflow_context, use_multi_stage=False)
 
         if not stage1_response:
-            logger.warning("Stage 1 failed, falling back to single-stage approach")
+            logger.warning("Stage 1 LLM returned None (Ollama not available)")
+            print(f"{TerminalColor.YELLOW.apply('⚠ Warning:')} Ollama LLM not available")
+            print(f"{TerminalColor.YELLOW.apply('→')} Falling back to single-stage approach\n")
             return await self.generate_plan_with_llm(analysis_result, catalogs, workflow_context, use_multi_stage=False)
 
         try:
@@ -1283,15 +1292,22 @@ class LLMPlanner:
     def _build_file_identification_prompt(self, analysis_result: Dict[str, Any], workflow_context: Dict[str, Any]) -> str:
         """Build compact prompt for Stage 1: File identification"""
 
+        # Defensive checks for None values
+        if not analysis_result:
+            analysis_result = {}
+        if not workflow_context:
+            workflow_context = {}
+
         problems = analysis_result.get('problems_and_solutions', [])
-        parent_error = workflow_context.get('parent_error_analysis', {}).get('parent_error', {})
+        parent_error_analysis = workflow_context.get('parent_error_analysis') or {}
+        parent_error = parent_error_analysis.get('parent_error', {})
 
         # Use parent error if available, otherwise first problem
         main_error = parent_error if parent_error else (problems[0] if problems else {})
 
-        workflow_files = workflow_context.get('workflow_files', {})
-        workflow_yaml = workflow_files.get('workflow_yaml', {})
-        parsed_structure = workflow_yaml.get('parsed_structure', {})
+        workflow_files = workflow_context.get('workflow_files') or {}
+        workflow_yaml = workflow_files.get('workflow_yaml') or {}
+        parsed_structure = workflow_yaml.get('parsed_structure') or {}
 
         prompt = f"""
 You are analyzing a Pegasus workflow error to identify which files are needed to create a fix.
@@ -1344,6 +1360,10 @@ IMPORTANT: Keep your response concise. Only include the JSON object, no extra te
 
     def _parse_file_identification_response(self, llm_response: Dict[str, Any]) -> List[Dict[str, str]]:
         """Parse Stage 1 response to extract file list"""
+        if not llm_response:
+            logger.error("LLM response is None")
+            return []
+
         response_text = llm_response.get("response", "")
 
         # Clean up markdown
