@@ -1,6 +1,6 @@
 {
-   "ollama_url": "http://nougp-37-66-209-93.a.free.pinggy.link/api/generate",
-    "ollama_api_base": "http://nougp-37-66-209-93.a.free.pinggy.link",
+   "ollama_url": "http://scxmb-2001-863-3aa-5754-f101-cfbf-fe33-9e0e.a.free.pinggy.link/api/generate",
+    "ollama_api_base": "http://scxmb-2001-863-3aa-5754-f101-cfbf-fe33-9e0e.a.free.pinggy.link",
     "ollama_model": "llama3:latest",
     "ollama_check_interval": 30,
     "monitor_url": "ws://localhost:8765",
