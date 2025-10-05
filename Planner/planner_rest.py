@@ -41,6 +41,7 @@ class TerminalColor(Enum):
     CYAN = '\033[36m'
     MAGENTA = '\033[35m'
     WHITE = '\033[97m'
+    BRIGHT_WHITE = '\033[97;1m'
     BRIGHT_GREEN = '\033[92m'
     BRIGHT_YELLOW = '\033[93m'
     BRIGHT_CYAN = '\033[96m'
@@ -1237,10 +1238,21 @@ class LLMPlanner:
                 file_path = file_info.get('path')
                 reason = file_info.get('reason', 'Required for fix')
 
-                print(f"{TerminalColor.BRIGHT_WHITE.apply(f'[{idx}/{len(files_needed)}]')} {TerminalColor.CYAN.apply('Fetching:')} {file_path}")
-                print(f"     {TerminalColor.YELLOW.apply('Reason:')} {reason}")
+                # Skip placeholder paths
+                if not file_path or '/absolute/path' in file_path or file_path == 'path':
+                    print(f"{TerminalColor.YELLOW.apply('⚠ Warning:')} LLM returned placeholder path: {file_path}")
+                    print(f"     {TerminalColor.YELLOW.apply('Skipping')} - cannot fetch placeholder paths")
+                    continue
 
-                file_data = await self.request_file_from_monitor(file_path, workflow_id)
+                try:
+                    print(f"{TerminalColor.BRIGHT_WHITE.apply(f'[{idx}/{len(files_needed)}]')} {TerminalColor.CYAN.apply('Fetching:')} {file_path}")
+                    print(f"     {TerminalColor.YELLOW.apply('Reason:')} {reason}")
+
+                    file_data = await self.request_file_from_monitor(file_path, workflow_id)
+                except Exception as e:
+                    logger.error(f"Error during file fetch: {e}")
+                    print(f"     {TerminalColor.RED.apply('✗ Error:')} {str(e)}")
+                    continue
 
                 if file_data.get('success'):
                     fetched_files[file_path] = file_data.get('content')
@@ -1307,11 +1319,23 @@ OUTPUT JSON FORMAT:
 }}
 
 RULES:
-1. For SyntaxError/script errors: Extract the transformation name from the error, find it in the transformations list, and request its 'pfn' path
+1. For SyntaxError/script errors:
+   - Extract the transformation/script name from the error message (e.g., "FineTuneLLM")
+   - Look in the Transformations list above for that name
+   - Find the 'pfn' (Physical File Name) field - this is the REAL file path
+   - Use that exact 'pfn' value in your response
+   - DO NOT use placeholder paths like "/absolute/path/to/..."
+   - EXAMPLE: If Transformations shows {{"name": "FineTuneLLM", "pfn": "/srv/pegasus/bin/FineTuneLLM"}}, use "/srv/pegasus/bin/FineTuneLLM"
+
 2. For memory/resource errors: Usually no additional files needed (workflow YAML is already available)
+
 3. For config errors: Request the specific config file mentioned in the error
-4. If error message mentions a specific file path, request that file
+
+4. If error message mentions a specific file path, request that exact file
+
 5. If no additional files needed, return empty files_needed array
+
+⚠️ CRITICAL: Use ACTUAL paths from the Transformations list, NOT placeholder examples!
 
 IMPORTANT: Keep your response concise. Only include the JSON object, no extra text.
 """
