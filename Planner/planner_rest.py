@@ -1295,6 +1295,59 @@ class LLMPlanner:
             use_multi_stage=False
         )
 
+    def _extract_transformations_from_yaml(self, workflow_yaml: Dict[str, Any]) -> List[Dict]:
+        """
+        Extract transformations directly from raw workflow YAML
+        Handles both transformationCatalog.transformations and pegasus.transformations
+        """
+        transformations = []
+
+        if not workflow_yaml:
+            return transformations
+
+        # Get raw content or parsed structure
+        raw_content = workflow_yaml.get('raw_content')
+        if raw_content and isinstance(raw_content, dict):
+            workflow_data = raw_content
+        else:
+            # Fallback to parsed_structure if raw_content not available
+            parsed_structure = workflow_yaml.get('parsed_structure') or {}
+            return parsed_structure.get('transformations', [])
+
+        # Check transformationCatalog.transformations first
+        tc_section = workflow_data.get('transformationCatalog', {})
+        transformations_list = tc_section.get('transformations', [])
+
+        # Fallback to pegasus.transformations if needed
+        if not transformations_list:
+            pegasus_section = workflow_data.get('pegasus', {})
+            transformations_list = pegasus_section.get('transformations', [])
+
+        # Extract transformations with pfn
+        for trans in transformations_list:
+            sites = trans.get('sites', [])
+
+            if sites:
+                # Use first site's pfn (nested structure)
+                first_site = sites[0]
+                pfn = first_site.get('pfn', '')
+                site = first_site.get('name', '')
+            else:
+                # Direct pfn (older format)
+                pfn = trans.get('pfn', '')
+                site = trans.get('site', '')
+
+            transformations.append({
+                "namespace": trans.get('namespace', ''),
+                "name": trans.get('name', ''),
+                "version": trans.get('version', ''),
+                "site": site,
+                "pfn": pfn,
+                "type": trans.get('type', 'STAGEABLE')
+            })
+
+        return transformations
+
     def _format_transformations(self, transformations: List[Dict]) -> str:
         """Format transformations list for LLM prompt"""
         if not transformations:
@@ -1331,6 +1384,14 @@ class LLMPlanner:
         workflow_yaml = workflow_files.get('workflow_yaml') or {}
         parsed_structure = workflow_yaml.get('parsed_structure') or {}
 
+        # Extract transformations directly from raw YAML
+        transformations = self._extract_transformations_from_yaml(workflow_yaml)
+
+        # Debug: Log extracted transformations
+        logger.info(f"Extracted {len(transformations)} transformations from YAML")
+        for trans in transformations:
+            logger.info(f"  - {trans.get('name')}: pfn={trans.get('pfn')}")
+
         prompt = f"""
 You are analyzing a Pegasus workflow error to identify which files are needed to create a fix.
 
@@ -1342,7 +1403,7 @@ Error Level: {main_error.get('error_level', 'unknown')}
 WORKFLOW STRUCTURE:
 Jobs: {len(parsed_structure.get('jobs', []))}
 Transformations Available:
-{self._format_transformations(parsed_structure.get('transformations', []))}
+{self._format_transformations(transformations)}
 
 YOUR TASK:
 Analyze this error and determine which files are needed to create a specific fix.
