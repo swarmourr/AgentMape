@@ -1076,12 +1076,18 @@ class LLMPlanner:
         analysis_result: Dict[str, Any],
         catalogs: Dict[str, Any],
         workflow_context: Dict[str, Any],
-        additional_files: Dict[str, str] = None
+        additional_files: Dict[str, str] = None,
+        use_multi_stage: bool = True
     ) -> Dict[str, Any]:
-        """Generate repair plan using LLM with optional file request capability"""
+        """Generate repair plan using LLM with optional multi-stage approach"""
 
         workflow_id = workflow_context.get('workflow_id')
         logger.info(f"Generating plan for workflow {workflow_id}")
+
+        # Check if multi-stage approach should be used
+        if use_multi_stage and not additional_files:
+            logger.info("Using multi-stage LLM approach to reduce prompt size")
+            return await self.generate_plan_multi_stage(analysis_result, catalogs, workflow_context)
 
         # Check if Analyzer identified files needed for fix
         if not additional_files:  # Only on first call, not after file request
@@ -1174,6 +1180,166 @@ class LLMPlanner:
         else:
             logger.warning("LLM not available, using fallback planning")
             return self.generate_fallback_plan(analysis_result, workflow_context)
+
+    async def generate_plan_multi_stage(
+        self,
+        analysis_result: Dict[str, Any],
+        catalogs: Dict[str, Any],
+        workflow_context: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Multi-stage LLM approach to handle large prompts
+        Stage 1: Identify what files are needed
+        Stage 2: Fetch those files
+        Stage 3: Generate repair plan with file content
+        """
+        workflow_id = workflow_context.get('workflow_id')
+
+        print(f"\n{'='*80}")
+        print(f"{TerminalColor.BRIGHT_CYAN.apply('🔄 MULTI-STAGE LLM PLANNING')}")
+        print(f"{'='*80}")
+        print(f"{TerminalColor.YELLOW.apply('Breaking down planning into smaller, focused requests')}")
+        print(f"{'='*80}\n")
+
+        # ===== STAGE 1: Identify Required Files =====
+        print(f"{TerminalColor.BRIGHT_MAGENTA.apply('📋 STAGE 1: Identifying Required Files')}")
+        print(f"Analyzing error to determine which files are needed for the fix...\n")
+
+        stage1_prompt = self._build_file_identification_prompt(analysis_result, workflow_context)
+
+        logger.info(f"Stage 1 prompt size: {len(stage1_prompt)} chars")
+        stage1_response = self.ollama_manager.call_llm(stage1_prompt, "You are a Pegasus workflow debugging assistant. Identify which files are needed to fix errors.")
+
+        if not stage1_response:
+            logger.warning("Stage 1 failed, falling back to single-stage approach")
+            return await self.generate_plan_with_llm(analysis_result, catalogs, workflow_context, use_multi_stage=False)
+
+        try:
+            files_needed = self._parse_file_identification_response(stage1_response)
+
+            if files_needed:
+                print(f"{TerminalColor.GREEN.apply('✓')} Identified {len(files_needed)} file(s) needed for fix")
+                for f in files_needed:
+                    print(f"  • {f.get('path')} - {f.get('reason')}")
+            else:
+                print(f"{TerminalColor.YELLOW.apply('⚠')} No additional files needed")
+
+        except Exception as e:
+            logger.error(f"Stage 1 parsing failed: {e}")
+            return await self.generate_plan_with_llm(analysis_result, catalogs, workflow_context, use_multi_stage=False)
+
+        # ===== STAGE 2: Fetch Required Files =====
+        fetched_files = {}
+        if files_needed:
+            print(f"\n{TerminalColor.BRIGHT_MAGENTA.apply('📥 STAGE 2: Fetching Required Files')}\n")
+
+            for idx, file_info in enumerate(files_needed, 1):
+                file_path = file_info.get('path')
+                reason = file_info.get('reason', 'Required for fix')
+
+                print(f"{TerminalColor.BRIGHT_WHITE.apply(f'[{idx}/{len(files_needed)}]')} {TerminalColor.CYAN.apply('Fetching:')} {file_path}")
+                print(f"     {TerminalColor.YELLOW.apply('Reason:')} {reason}")
+
+                file_data = await self.request_file_from_monitor(file_path, workflow_id)
+
+                if file_data.get('success'):
+                    fetched_files[file_path] = file_data.get('content')
+                    size_kb = file_data.get('size_bytes', 0) / 1024
+                    print(f"     {TerminalColor.GREEN.apply('✓ Success:')} Retrieved {size_kb:.1f} KB\n")
+                else:
+                    error_msg = file_data.get('error', 'Unknown error')
+                    print(f"     {TerminalColor.RED.apply('✗ Failed:')} {error_msg}\n")
+
+            print(f"{'='*80}")
+            print(f"{TerminalColor.BRIGHT_GREEN.apply(f'✓ Fetched {len(fetched_files)}/{len(files_needed)} file(s)')}")
+            print(f"{'='*80}\n")
+
+        # ===== STAGE 3: Generate Repair Plan =====
+        print(f"{TerminalColor.BRIGHT_MAGENTA.apply('🛠️  STAGE 3: Generating Repair Plan')}")
+        print(f"Creating specific repair steps with the fetched file content...\n")
+
+        # Now call single-stage with fetched files and multi_stage=False to avoid recursion
+        return await self.generate_plan_with_llm(
+            analysis_result,
+            catalogs,
+            workflow_context,
+            additional_files=fetched_files,
+            use_multi_stage=False
+        )
+
+    def _build_file_identification_prompt(self, analysis_result: Dict[str, Any], workflow_context: Dict[str, Any]) -> str:
+        """Build compact prompt for Stage 1: File identification"""
+
+        problems = analysis_result.get('problems_and_solutions', [])
+        parent_error = workflow_context.get('parent_error_analysis', {}).get('parent_error', {})
+
+        # Use parent error if available, otherwise first problem
+        main_error = parent_error if parent_error else (problems[0] if problems else {})
+
+        workflow_files = workflow_context.get('workflow_files', {})
+        workflow_yaml = workflow_files.get('workflow_yaml', {})
+        parsed_structure = workflow_yaml.get('parsed_structure', {})
+
+        prompt = f"""
+You are analyzing a Pegasus workflow error to identify which files are needed to create a fix.
+
+ERROR TO FIX:
+Problem: {main_error.get('problem', 'Unknown')}
+Explanation: {main_error.get('explanation', 'Unknown')}
+Error Level: {main_error.get('error_level', 'unknown')}
+
+WORKFLOW STRUCTURE:
+Jobs: {len(parsed_structure.get('jobs', []))}
+Transformations: {parsed_structure.get('transformations', [])}
+
+YOUR TASK:
+Analyze this error and determine which files are needed to create a specific fix.
+
+OUTPUT JSON FORMAT:
+{{
+  "files_needed": [
+    {{
+      "path": "/absolute/path/to/file",
+      "reason": "Why this file is needed"
+    }}
+  ],
+  "analysis": "Brief explanation of what needs to be fixed"
+}}
+
+RULES:
+1. For SyntaxError/script errors: Extract the transformation name from the error, find it in the transformations list, and request its 'pfn' path
+2. For memory/resource errors: Usually no additional files needed (workflow YAML is already available)
+3. For config errors: Request the specific config file mentioned in the error
+4. If error message mentions a specific file path, request that file
+5. If no additional files needed, return empty files_needed array
+
+IMPORTANT: Keep your response concise. Only include the JSON object, no extra text.
+"""
+        return prompt
+
+    def _parse_file_identification_response(self, llm_response: Dict[str, Any]) -> List[Dict[str, str]]:
+        """Parse Stage 1 response to extract file list"""
+        response_text = llm_response.get("response", "")
+
+        # Clean up markdown
+        if "```json" in response_text:
+            start = response_text.find("```json") + 7
+            end = response_text.rfind("```")
+            if end > start:
+                response_text = response_text[start:end].strip()
+        elif "```" in response_text:
+            start = response_text.find("```") + 3
+            end = response_text.rfind("```")
+            if end > start:
+                response_text = response_text[start:end].strip()
+
+        try:
+            result = json.loads(response_text)
+            return result.get('files_needed', [])
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse Stage 1 response: {e}")
+            logger.error(f"Response: {response_text[:500]}")
+            return []
 
     async def handle_file_request(
         self,
@@ -1296,10 +1462,24 @@ class LLMPlanner:
             # Parse JSON
             plan = json.loads(response_text)
             logger.info(f"Successfully parsed plan with keys: {list(plan.keys())}")
+
+            # Validate: Check if LLM returned empty or invalid plan
+            if not plan or len(plan) == 0:
+                logger.error("LLM returned empty JSON object {}")
+                raise ValueError("LLM returned empty plan - likely prompt too long or model confused")
+
+            # Check for required fields
+            if 'needs_more_information' not in plan and 'repair_steps' not in plan:
+                logger.error(f"LLM returned incomplete plan with only keys: {list(plan.keys())}")
+                raise ValueError("LLM returned plan without repair_steps or needs_more_information")
+
             return plan
         except json.JSONDecodeError as e:
             logger.error(f"JSON parse error: {e}")
             logger.error(f"Failed to parse response: {response_text[:1000]}")
+            raise
+        except ValueError as e:
+            logger.error(f"Plan validation error: {e}")
             raise
 
     def generate_fallback_plan(self, analysis_result: Dict[str, Any], workflow_context: Dict[str, Any]) -> Dict[str, Any]:
