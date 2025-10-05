@@ -761,163 +761,223 @@ class EnhancedAnalyzerAgent:
 
     def identify_parent_error(self, errors: List[Dict]) -> Dict[str, Any]:
         """
-        Identify the root cause (parent) error from a list of errors.
-        Many errors are cascade effects of a single root cause.
+        Identify the root cause (parent) error using INTELLIGENT causality analysis.
+
+        Smart Logic:
+        1. Code/Script errors (SyntaxError, etc.) ALWAYS come first in the causal chain
+        2. Execution errors (job failed, etc.) happen BECAUSE of code errors
+        3. Data errors (replica missing, etc.) happen BECAUSE execution failed
+
+        Priority of root causes (most fundamental to least):
+        1. Code/Syntax errors (script bugs)
+        2. Configuration errors (wrong paths, permissions)
+        3. Resource errors (memory, disk)
+        4. Data errors (missing files)
+        5. Network errors (timeouts)
         """
         if not errors:
             return {"parent_error": None, "cascade_errors": []}
 
-        # Error dependency patterns: parent_error_type -> [cascade_error_patterns]
-        dependency_patterns = {
-            # Syntax errors cause script failures which cause transfer failures
-            "SyntaxError": [
-                "POST_SCRIPT_FAILED", "Transfer output files failure",
-                "job failed", "kickstart failed", "execution failed"
-            ],
-            "IndentationError": [
-                "POST_SCRIPT_FAILED", "Transfer output files failure",
-                "job failed", "kickstart failed"
-            ],
-            "NameError": [
-                "POST_SCRIPT_FAILED", "execution failed", "kickstart failed"
-            ],
-            "ImportError": [
-                "ModuleNotFoundError", "POST_SCRIPT_FAILED", "execution failed"
-            ],
+        # SMART CAUSALITY: Define error hierarchy (root → symptom)
+        error_hierarchy = {
+            # Level 1: CODE ERRORS (Most fundamental - always root cause)
+            "code_error": {
+                "patterns": ["SyntaxError", "IndentationError", "NameError", "ImportError",
+                           "TypeError", "ValueError", "AttributeError"],
+                "priority": 100,  # Highest priority
+                "causes": ["execution failure", "job failed", "POST_SCRIPT_FAILED",
+                          "replica", "staging", "transfer", "output"]
+            },
 
-            # Missing files cause many downstream errors
-            "missing file": [
-                "Transfer failure", "No such file", "file not found",
-                "Failed to transfer", "input file missing"
-            ],
-            "FileNotFoundError": [
-                "Transfer failure", "No such file", "input file missing"
-            ],
+            # Level 2: CONFIGURATION ERRORS (Very fundamental)
+            "config_error": {
+                "patterns": ["permission denied", "PermissionError", "path not found",
+                           "command not found", "executable not found"],
+                "priority": 90,
+                "causes": ["execution failure", "job failed", "cannot access"]
+            },
 
-            # Permission errors block multiple operations
-            "permission denied": [
-                "Transfer failure", "Access denied", "cannot write",
-                "cannot read", "operation not permitted"
-            ],
-            "PermissionError": [
-                "Access denied", "operation not permitted"
-            ],
+            # Level 3: RESOURCE ERRORS (Can cause execution failures)
+            "resource_error": {
+                "patterns": ["out of memory", "MemoryError", "disk full", "quota exceeded"],
+                "priority": 80,
+                "causes": ["job killed", "process terminated", "exceeded"]
+            },
 
-            # Memory errors cause job failures
-            "out of memory": [
-                "job killed", "exceeded memory", "killed by signal",
-                "OOM", "memory exceeded"
-            ],
-            "MemoryError": [
-                "job killed", "exceeded memory", "OOM"
-            ],
+            # Level 4: DATA ERRORS (Often symptoms, but can be root)
+            "data_error": {
+                "patterns": ["missing file", "FileNotFoundError", "No such file",
+                           "Replica not found", "input file"],
+                "priority": 70,
+                "causes": ["transfer failure", "staging failed"]
+            },
 
-            # Connection errors cause cascading failures
-            "connection refused": [
-                "timeout", "unreachable", "failed to connect",
-                "network error"
-            ],
-            "ConnectionError": [
-                "timeout", "unreachable", "network error"
-            ]
+            # Level 5: NETWORK ERRORS (Usually symptoms)
+            "network_error": {
+                "patterns": ["connection refused", "timeout", "unreachable"],
+                "priority": 60,
+                "causes": ["transfer failed", "communication error"]
+            },
+
+            # Level 6: GENERIC EXECUTION ERRORS (Almost always symptoms)
+            "execution_error": {
+                "patterns": ["job failed", "POST_SCRIPT_FAILED", "execution failed"],
+                "priority": 50,
+                "causes": []  # These are usually symptoms
+            }
         }
 
-        # Score each error by how many other errors it might cause
-        error_scores = {}
-        error_relationships = {}  # Track which errors are caused by which
+        # SMART SCORING: Classify each error by type and priority
+        error_classifications = {}
+        error_relationships = {}
 
         for i, error in enumerate(errors):
             error_text = str(error.get('problem', '')) + " " + str(error.get('explanation', ''))
-            error_type = error.get('error_level', 'other')
 
-            score = 0
+            # Classify error by matching patterns in hierarchy
+            error_class = None
+            base_priority = 0
+            can_cause = []
+
+            for class_name, class_info in error_hierarchy.items():
+                for pattern in class_info["patterns"]:
+                    if pattern.lower() in error_text.lower():
+                        error_class = class_name
+                        base_priority = class_info["priority"]
+                        can_cause = class_info["causes"]
+                        break
+                if error_class:
+                    break
+
+            # If no match, classify as generic (lowest priority)
+            if not error_class:
+                error_class = "unknown"
+                base_priority = 40
+
+            # Calculate causality score: How many other errors could THIS error cause?
+            causality_score = 0
             caused_errors = []
 
-            # Check if this error type is a known parent error
-            for parent_type, cascade_patterns in dependency_patterns.items():
-                if parent_type.lower() in error_text.lower():
-                    # Check how many other errors match this parent's cascade patterns
-                    for j, other_error in enumerate(errors):
-                        if i == j:
-                            continue
+            if can_cause:  # This error type CAN cause other errors
+                for j, other_error in enumerate(errors):
+                    if i == j:
+                        continue
 
-                        other_text = str(other_error.get('problem', '')) + " " + str(other_error.get('explanation', ''))
+                    other_text = str(other_error.get('problem', '')) + " " + str(other_error.get('explanation', ''))
 
-                        # Check if other_error matches any cascade pattern
-                        for pattern in cascade_patterns:
-                            if pattern.lower() in other_text.lower():
-                                score += 1
-                                caused_errors.append({
-                                    "error_index": j,
-                                    "error": other_error,
-                                    "pattern_matched": pattern
-                                })
-                                break
+                    # Check if other_error matches what THIS error can cause
+                    for symptom_pattern in can_cause:
+                        if symptom_pattern.lower() in other_text.lower():
+                            causality_score += 1
+                            caused_errors.append({
+                                "error_index": j,
+                                "error": other_error,
+                                "symptom_of": error_text[:80]
+                            })
+                            break
 
-            error_scores[i] = score
-            error_relationships[i] = caused_errors
+            # Final score = base_priority + (10 * number_of_errors_it_causes)
+            # This ensures:
+            # 1. Code errors (priority 100) ALWAYS rank higher than data errors (priority 70)
+            # 2. If error causes many symptoms, score increases further
+            final_score = base_priority + (causality_score * 10)
 
-        # If no parent-child relationships found, look for earliest/most severe error
-        if max(error_scores.values()) == 0:
-            # Prioritize by error_level
-            priority_map = {
-                "transformation": 3,
-                "replica": 2,
-                "site": 2,
-                "workflow": 1,
-                "other": 0
+            error_classifications[i] = {
+                "class": error_class,
+                "base_priority": base_priority,
+                "causality_score": causality_score,
+                "final_score": final_score,
+                "caused_errors": caused_errors
             }
 
-            for i, error in enumerate(errors):
-                error_level = error.get('error_level', 'other')
-                priority_score = error.get('priority', 'medium')
+        self.logger.info(f"Error classification results:")
+        for i, classification in error_classifications.items():
+            self.logger.info(
+                f"  Error {i}: {errors[i].get('problem', '')[:50]}... "
+                f"→ Class: {classification['class']}, "
+                f"Priority: {classification['base_priority']}, "
+                f"Causes: {classification['causality_score']} errors, "
+                f"Final Score: {classification['final_score']}"
+            )
 
-                # Combine level priority and explicit priority
-                level_score = priority_map.get(error_level, 0)
-                priority_value = {"high": 3, "medium": 2, "low": 1}.get(priority_score, 1)
-
-                error_scores[i] = level_score * 10 + priority_value
-
-        # Get the error with highest score (most likely parent)
-        if error_scores:
-            parent_index = max(error_scores, key=error_scores.get)
+        # Find the error with HIGHEST score = ROOT CAUSE
+        if error_classifications:
+            parent_index = max(error_classifications, key=lambda i: error_classifications[i]['final_score'])
+            parent_classification = error_classifications[parent_index]
             parent_error = errors[parent_index]
-            cascade_errors = error_relationships.get(parent_index, [])
 
-            # Get indices of cascade errors
+            # Get cascade errors caused by parent
+            cascade_errors = parent_classification['caused_errors']
             cascade_indices = {ce['error_index'] for ce in cascade_errors}
 
-            # All other errors not identified as cascades are "related" errors
+            # Other errors not in cascade = related/independent errors
             related_errors = [
                 errors[i] for i in range(len(errors))
                 if i != parent_index and i not in cascade_indices
             ]
 
+            # Determine confidence based on class and causality
+            if parent_classification['class'] == 'code_error':
+                confidence = "very high"  # Code errors are ALWAYS root causes
+            elif parent_classification['causality_score'] > 0:
+                confidence = "high"  # It causes other errors
+            elif parent_classification['base_priority'] > 70:
+                confidence = "medium"  # High priority but no proven causality
+            else:
+                confidence = "low"
+
             result = {
                 "parent_error": parent_error,
                 "parent_error_index": parent_index,
-                "parent_score": error_scores[parent_index],
+                "parent_class": parent_classification['class'],
+                "parent_priority": parent_classification['base_priority'],
+                "parent_score": parent_classification['final_score'],
                 "cascade_errors": [ce['error'] for ce in cascade_errors],
                 "cascade_count": len(cascade_errors),
                 "related_errors": related_errors,
                 "total_errors": len(errors),
-                "confidence": "high" if error_scores[parent_index] > 0 else "medium",
-                "analysis_method": "dependency_pattern" if error_scores[parent_index] > 0 else "priority_based"
+                "confidence": confidence,
+                "analysis_method": "smart_causality",
+                "reasoning": self._explain_causality(parent_error, parent_classification, cascade_errors)
             }
 
             self.logger.info(
-                f"Parent error identified: {parent_error.get('problem', 'Unknown')} "
-                f"(causes {len(cascade_errors)} cascade errors)"
+                f"🎯 ROOT CAUSE: {parent_error.get('problem', 'Unknown')[:80]}... "
+                f"(Class: {parent_classification['class']}, "
+                f"Causes {len(cascade_errors)} cascade errors, "
+                f"Confidence: {confidence})"
             )
 
             return result
 
+        # Fallback (should rarely happen)
         return {
             "parent_error": errors[0] if errors else None,
             "cascade_errors": errors[1:] if len(errors) > 1 else [],
             "confidence": "low",
             "analysis_method": "fallback"
         }
+
+    def _explain_causality(self, parent_error: Dict, classification: Dict, cascades: List[Dict]) -> str:
+        """Generate human-readable explanation of causality"""
+        parent_problem = parent_error.get('problem', 'Unknown')
+        error_class = classification['class']
+
+        explanations = {
+            "code_error": f"SyntaxError/Code bug in script → Script fails to execute → Output not produced → Downstream errors occur",
+            "config_error": f"Configuration issue → Cannot access/execute → Execution fails",
+            "resource_error": f"Resource limitation → Process killed/failed → Execution stops",
+            "data_error": f"Missing input data → Cannot process → Job fails",
+            "network_error": f"Network issue → Cannot transfer/communicate → Operation fails"
+        }
+
+        base_explanation = explanations.get(error_class, "Error causes downstream failures")
+
+        if cascades:
+            cascade_summary = ", ".join([ce['error'].get('problem', '')[:40] + "..." for ce in cascades[:3]])
+            return f"{base_explanation}. Cascade effects: {cascade_summary}"
+
+        return base_explanation
 
     def load_config(self) -> Dict[str, Any]:
         """Load configuration with better defaults"""

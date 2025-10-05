@@ -1436,18 +1436,27 @@ class PlannerHTTPServer:
 
             # ENHANCED: Display parent error analysis if available
             if parent_error_analysis and parent_error_analysis.get('parent_error'):
-                print(f"\n{TerminalColor.BRIGHT_MAGENTA.apply('🔍 ROOT CAUSE ANALYSIS:')}")
+                print(f"\n{TerminalColor.BRIGHT_MAGENTA.apply('🔍 INTELLIGENT ROOT CAUSE ANALYSIS:')}")
                 parent = parent_error_analysis['parent_error']
                 cascade_count = parent_error_analysis.get('cascade_count', 0)
                 confidence = parent_error_analysis.get('confidence', 'unknown')
+                error_class = parent_error_analysis.get('parent_class', 'unknown')
+                reasoning = parent_error_analysis.get('reasoning', 'No reasoning provided')
 
-                print(f"  {TerminalColor.YELLOW.apply('Parent Error:')} {parent.get('problem', 'Unknown')}")
-                print(f"  {TerminalColor.YELLOW.apply('Cascade Errors:')} {cascade_count}")
-                print(f"  {TerminalColor.YELLOW.apply('Confidence:')} {confidence}")
-                print(f"  {TerminalColor.YELLOW.apply('Method:')} {parent_error_analysis.get('analysis_method', 'unknown')}")
+                print(f"  {TerminalColor.YELLOW.apply('🎯 Root Cause:')} {parent.get('problem', 'Unknown')}")
+                print(f"  {TerminalColor.YELLOW.apply('📊 Error Type:')} {error_class.replace('_', ' ').title()}")
+                print(f"  {TerminalColor.YELLOW.apply('🔗 Cascade Errors:')} {cascade_count} (these are SYMPTOMS, not root causes)")
+                print(f"  {TerminalColor.YELLOW.apply('✅ Confidence:')} {confidence.upper()}")
+                print(f"  {TerminalColor.YELLOW.apply('🧠 Method:')} {parent_error_analysis.get('analysis_method', 'unknown').replace('_', ' ').title()}")
+
+                print(f"\n  {TerminalColor.CYAN.apply('💭 Causality Chain:')}")
+                print(f"     {reasoning}")
 
                 if cascade_count > 0:
-                    print(f"  {TerminalColor.CYAN.apply('💡 Strategy:')} Focus on fixing parent error - cascade errors should resolve automatically")
+                    print(f"\n  {TerminalColor.GREEN.apply('✨ Smart Strategy:')}")
+                    print(f"     Fix ONLY the root cause ({error_class.replace('_', ' ')})")
+                    print(f"     → Cascade errors will auto-resolve")
+                    print(f"     → No need to fix {cascade_count} separate errors!")
 
             print(f"{'='*80}\n")
 
