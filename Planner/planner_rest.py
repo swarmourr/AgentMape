@@ -340,13 +340,16 @@ EXAMPLE WRONG COMMAND (DO NOT DO THIS):
         # ENHANCED: Add requested files content if available
         requested_files_content = workflow_context.get('requested_files_content', {})
         if requested_files_content:
-            files_section = "\n\n=== REQUESTED FILES CONTENT ===\n"
-            files_section += "You requested these files, and here they are:\n\n"
+            files_section = "\n\n=== FILES RETRIEVED FOR YOUR ANALYSIS ===\n"
+            files_section += "✅ The Analyzer identified these files as necessary to create a specific fix.\n"
+            files_section += "✅ They have been automatically fetched and are provided below.\n"
+            files_section += "✅ You now have ACTUAL file content - do NOT guess or use generic placeholders!\n\n"
 
             for file_path, content in requested_files_content.items():
                 files_section += f"\n--- FILE: {file_path} ---\n"
                 if content.startswith("ERROR:"):
                     files_section += f"{content}\n"
+                    files_section += "⚠️ This file could not be retrieved. You may need to mark this as requires_manual_intervention: true\n"
                 else:
                     # Limit content to 10000 chars for very large files
                     if len(content) > 10000:
@@ -355,7 +358,44 @@ EXAMPLE WRONG COMMAND (DO NOT DO THIS):
                         files_section += f"{content}\n"
                 files_section += f"--- END FILE: {file_path} ---\n"
 
-            files_section += "\nNow you have the file content. Generate the specific fix based on what you see.\n"
+            files_section += "\n🎯 ACTION REQUIRED:\n"
+            files_section += "Now that you have the ACTUAL file content above, create a SPECIFIC fix:\n"
+            files_section += "\n"
+            files_section += "⚠️ IMPORTANT STRATEGY FOR TRANSFORMATION SCRIPT ERRORS:\n"
+            files_section += "DO NOT modify the generator script file directly! Instead:\n"
+            files_section += "\n"
+            files_section += "1. Identify the exact syntax/code error in the script content above\n"
+            files_section += "2. Create the CORRECTED version of the script\n"
+            files_section += "3. EMBED the corrected script in the workflow YAML using yq\n"
+            files_section += "4. Re-submit the workflow with the embedded fix\n"
+            files_section += "\n"
+            files_section += "Example workflow fix for SyntaxError in transformation script:\n"
+            files_section += "```\n"
+            files_section += "# Step 1: Create corrected script content (fix the syntax error you identified)\n"
+            files_section += "cat > /tmp/fixed_script.py <<'EOF'\n"
+            files_section += "#!/usr/bin/env python3\n"
+            files_section += "import sys\n"
+            files_section += "def finetune(model):  # <-- FIXED: Added missing colon\n"
+            files_section += "    return model\n"
+            files_section += "if __name__ == '__main__':\n"
+            files_section += "    finetune(sys.argv[1])\n"
+            files_section += "EOF\n"
+            files_section += "\n"
+            files_section += "# Step 2: Embed the fixed script in workflow YAML transformation\n"
+            files_section += "yq eval '.pegasus.transformations[] | select(.name == \"FineTuneLLM\") | .type = \"STAGEABLE\"' -i workflow.yml\n"
+            files_section += "yq eval '.pegasus.transformations[] | select(.name == \"FineTuneLLM\") | .pfn = \"/tmp/fixed_script.py\"' -i workflow.yml\n"
+            files_section += "\n"
+            files_section += "# OR embed script content directly as inline transformation (preferred):\n"
+            files_section += "# Use yq to set .metadata.script_content with the corrected script\n"
+            files_section += "\n"
+            files_section += "# Step 3: Re-submit workflow\n"
+            files_section += "pegasus-plan --dir /path/to/workflow.yml --submit\n"
+            files_section += "```\n"
+            files_section += "\n"
+            files_section += "For other error types:\n"
+            files_section += "- Config errors: Create precise yq/sed commands to update the specific values\n"
+            files_section += "- Memory errors: Use yq to update resource limits in workflow YAML\n"
+            files_section += "- DO NOT create generic fixes like 'sed -i s/error// file.py'\n"
             prompt += files_section
 
         # ENHANCED: Add parent error analysis if available
@@ -401,16 +441,36 @@ Analysis Method: {method}
 
 === YOUR TASK ===
 
-🔍 IMPORTANT: CAN YOU FIX THIS WITH CURRENT INFORMATION?
+🚨🚨🚨 STEP 1: DO YOU HAVE THE FILES NEEDED TO FIX THIS? 🚨🚨🚨
 
-Before generating a repair plan, ask yourself:
+BEFORE creating any repair plan, you MUST verify you have the actual file content!
+
+🔍 CRITICAL QUESTION: Can you create a SPECIFIC fix with the information you have?
 1. Do I have enough information to create a specific fix?
 2. For SyntaxError/script issues: Do I have the actual script content?
 3. For configuration issues: Do I have the relevant config file?
 4. For path issues: Do I have the workflow descriptor details?
 
-IF YOU NEED MORE FILES TO CREATE AN ACCURATE FIX:
-Instead of guessing, REQUEST the files you need! Use this JSON format:
+📋 DECISION TREE - FOLLOW THIS EXACTLY:
+
+IF the error is "SyntaxError in FineTuneLLM script":
+  ├─ Check: Is "FineTuneLLM" script content in workflow_files.transformation_scripts?
+  ├─ ✅ YES → You can see the code → Create specific sed/awk fix
+  └─ ❌ NO → You CANNOT see the code → REQUEST IT!
+
+IF the error is "Config file has wrong path":
+  ├─ Check: Is the config file content available?
+  ├─ ✅ YES → You can see the path value → Create yq/sed command to fix it
+  └─ ❌ NO → REQUEST the config file!
+
+IF the error is "Memory exceeded":
+  ├─ Check: workflow_files.workflow_yaml has memory catalog?
+  ├─ ✅ YES → You have it → Create yq command to increase memory
+  └─ ❌ NO → Usually workflow_yaml is always provided, proceed
+
+🚨 WHEN IN DOUBT → REQUEST THE FILE! 🚨
+
+HOW TO REQUEST FILES (use this EXACT JSON format):
 
 {{
   "needs_more_information": true,
@@ -423,16 +483,28 @@ Instead of guessing, REQUEST the files you need! Use this JSON format:
   "analysis_summary": "What you know so far and what's missing"
 }}
 
-Example - When you need a script to fix syntax error:
+EXAMPLE 1 - Request script to fix SyntaxError:
 {{
   "needs_more_information": true,
   "requested_files": [
     {{
-      "file_path": "/srv/FineTuneLLM",
-      "reason": "Need to see the actual Python script to identify and fix the SyntaxError mentioned in the analysis"
+      "file_path": "/srv/pegasus-5.0.8/share/pegasus/common/bin/FineTuneLLM",
+      "reason": "Need to see the actual Python script content to identify the specific syntax error (missing comma, parenthesis, indentation, etc.) and create a targeted sed/awk fix command"
     }}
   ],
-  "analysis_summary": "Error indicates SyntaxError in FineTuneLLM transformation script. I need to see the script content to identify the exact syntax issue (missing comma, parenthesis, etc.) and generate a specific sed/awk fix command."
+  "analysis_summary": "Root cause is SyntaxError in FineTuneLLM transformation script. The error log shows syntax error but I don't have the script content in transformation_scripts section. Without seeing the actual code, I cannot create a specific fix - I would just be guessing with generic sed commands."
+}}
+
+EXAMPLE 2 - Request config file:
+{{
+  "needs_more_information": true,
+  "requested_files": [
+    {{
+      "file_path": "/home/user/.pegasus/pegasus.conf",
+      "reason": "Need to see the current configuration values to understand which parameter is causing the path resolution error"
+    }}
+  ],
+  "analysis_summary": "Error indicates configuration issue with path resolution. Need to inspect the actual config file to identify the incorrect parameter value."
 }}
 
 IF YOU HAVE ENOUGH INFORMATION TO FIX:
@@ -549,34 +621,57 @@ Example 4 - DISK SPACE ISSUE:
   Step 2: Update generator for permanent fix
     # Add note to modify generator script disk settings
 
-Example 5 - SYNTAX ERROR IN TRANSFORMATION SCRIPT (Code issue, CAN be auto-fixed!):
-  Problem: SyntaxError in FineTuneLLM script: invalid syntax. Perhaps you forgot a comma?
+Example 5 - SYNTAX ERROR IN TRANSFORMATION SCRIPT (WORKFLOW YAML FIX - PREFERRED!):
+  Problem: SyntaxError in FineTuneLLM script: "def finetune(model)" missing colon
 
-  IMPORTANT: Transformation scripts are provided in workflow_files.transformation_scripts!
-  The script content is available - LLM can analyze and suggest fixes!
+  ⚠️ IMPORTANT: DO NOT modify the generator script file directly!
+  ✅ INSTEAD: Embed the corrected script in the workflow YAML
 
-  Step 1: Get transformation script path from YAML
-    yq eval '.transformationCatalog.transformations[] | select(.name == "FineTuneLLM") | .pfn' {dax_path}
-    # Returns: /srv/FineTuneLLM (actual script path)
+  Strategy:
+  1. Analyzer provides the original script content from pfn path
+  2. Planner identifies the syntax error
+  3. Planner creates corrected script
+  4. Planner embeds corrected script in workflow YAML
+  5. Re-submit workflow with the fix
 
-  Step 2: Review the script content (provided in workflow_files)
-    # Script content is in: workflow_files['transformation_scripts']['FineTuneLLM']['content']
-    # Analyze the script for syntax errors
-    # Identify the missing comma or syntax issue
+  Step 1: Create corrected script with syntax error fixed
+    cat > /tmp/FineTuneLLM_fixed.py <<'SCRIPT_END'
+    #!/usr/bin/env python3
+    import sys
+    def finetune(model):  # <-- FIXED: Added missing colon
+        return model
 
-  Step 3: Fix the syntax error in the script
-    # Example fix for missing comma in function call:
-    sed -i 's/arg1 arg2/arg1, arg2/' /srv/FineTuneLLM
-    # OR use a more specific fix based on the actual error
+    if __name__ == '__main__':
+        result = finetune(sys.argv[1])
+        print(result)
+    SCRIPT_END
 
-  Step 4: Validate the fix
-    python -m py_compile /srv/FineTuneLLM
+  Step 2: Update workflow YAML to use the corrected script
+    # Option A: Point transformation to the fixed script
+    yq eval '.pegasus.transformations[] | select(.name == "FineTuneLLM") | .pfn = "/tmp/FineTuneLLM_fixed.py"' -i {dax_path}
 
-  Step 5: Submit NEW workflow
+    # Option B: Change to STAGEABLE type so Pegasus stages the fixed script
+    yq eval '.pegasus.transformations[] | select(.name == "FineTuneLLM") | .type = "STAGEABLE"' -i {dax_path}
+
+  Step 3: Validate the corrected script syntax
+    python3 -m py_compile /tmp/FineTuneLLM_fixed.py
+
+  Step 4: Submit NEW workflow with the embedded fix
     pegasus-plan --dir {dax_path} --output-sites local --submit
 
-  Note: If transformation_scripts is available, LLM CAN suggest specific fix!
-  Note: If script content not available, mark requires_manual_intervention: true
+  Step 5: Monitor new workflow
+    # New run will be created with fixed script
+    # Original generator script remains unchanged
+
+  ✅ Benefits:
+    - Quick fix without modifying generator code
+    - Workflow-specific correction
+    - Original scripts remain safe
+    - Easy to revert if needed
+
+  📝 Note for permanent fix:
+    After validating the workflow fix works, consider updating the generator script
+    for future workflows. Add this to generator_modifications_suggested field.
 
 Example 6 - UNKNOWN/COMPLEX ERROR (Error pattern not recognized):
   Problem: Unfamiliar error or complex multi-factor issue
@@ -617,16 +712,31 @@ COMMAND SYNTAX GUIDE:
 You must generate ONE SINGLE plan with the BEST solution, not multiple options!
 
 Choose the most appropriate strategy:
-1. QUICK FIX (modify workflow.yml): For one-time issues, immediate resolution needed
-2. PERMANENT FIX (modify generator): For recurring issues, long-term solution needed
-3. WORKFLOW REGENERATION: For major changes, multiple catalog updates
+1. WORKFLOW YAML FIX (PREFERRED): Modify workflow.yml for immediate resolution
+   - ✅ Use this for: Script errors, memory issues, catalog updates
+   - ✅ Benefits: Fast, safe, workflow-specific, no code changes
+   - ✅ For script errors: Create corrected script + embed in YAML
 
-⚠️ IMPORTANT:
+2. WORKFLOW REGENERATION: Only if workflow.yml structure needs major changes
+   - Use this for: Multiple catalog updates, architecture changes
+   - Requires: Generator script available
+
+3. PERMANENT FIX: Suggest in "generator_modifications_suggested" field
+   - DO NOT modify generator scripts in repair_steps!
+   - ONLY suggest what changes are needed for future workflows
+
+⚠️ CRITICAL RULES:
 - Generate ONLY ONE plan with the BEST approach for this specific error
 - Do NOT create multiple alternative plans
 - Do NOT include "Option 1", "Option 2" in your plan
 - Pick the MOST EFFECTIVE solution and create repair_steps for ONLY that solution
-- You can MENTION the permanent fix in "generator_modifications_suggested" field, but repair_steps should contain ONLY the immediate fix
+
+🚨 FOR TRANSFORMATION SCRIPT ERRORS:
+- DO NOT modify /srv/pegasus.../bin/ScriptName files directly!
+- INSTEAD: Create corrected script → embed in workflow YAML → re-submit
+- See Example 5 above for the exact pattern to follow
+- Original generator scripts must remain unchanged in repair_steps
+- You can suggest generator updates in "generator_modifications_suggested"
 
 🚨 CRITICAL REMINDERS BEFORE GENERATING PLAN 🚨:
 
@@ -660,25 +770,36 @@ Choose the most appropriate strategy:
 🔥 FINAL CHECK BEFORE GENERATING PLAN 🔥:
 
 1. What is the ACTUAL error from the analysis?
-   - SyntaxError in transformation script? → Check if script content is in transformation_scripts
+   - SyntaxError in transformation script? → Do you have the script content?
    - Memory error? → Fix memory in catalog
    - Missing file? → Fix replica catalog
    - Other? → Diagnostic commands
 
-2. Is transformation script content available?
-   - If workflow_files.transformation_scripts has the script → LLM CAN analyze and fix it!
-   - Script content shows the exact code → Identify the syntax error
-   - Generate sed/awk command to fix the specific error
-   - If script not available → Mark requires_manual_intervention: true
+2. ⚠️ CRITICAL: Do you have the information needed to create a SPECIFIC fix?
 
-3. Does your solution match the error type?
-   - If analysis says "SyntaxError in FineTuneLLM" AND script content available → Fix the script!
-   - If analysis says "SyntaxError" but NO script content → Diagnostic commands only
-   - If analysis says "exceeded memory" → Fix memory in catalog
+   For SyntaxError/Script errors:
+   - ✅ Script content in transformation_scripts? → Analyze and create sed/awk fix!
+   - ❌ NO script content? → REQUEST IT using needs_more_information: true
+   - DO NOT create generic "sed -i 's/error//' script.py" commands without seeing the code!
 
-4. Are you confident in the fix?
-   - Script content visible + clear syntax error → Provide sed/awk fix command
-   - No script content OR complex error → Set requires_manual_intervention: true
+   For Configuration errors:
+   - ✅ Config file content available? → Generate specific yq/sed commands
+   - ❌ NO config content? → REQUEST IT using needs_more_information: true
+
+   For Memory/Resource errors:
+   - ✅ Catalog shows memory/disk values? → Modify catalog with specific values
+   - (Usually available in workflow_files.workflow_yaml)
+
+3. 🚨 NEVER GUESS AT FIXES! 🚨
+   - If you DON'T have the actual file content → REQUEST IT!
+   - Use the needs_more_information: true JSON format shown earlier
+   - Example: SyntaxError in "FineTuneLLM" script but NO script content in transformation_scripts?
+     → Request: {"file_path": "/path/to/FineTuneLLM", "reason": "Need script content to fix syntax error"}
+
+4. Only proceed with repair_steps if:
+   - ✅ You have the ACTUAL file content to modify
+   - ✅ You can create SPECIFIC commands (not generic placeholders)
+   - ✅ You are confident the fix addresses the root cause
 
 🎯 GENERATE ONE SINGLE PLAN - NO ALTERNATIVES:
 - Output ONLY ONE JSON plan object
@@ -962,6 +1083,51 @@ class LLMPlanner:
         workflow_id = workflow_context.get('workflow_id')
         logger.info(f"Generating plan for workflow {workflow_id}")
 
+        # Check if Analyzer identified files needed for fix
+        if not additional_files:  # Only on first call, not after file request
+            auto_requested_files = {}
+            problems = analysis_result.get('problems_and_solutions', [])
+
+            # Collect all files needed across all problems
+            all_files_needed = []
+            for problem in problems:
+                files_needed = problem.get('files_needed_for_fix', [])
+                if files_needed:
+                    all_files_needed.extend(files_needed)
+
+            if all_files_needed:
+                print(f"\n{'='*80}")
+                print(f"{TerminalColor.BRIGHT_CYAN.apply('📋 AUTO-FETCHING REQUIRED FILES')}")
+                print(f"{'='*80}")
+                print(f"{TerminalColor.YELLOW.apply('Analyzer identified files needed to create a specific fix')}")
+                print(f"Total files to fetch: {len(all_files_needed)}\n")
+
+                for idx, file_info in enumerate(all_files_needed, 1):
+                    file_path = file_info.get('path')
+                    reason = file_info.get('reason', 'Required for fix')
+
+                    print(f"{TerminalColor.BRIGHT_WHITE.apply(f'[{idx}/{len(all_files_needed)}]')} {TerminalColor.CYAN.apply('Fetching:')} {file_path}")
+                    print(f"     {TerminalColor.YELLOW.apply('Reason:')} {reason}")
+
+                    # Auto-fetch the file
+                    file_data = await self.request_file_from_monitor(file_path, workflow_id)
+
+                    if file_data.get('success'):
+                        auto_requested_files[file_path] = file_data.get('content')
+                        size_kb = file_data.get('size_bytes', 0) / 1024
+                        print(f"     {TerminalColor.GREEN.apply('✓ Success:')} Retrieved {size_kb:.1f} KB\n")
+                    else:
+                        error_msg = file_data.get('error', 'Unknown error')
+                        print(f"     {TerminalColor.RED.apply('✗ Failed:')} {error_msg}\n")
+
+            # If we fetched files, add them to additional_files
+            if auto_requested_files:
+                additional_files = auto_requested_files
+                print(f"{'='*80}")
+                print(f"{TerminalColor.BRIGHT_GREEN.apply(f'✓ Successfully fetched {len(auto_requested_files)}/{len(all_files_needed)} file(s)')}")
+                print(f"{TerminalColor.GREEN.apply('Planner now has the actual file content to create specific fixes')}")
+                print(f"{'='*80}\n")
+
         # Add additional files to workflow context if provided
         if additional_files:
             if 'requested_files_content' not in workflow_context:
@@ -1021,36 +1187,42 @@ class LLMPlanner:
         workflow_id = workflow_context.get('workflow_id')
         requested_files = file_request.get('requested_files', [])
 
-        print(f"\n{TerminalColor.BRIGHT_YELLOW.apply('🔍 LLM REQUESTING ADDITIONAL FILES:')}")
-        print(f"Analysis: {file_request.get('analysis_summary', 'No summary provided')}")
-        print(f"Requested files: {len(requested_files)}")
+        print(f"\n{'='*80}")
+        print(f"{TerminalColor.BRIGHT_YELLOW.apply('🔍 PLANNER LLM REQUESTING ADDITIONAL FILES')}")
+        print(f"{'='*80}")
+        print(f"{TerminalColor.CYAN.apply('Analysis Summary:')}")
+        print(f"  {file_request.get('analysis_summary', 'No summary provided')}")
+        print(f"\n{TerminalColor.CYAN.apply('Files Requested:')} {len(requested_files)}")
 
         # Fetch files from Monitor
         fetched_files = {}
 
-        for file_req in requested_files:
+        for idx, file_req in enumerate(requested_files, 1):
             file_path = file_req.get('file_path')
             reason = file_req.get('reason', 'Not specified')
 
-            print(f"\n  {TerminalColor.CYAN.apply('→')} Requesting: {file_path}")
-            print(f"    Reason: {reason}")
+            print(f"\n{TerminalColor.BRIGHT_WHITE.apply(f'[{idx}/{len(requested_files)}]')} {TerminalColor.CYAN.apply('Fetching:')} {file_path}")
+            print(f"     {TerminalColor.YELLOW.apply('Reason:')} {reason}")
 
             # Request file from Monitor via PlannerHTTPServer's method
             file_data = await self.request_file_from_monitor(file_path, workflow_id)
 
             if file_data.get('success'):
                 content = file_data.get('content')
-                size = file_data.get('size_bytes', 0)
+                size_kb = file_data.get('size_bytes', 0) / 1024
                 fetched_files[file_path] = content
-                print(f"    {TerminalColor.GREEN.apply('✓')} Received ({size} bytes)")
+                print(f"     {TerminalColor.GREEN.apply('✓ Success:')} Retrieved {size_kb:.1f} KB")
             else:
                 error = file_data.get('error', 'Unknown error')
-                print(f"    {TerminalColor.RED.apply('✗')} Failed: {error}")
+                print(f"     {TerminalColor.RED.apply('✗ Failed:')} {error}")
                 fetched_files[file_path] = f"ERROR: Could not fetch file - {error}"
 
         # Regenerate plan with the fetched files
         if fetched_files:
-            print(f"\n{TerminalColor.BRIGHT_MAGENTA.apply('🤖 REGENERATING PLAN WITH ADDITIONAL FILES...')}")
+            print(f"\n{'='*80}")
+            print(f"{TerminalColor.BRIGHT_GREEN.apply(f'✓ Successfully fetched {len(fetched_files)}/{len(requested_files)} file(s)')}")
+            print(f"{'='*80}")
+            print(f"\n{TerminalColor.BRIGHT_MAGENTA.apply('🤖 REGENERATING PLAN WITH FILE CONTENT...')}\n")
             return await self.generate_plan_with_llm(
                 analysis_result,
                 catalogs,
@@ -1058,6 +1230,7 @@ class LLMPlanner:
                 additional_files=fetched_files
             )
         else:
+            print(f"\n{TerminalColor.RED.apply('✗ No files could be fetched')}")
             logger.warning("No files could be fetched, generating fallback plan")
             return self.generate_fallback_plan(analysis_result, workflow_context)
 
@@ -1174,44 +1347,84 @@ class LLMPlanner:
     def print_plan_summary(self, plan: Dict[str, Any]):
         """Print colorful plan summary to console"""
         print(f"\n{'='*80}")
-        print(f"{TerminalColor.BRIGHT_GREEN.apply('📋 REPAIR PLAN GENERATED')}")
-        print(f"{'='*80}")
-        print(f"{TerminalColor.CYAN.apply('Plan ID:')} {plan.get('plan_id')}")
-        print(f"{TerminalColor.CYAN.apply('Workflow ID:')} {plan.get('workflow_id')}")
-        print(f"{TerminalColor.CYAN.apply('Summary:')} {plan.get('plan_summary')}")
-        print(f"{TerminalColor.CYAN.apply('Strategy:')} {plan.get('repair_strategy')}")
-        print(f"{TerminalColor.CYAN.apply('Risk Level:')} {plan.get('risk_level')}")
-        print(f"{TerminalColor.CYAN.apply('LLM Used:')} {plan.get('llm_used', False)}")
+        print(f"{TerminalColor.BRIGHT_GREEN.apply('✅ REPAIR PLAN GENERATED SUCCESSFULLY')}")
+        print(f"{'='*80}\n")
+
+        # Plan metadata
+        print(f"{TerminalColor.BRIGHT_CYAN.apply('📋 PLAN DETAILS:')}")
+        print(f"  {TerminalColor.CYAN.apply('Plan ID:')} {plan.get('plan_id', 'N/A')[:16]}...")
+        print(f"  {TerminalColor.CYAN.apply('Workflow:')} {plan.get('workflow_id', 'N/A')}")
+        print(f"  {TerminalColor.CYAN.apply('Strategy:')} {plan.get('repair_strategy', 'N/A').upper()}")
+
+        # Risk assessment
+        risk_level = plan.get('risk_level', 'unknown')
+        risk_color = {
+            'low': TerminalColor.GREEN,
+            'medium': TerminalColor.YELLOW,
+            'high': TerminalColor.RED
+        }.get(risk_level, TerminalColor.WHITE)
+        print(f"  {TerminalColor.CYAN.apply('Risk Level:')} {risk_color.apply(risk_level.upper())}")
 
         validation = plan.get('validation_result', {})
         auto_exec = validation.get('risk_assessment', {}).get('auto_execute', False)
-        print(f"{TerminalColor.CYAN.apply('Auto Execute:')} {auto_exec}")
+        auto_color = TerminalColor.GREEN if auto_exec else TerminalColor.YELLOW
+        print(f"  {TerminalColor.CYAN.apply('Auto Execute:')} {auto_color.apply(str(auto_exec))}")
 
-        print(f"\n{TerminalColor.BRIGHT_YELLOW.apply('🔧 Repair Steps:')}")
+        # Plan summary
+        print(f"\n{TerminalColor.BRIGHT_MAGENTA.apply('📝 SUMMARY:')}")
+        print(f"  {plan.get('plan_summary', 'No summary provided')}")
+
+        # Repair steps
+        print(f"\n{TerminalColor.BRIGHT_YELLOW.apply('🔧 REPAIR STEPS:')}")
+        print(f"{'─'*80}")
         for step in plan.get("repair_steps", []):
             step_num = step.get("step_number")
             step_desc = step.get("description")
-            print(f"\n  {TerminalColor.WHITE.apply(f'Step {step_num}:')} {step_desc}")
-            for cmd in step.get("commands", []):
-                print(f"    {TerminalColor.GREEN.apply('$')} {cmd}")
+            print(f"\n{TerminalColor.BRIGHT_WHITE.apply(f'  Step {step_num}:')} {step_desc}")
 
+            commands = step.get("commands", [])
+            if commands:
+                print(f"  {TerminalColor.CYAN.apply('Commands:')}")
+                for cmd in commands:
+                    # Truncate very long commands for readability
+                    if len(cmd) > 100:
+                        print(f"    {TerminalColor.GREEN.apply('$')} {cmd[:97]}...")
+                    else:
+                        print(f"    {TerminalColor.GREEN.apply('$')} {cmd}")
+
+            # Show validation if present
+            validation_cmd = step.get("validation_command")
+            if validation_cmd and validation_cmd != "echo 'No validation'":
+                print(f"  {TerminalColor.YELLOW.apply('Validation:')} {validation_cmd}")
+
+        # Confidence score
         confidence = plan.get("confidence_score", {})
-        print(f"\n{TerminalColor.BRIGHT_MAGENTA.apply('📊 Confidence:')} {confidence.get('score', 'N/A')}")
-        print(f"  {confidence.get('explanation', 'N/A')}")
+        conf_score = confidence.get('score', 'N/A')
+        print(f"\n{'─'*80}")
+        print(f"{TerminalColor.BRIGHT_MAGENTA.apply('📊 CONFIDENCE SCORE:')} {conf_score}")
+        print(f"  {confidence.get('explanation', 'No explanation provided')}")
 
-        # Display generator script review info if applicable
+        # Generator script modifications (permanent fix suggestions)
         if plan.get("generator_script_review_needed"):
-            print(f"\n{TerminalColor.BRIGHT_YELLOW.apply('⚠️  GENERATOR SCRIPT REVIEW NEEDED')}")
-            print(f"  {TerminalColor.YELLOW.apply('For permanent fix, the workflow generator script needs modification:')}")
+            print(f"\n{'─'*80}")
+            print(f"{TerminalColor.BRIGHT_YELLOW.apply('💡 PERMANENT FIX SUGGESTIONS:')}")
+            print(f"  {TerminalColor.YELLOW.apply('For future workflows, consider updating the generator:')}")
             for suggestion in plan.get("generator_modifications_suggested", []):
                 print(f"    • {suggestion}")
 
-        # Display workflow regeneration info if applicable
+        # Workflow regeneration
         if plan.get("workflow_regeneration_needed"):
-            print(f"\n{TerminalColor.BRIGHT_CYAN.apply('🔄 WORKFLOW REGENERATION RECOMMENDED')}")
-            print(f"  {TerminalColor.CYAN.apply('Reason:')} {plan.get('regeneration_reason', 'Major changes required')}")
+            print(f"\n{'─'*80}")
+            print(f"{TerminalColor.BRIGHT_CYAN.apply('🔄 REGENERATION RECOMMENDED:')}")
+            print(f"  {plan.get('regeneration_reason', 'Major changes required')}")
 
-        print(f"{'='*80}\n")
+        # Manual intervention warning
+        if plan.get("requires_manual_intervention"):
+            print(f"\n{'─'*80}")
+            print(f"{TerminalColor.BRIGHT_RED.apply('⚠️  MANUAL INTERVENTION REQUIRED:')}")
+            print(f"  {plan.get('manual_intervention_reason', 'Complex issue requiring human review')}")
+
+        print(f"\n{'='*80}\n")
 
     def convert_plan_to_execution_request(self, plan: Dict[str, Any]) -> Dict[str, Any]:
         """Convert plan to executor-friendly format"""

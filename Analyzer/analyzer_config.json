@@ -1,6 +1,6 @@
 {
-   "ollama_url": "http://dpwac-2001-863-3aa-5754-f101-cfbf-fe33-9e0e.a.free.pinggy.link/api/generate",
-    "ollama_api_base": "http://dpwac-2001-863-3aa-5754-f101-cfbf-fe33-9e0e.a.free.pinggy.link",
+   "ollama_url": "http://rujzw-2a02-8428-f963-1801-8f1-be85-870a-5970.a.free.pinggy.link/api/generate",
+    "ollama_api_base": "http://rujzw-2a02-8428-f963-1801-8f1-be85-870a-5970.a.free.pinggy.link",
     "ollama_model": "llama3:latest",
     "ollama_check_interval": 30,
     "monitor_url": "ws://localhost:8765",

@@ -69,7 +69,13 @@ class PromptManager:
             "      \"error_level\": \"site/replica/transformation/workflow/other\",\n"
             "      \"priority\": \"high/medium/low\",\n"
             "      \"level\": \"user/system\",\n"
-            "      \"file_path\": \"path/to/file\"\n"
+            "      \"file_path\": \"path/to/file\",\n"
+            "      \"files_needed_for_fix\": [\n"
+            "        {\n"
+            "          \"path\": \"/absolute/path/to/script_or_config\",\n"
+            "          \"reason\": \"Why the Planner needs this file to create a specific fix\"\n"
+            "        }\n"
+            "      ]\n"
             "    }\n"
             "  ],\n"
             "  \"confidence_score\": {\n"
@@ -77,6 +83,28 @@ class PromptManager:
             "    \"explanation\": \"This score is based on the model's assessment of the clarity and completeness of the logs and workflow provided.\"\n"
             "  }\n"
             "}\n"
+            "\n"
+            "IMPORTANT INSTRUCTIONS FOR files_needed_for_fix field:\n"
+            "\n"
+            "🔍 HOW TO EXTRACT TRANSFORMATION SCRIPT PATHS:\n"
+            "1. If error mentions transformation/script name (e.g., 'SyntaxError in FineTuneLLM'):\n"
+            "   → Look in the Workflow JSON for: workflow.pegasus.transformations[] array\n"
+            "   → Find the transformation with matching 'name' field\n"
+            "   → Extract the 'pfn' (Physical File Name) - this is the ACTUAL script path\n"
+            "   → Include this pfn path in files_needed_for_fix\n"
+            "\n"
+            "Example:\n"
+            "  Error log: 'POST_SCRIPT_FAILED for FineTuneLLM transformation - SyntaxError'\n"
+            "  ↓\n"
+            "  Search workflow.pegasus.transformations for name='FineTuneLLM'\n"
+            "  ↓\n"
+            "  Found: {name: 'FineTuneLLM', pfn: '/srv/pegasus-5.0.8/.../bin/FineTuneLLM', ...}\n"
+            "  ↓\n"
+            "  Output: {\"path\": \"/srv/pegasus-5.0.8/.../bin/FineTuneLLM\", \"reason\": \"Need script content to identify and fix SyntaxError\"}\n"
+            "\n"
+            "2. For configuration errors: Specify the config file path\n"
+            "3. For workflow/catalog issues: Usually workflow.yml is already available, no need to request\n"
+            "4. If no additional files needed: Use empty array []\n"
             f"Logs:\n{logs}\n\nWorkflow:\n{json.dumps(workflow, indent=2)}"
         )
     
@@ -782,11 +810,19 @@ class EnhancedAnalyzerAgent:
         error_hierarchy = {
             # Level 1: CODE ERRORS (Most fundamental - always root cause)
             "code_error": {
-                "patterns": ["SyntaxError", "IndentationError", "NameError", "ImportError",
-                           "TypeError", "ValueError", "AttributeError"],
+                "patterns": [
+                    # Python exception names
+                    "SyntaxError", "IndentationError", "NameError", "ImportError",
+                    "TypeError", "ValueError", "AttributeError",
+                    # Natural language descriptions (case-insensitive)
+                    "syntax error", "indentation error", "name error", "import error",
+                    "type error", "value error", "attribute error",
+                    "missing comma", "invalid syntax", "unexpected indent",
+                    "script.*error", "code.*error", "python.*error"  # Flexible patterns
+                ],
                 "priority": 100,  # Highest priority
                 "causes": ["execution failure", "job failed", "POST_SCRIPT_FAILED",
-                          "replica", "staging", "transfer", "output"]
+                          "replica", "staging", "transfer", "output", "unable to transfer"]
             },
 
             # Level 2: CONFIGURATION ERRORS (Very fundamental)
@@ -831,6 +867,8 @@ class EnhancedAnalyzerAgent:
         error_classifications = {}
         error_relationships = {}
 
+        import re
+
         for i, error in enumerate(errors):
             error_text = str(error.get('problem', '')) + " " + str(error.get('explanation', ''))
 
@@ -841,11 +879,21 @@ class EnhancedAnalyzerAgent:
 
             for class_name, class_info in error_hierarchy.items():
                 for pattern in class_info["patterns"]:
-                    if pattern.lower() in error_text.lower():
-                        error_class = class_name
-                        base_priority = class_info["priority"]
-                        can_cause = class_info["causes"]
-                        break
+                    # Support both exact match and regex patterns (case-insensitive)
+                    try:
+                        if re.search(pattern, error_text, re.IGNORECASE):
+                            error_class = class_name
+                            base_priority = class_info["priority"]
+                            can_cause = class_info["causes"]
+                            self.logger.debug(f"Matched pattern '{pattern}' → class '{class_name}' for error: {error_text[:80]}")
+                            break
+                    except re.error:
+                        # If regex fails, fall back to simple substring match
+                        if pattern.lower() in error_text.lower():
+                            error_class = class_name
+                            base_priority = class_info["priority"]
+                            can_cause = class_info["causes"]
+                            break
                 if error_class:
                     break
 
@@ -865,16 +913,30 @@ class EnhancedAnalyzerAgent:
 
                     other_text = str(other_error.get('problem', '')) + " " + str(other_error.get('explanation', ''))
 
-                    # Check if other_error matches what THIS error can cause
+                    # Check if other_error matches what THIS error can cause (regex-aware)
                     for symptom_pattern in can_cause:
-                        if symptom_pattern.lower() in other_text.lower():
-                            causality_score += 1
-                            caused_errors.append({
-                                "error_index": j,
-                                "error": other_error,
-                                "symptom_of": error_text[:80]
-                            })
-                            break
+                        try:
+                            if re.search(symptom_pattern, other_text, re.IGNORECASE):
+                                causality_score += 1
+                                caused_errors.append({
+                                    "error_index": j,
+                                    "error": other_error,
+                                    "symptom_of": error_text[:80],
+                                    "matched_pattern": symptom_pattern
+                                })
+                                self.logger.debug(f"Cascade detected: '{symptom_pattern}' in '{other_text[:60]}...'")
+                                break
+                        except re.error:
+                            # Fallback to simple match
+                            if symptom_pattern.lower() in other_text.lower():
+                                causality_score += 1
+                                caused_errors.append({
+                                    "error_index": j,
+                                    "error": other_error,
+                                    "symptom_of": error_text[:80],
+                                    "matched_pattern": symptom_pattern
+                                })
+                                break
 
             # Final score = base_priority + (10 * number_of_errors_it_causes)
             # This ensures:
@@ -890,15 +952,22 @@ class EnhancedAnalyzerAgent:
                 "caused_errors": caused_errors
             }
 
-        self.logger.info(f"Error classification results:")
+        self.logger.info(f"Smart Causality Analysis - Error Classification:")
         for i, classification in error_classifications.items():
+            error_preview = errors[i].get('problem', '')[:60]
             self.logger.info(
-                f"  Error {i}: {errors[i].get('problem', '')[:50]}... "
-                f"→ Class: {classification['class']}, "
+                f"  Error {i}: '{error_preview}...' "
+                f"→ Class: {classification['class'].upper()}, "
                 f"Priority: {classification['base_priority']}, "
-                f"Causes: {classification['causality_score']} errors, "
-                f"Final Score: {classification['final_score']}"
+                f"Causes: {classification['causality_score']} cascade errors, "
+                f"Score: {classification['final_score']}"
             )
+
+            # Show what this error causes
+            if classification['caused_errors']:
+                for cascade in classification['caused_errors']:
+                    cascade_preview = cascade['error'].get('problem', '')[:50]
+                    self.logger.info(f"    └─> Causes: '{cascade_preview}...' (pattern: {cascade['matched_pattern']})")
 
         # Find the error with HIGHEST score = ROOT CAUSE
         if error_classifications:
