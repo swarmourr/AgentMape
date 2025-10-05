@@ -1798,10 +1798,52 @@ class PlannerHTTPServer:
             "timestamp": datetime.now().isoformat()
         })
 
+    def save_request_to_file(self, request_type: str, data: Dict[str, Any], agent_name: str = "planner"):
+        """Save last request to file for debugging"""
+        try:
+            import json
+            from datetime import datetime
+
+            # Create logs directory if it doesn't exist
+            logs_dir = os.path.join(os.path.dirname(__file__), "logs")
+            os.makedirs(logs_dir, exist_ok=True)
+
+            # Create filename
+            filename = f"{agent_name}_last_{request_type}.json"
+            filepath = os.path.join(logs_dir, filename)
+
+            # Also keep timestamped version
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            timestamped_filename = f"{agent_name}_{request_type}_{timestamp}.json"
+            timestamped_filepath = os.path.join(logs_dir, timestamped_filename)
+
+            # Prepare data with metadata
+            request_log = {
+                "timestamp": datetime.now().isoformat(),
+                "request_type": request_type,
+                "agent": agent_name,
+                "data": data
+            }
+
+            # Write to both files
+            with open(filepath, 'w') as f:
+                json.dump(request_log, f, indent=2)
+
+            with open(timestamped_filepath, 'w') as f:
+                json.dump(request_log, f, indent=2)
+
+            logger.info(f"Saved {request_type} request to {filename}")
+
+        except Exception as e:
+            logger.error(f"Failed to save request to file: {e}")
+
     async def handle_analysis_complete(self, request):
         """Handle analysis completion webhook from Analyzer"""
         try:
             data = await request.json()
+
+            # Save incoming request to file
+            self.save_request_to_file("analysis_complete", data, "planner")
 
             workflow_id = data.get("workflow_id")
             analysis_result = data.get("result", {}).get("analysis", {})

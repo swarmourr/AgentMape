@@ -2363,10 +2363,50 @@ class EnhancedAnalyzerAgent:
         except Exception as e:
             return web.json_response({"status": "error", "error": str(e)}, status=500)
 
+    def save_request_to_file(self, request_type: str, data: Dict[str, Any], agent_name: str = "analyzer"):
+        """Save last request to file for debugging"""
+        try:
+            # Create logs directory if it doesn't exist
+            logs_dir = os.path.join(os.path.dirname(__file__), "logs")
+            os.makedirs(logs_dir, exist_ok=True)
+
+            # Create filename
+            filename = f"{agent_name}_last_{request_type}.json"
+            filepath = os.path.join(logs_dir, filename)
+
+            # Also keep timestamped version
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            timestamped_filename = f"{agent_name}_{request_type}_{timestamp}.json"
+            timestamped_filepath = os.path.join(logs_dir, timestamped_filename)
+
+            # Prepare data with metadata
+            request_log = {
+                "timestamp": datetime.now().isoformat(),
+                "request_type": request_type,
+                "agent": agent_name,
+                "data": data
+            }
+
+            # Write to both files
+            with open(filepath, 'w') as f:
+                json.dump(request_log, f, indent=2)
+
+            with open(timestamped_filepath, 'w') as f:
+                json.dump(request_log, f, indent=2)
+
+            self.logger.info(f"Saved {request_type} request to {filename}")
+
+        except Exception as e:
+            self.logger.error(f"Failed to save request to file: {e}")
+
     async def handle_analyze_request(self, request):
         """Handle analysis request from monitor agent"""
         try:
             data = await request.json()
+
+            # Save incoming request to file
+            self.save_request_to_file("analyze_request", data, "analyzer")
+
             workflow_id = data.get('workflow_id')
             workflow_dir = data.get('workflow_dir')
             analysis_type = data.get('analysis_type', 'failed')
@@ -2522,6 +2562,9 @@ class EnhancedAnalyzerAgent:
                                 "completed_at": datetime.now().isoformat(),
                                 "analyzer_id": "analyzer_001"
                             }
+
+                            # Save outgoing webhook to file
+                            self.save_request_to_file("webhook_to_monitor", webhook_data, "analyzer")
 
                             url = f"{monitor['http_url']}/webhooks/analysis-complete"
                             async with session.post(url, json=webhook_data) as resp:
@@ -2724,6 +2767,9 @@ class EnhancedAnalyzerAgent:
             print(f"    {TerminalColor.BRIGHT_MAGENTA.apply('='*76)}\n")
 
             print(f"    {TerminalColor.YELLOW.apply('◆')} Sending to Planner: {webhook_url}")
+
+            # Save outgoing webhook to file
+            self.save_request_to_file("webhook_to_planner", webhook_data, "analyzer")
 
             # Send to Planner
             async with ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
