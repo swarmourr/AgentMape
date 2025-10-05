@@ -2480,8 +2480,30 @@ class EnhancedAnalyzerAgent:
             print(f"      - Catalogs included: {sum(1 for k, v in catalogs.items() if isinstance(v, dict))}")
             print(f"      - Analysis problems: {len(analysis_data.get('analysis', {}).get('problems_and_solutions', []))}")
 
+            # ENHANCED: Normalize held workflow analysis to problems_and_solutions format
+            analysis = analysis_data.get('analysis', {})
+
+            # Check if this is a held workflow with hold_analysis instead of problems_and_solutions
+            if 'hold_analysis' in analysis and 'problems_and_solutions' not in analysis:
+                # Convert hold_analysis to problems_and_solutions format
+                hold_items = analysis.get('hold_analysis', [])
+                problems_list = []
+
+                for hold_item in hold_items:
+                    problems_list.append({
+                        "problem": hold_item.get('reason', 'Unknown hold reason'),
+                        "solution": hold_item.get('solution', 'No solution provided'),
+                        "priority": hold_item.get('priority', 'medium'),
+                        "error_level": hold_item.get('category', 'other'),
+                        "explanation": f"Workflow held: {hold_item.get('reason', 'Unknown')}"
+                    })
+
+                # Add to analysis structure
+                analysis['problems_and_solutions'] = problems_list
+                self.logger.info(f"Normalized {len(problems_list)} hold issues to problems_and_solutions format")
+
             # ENHANCED: Identify parent error for root cause analysis
-            problems = analysis_data.get('analysis', {}).get('problems_and_solutions', [])
+            problems = analysis.get('problems_and_solutions', [])
             parent_error_analysis = None
 
             if len(problems) > 1:

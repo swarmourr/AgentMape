@@ -207,29 +207,101 @@ class PegasusWorkflowManager:
         return workflow_logger
 
     # FIXED: Thread-safe method to queue analysis requests
-    def schedule_analysis_request(self, workflow_id: str, workflow_dir: str, analysis_type: str):
-        """Thread-safe method to schedule analysis request with deduplication"""
+    def schedule_analysis_request(self, workflow_id: str, workflow_dir: str, analysis_type: str, delay_seconds: int = 30):
+        """
+        Thread-safe method to schedule analysis request with intelligent batching
+
+        Instead of immediate analysis, we WAIT to collect all information:
+        - Multiple held jobs
+        - Error logs
+        - Workflow state changes
+
+        After delay_seconds, we send ONE complete analysis request
+        """
         try:
-            # ENHANCED: Check if workflow already in queue (deduplication)
-            already_queued = any(req['workflow_id'] == workflow_id for req in self.pending_analysis_queue)
+            import threading
 
-            if already_queued:
-                logger.info(f"Workflow {workflow_id} already in analysis queue, skipping duplicate request (type: {analysis_type})")
-                return
+            # ENHANCED: Check if workflow already has a pending batch timer
+            if workflow_id in getattr(self, 'batch_timers', {}):
+                logger.info(f"Workflow {workflow_id} already has pending batch analysis, extending collection time...")
+                # Cancel old timer and create new one (reset the wait period)
+                old_timer = self.batch_timers[workflow_id]
+                old_timer.cancel()
 
-            analysis_request = {
-                "workflow_id": workflow_id,
-                "workflow_dir": workflow_dir,
-                "analysis_type": analysis_type,
-                "timestamp": datetime.now().isoformat(),
-                "request_id": str(uuid.uuid4())
-            }
+            if not hasattr(self, 'batch_timers'):
+                self.batch_timers = {}
 
-            self.pending_analysis_queue.append(analysis_request)
-            logger.info(f"Queued analysis request for workflow {workflow_id} (type: {analysis_type}, queue size: {len(self.pending_analysis_queue)})")
+            if not hasattr(self, 'batch_data'):
+                self.batch_data = {}
+
+            # Collect information for this workflow
+            if workflow_id not in self.batch_data:
+                self.batch_data[workflow_id] = {
+                    "workflow_id": workflow_id,
+                    "workflow_dir": workflow_dir,
+                    "analysis_types": set(),
+                    "first_detection": datetime.now().isoformat(),
+                    "last_update": datetime.now().isoformat()
+                }
+
+            # Add this analysis type to the batch
+            self.batch_data[workflow_id]["analysis_types"].add(analysis_type)
+            self.batch_data[workflow_id]["last_update"] = datetime.now().isoformat()
+
+            logger.info(f"Batching workflow {workflow_id}: types={self.batch_data[workflow_id]['analysis_types']}, will analyze in {delay_seconds}s")
+
+            # Create timer to send batch after delay
+            def send_batch():
+                try:
+                    batch_info = self.batch_data.get(workflow_id)
+                    if not batch_info:
+                        return
+
+                    # Determine best analysis type (priority: failure > held > other)
+                    analysis_types = batch_info["analysis_types"]
+                    if "failure_analysis" in analysis_types or "failed" in analysis_types:
+                        final_type = "failure_analysis"
+                    elif "held" in analysis_types:
+                        final_type = "held"
+                    else:
+                        final_type = list(analysis_types)[0]
+
+                    logger.info(f"📦 Sending BATCHED analysis for workflow {workflow_id} (collected types: {analysis_types}, using: {final_type})")
+
+                    # Create single analysis request
+                    analysis_request = {
+                        "workflow_id": workflow_id,
+                        "workflow_dir": batch_info["workflow_dir"],
+                        "analysis_type": final_type,
+                        "timestamp": datetime.now().isoformat(),
+                        "request_id": str(uuid.uuid4()),
+                        "batch_info": {
+                            "collected_types": list(analysis_types),
+                            "collection_duration": delay_seconds,
+                            "first_detection": batch_info["first_detection"]
+                        }
+                    }
+
+                    self.pending_analysis_queue.append(analysis_request)
+                    logger.info(f"✅ Queued SINGLE batched analysis for workflow {workflow_id} (queue size: {len(self.pending_analysis_queue)})")
+
+                    # Cleanup
+                    if workflow_id in self.batch_data:
+                        del self.batch_data[workflow_id]
+                    if workflow_id in self.batch_timers:
+                        del self.batch_timers[workflow_id]
+
+                except Exception as e:
+                    logger.error(f"Error sending batch: {e}")
+
+            # Start timer
+            timer = threading.Timer(delay_seconds, send_batch)
+            timer.daemon = True
+            timer.start()
+            self.batch_timers[workflow_id] = timer
 
         except Exception as e:
-            logger.error(f"Error queuing analysis request: {e}")
+            logger.error(f"Error scheduling batched analysis request: {e}")
 
     async def request_workflow_analysis(self, workflow_id: str, workflow_dir: str, analysis_type: str = "failed") -> Dict[str, Any]:
         """Request analysis from analyzer agent via HTTP - ENHANCED with catalog context"""
@@ -568,8 +640,9 @@ class PegasusWorkflowManager:
 
         self.queue_notification("workflow_held", notification_data)
         
-        # FIXED: Use thread-safe scheduling instead of asyncio.create_task
-        self.schedule_analysis_request(workflow_id, workflow_dir, "held")
+        # FIXED: Use thread-safe batched scheduling
+        batch_delay = self.config.get("analysis_batch_delay", 30)
+        self.schedule_analysis_request(workflow_id, workflow_dir, "held", delay_seconds=batch_delay)
 
     def notify_workflow_failed_sync(self, workflow_id: str, workflow_dir: str, failure_context: Dict[str, Any] = None):
         """Synchronous notification for failed workflow with analysis request"""
@@ -1584,9 +1657,10 @@ class PegasusWorkflowManager:
 
         # ENHANCED: Trigger analysis automatically if enabled
         if self.config.get("auto_analysis_enabled", False):
-            logger.info(f"Auto-analysis enabled: Scheduling analysis request for workflow {workflow_id}")
-            # FIXED: Use centralized deduplication in schedule_analysis_request
-            self.schedule_analysis_request(workflow_id, workflow_dir, "failure_analysis")
+            logger.info(f"Auto-analysis enabled: Scheduling batched analysis request for workflow {workflow_id}")
+            # FIXED: Use centralized batched scheduling
+            batch_delay = self.config.get("analysis_batch_delay", 30)
+            self.schedule_analysis_request(workflow_id, workflow_dir, "failure_analysis", delay_seconds=batch_delay)
 
     def remove_workflow(self, workflow_id: str):
         """Remove workflow from monitoring"""

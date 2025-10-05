@@ -9,5 +9,6 @@
     "max_retries_for_held_jobs": 3,
     "health_check_interval": 60,
     "auto_analysis_enabled": true,
-    "push_notifications_enabled": true
+    "push_notifications_enabled": true,
+    "analysis_batch_delay": 30
 }

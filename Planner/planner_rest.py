@@ -94,11 +94,12 @@ class OllamaManager:
             "options": {
                 "temperature": 0.1,
                 "top_p": 0.9,
-                "num_predict": 3000
+                "num_predict": 8000  # Increased from 3000 to allow longer responses
             }
         }
 
         try:
+            logger.info(f"Calling Ollama with prompt length: {len(full_prompt)} chars")
             response = requests.post(
                 self.ollama_url,
                 json=payload,
@@ -106,13 +107,24 @@ class OllamaManager:
             )
 
             if response.status_code == 200:
-                return response.json()
+                result = response.json()
+                response_text = result.get("response", "")
+                logger.info(f"Ollama response length: {len(response_text)} chars")
+
+                # Check if response was truncated
+                if result.get("done") == False:
+                    logger.warning("Ollama response may be truncated (done=False)")
+
+                return result
             else:
                 logger.error(f"Ollama API error: {response.status_code}")
+                logger.error(f"Response body: {response.text[:500]}")
                 return None
 
         except Exception as e:
             logger.error(f"Ollama call failed: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return None
 
 
@@ -1088,16 +1100,34 @@ class LLMPlanner:
         """Parse LLM JSON response"""
         response_text = llm_response.get("response", "")
 
+        # Log raw response for debugging
+        logger.info(f"Raw LLM response (first 500 chars): {response_text[:500]}")
+
         # Clean up markdown if present
         if "```json" in response_text:
             start = response_text.find("```json") + 7
             end = response_text.rfind("```")
             if end > start:
                 response_text = response_text[start:end].strip()
+        elif "```" in response_text:
+            # Try without json keyword
+            start = response_text.find("```") + 3
+            end = response_text.rfind("```")
+            if end > start:
+                response_text = response_text[start:end].strip()
 
-        # Parse JSON
-        plan = json.loads(response_text)
-        return plan
+        # Log cleaned response
+        logger.info(f"Cleaned response (first 500 chars): {response_text[:500]}")
+
+        try:
+            # Parse JSON
+            plan = json.loads(response_text)
+            logger.info(f"Successfully parsed plan with keys: {list(plan.keys())}")
+            return plan
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON parse error: {e}")
+            logger.error(f"Failed to parse response: {response_text[:1000]}")
+            raise
 
     def generate_fallback_plan(self, analysis_result: Dict[str, Any], workflow_context: Dict[str, Any]) -> Dict[str, Any]:
         """Generate basic fallback plan without LLM"""
