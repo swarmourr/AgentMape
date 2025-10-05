@@ -41,6 +41,7 @@ class TerminalColor(Enum):
     CYAN = '\033[36m'
     MAGENTA = '\033[35m'
     WHITE = '\033[97m'
+    BRIGHT_RED = '\033[91m'
     BRIGHT_WHITE = '\033[97;1m'
     BRIGHT_GREEN = '\033[92m'
     BRIGHT_YELLOW = '\033[93m'
@@ -1425,7 +1426,35 @@ IMPORTANT: Keep your response concise. Only include the JSON object, no extra te
             return self.generate_fallback_plan(analysis_result, workflow_context)
 
     async def request_file_from_monitor(self, file_path: str, workflow_id: str = None) -> Dict[str, Any]:
-        """Request specific file content from Monitor on demand"""
+        """Read file content directly from filesystem (or request from Monitor as fallback)"""
+
+        # STRATEGY 1: Try to read file directly (faster, more reliable)
+        if os.path.exists(file_path):
+            try:
+                logger.info(f"Reading file directly: {file_path}")
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+
+                file_size = os.path.getsize(file_path)
+
+                # Limit file size to 10MB
+                if file_size > 10 * 1024 * 1024:
+                    logger.warning(f"File too large: {file_size} bytes, truncating to 10MB")
+                    content = content[:10 * 1024 * 1024]
+
+                return {
+                    "success": True,
+                    "file_path": file_path,
+                    "content": content,
+                    "size_bytes": file_size,
+                    "method": "direct_read"
+                }
+
+            except Exception as e:
+                logger.error(f"Failed to read file directly: {e}")
+                # Fall through to Monitor request
+
+        # STRATEGY 2: Request from Monitor (fallback for files Planner can't access)
         try:
             monitor_url = self.config.get("monitor_url", "http://localhost:8080")
 
@@ -1445,19 +1474,20 @@ IMPORTANT: Keep your response concise. Only include the JSON object, no extra te
                 ) as resp:
                     if resp.status == 200:
                         result = await resp.json()
-                        logger.info(f"Received file content: {file_path} ({result.get('size_bytes', 0)} bytes)")
+                        result['method'] = 'monitor_request'
+                        logger.info(f"Received file from Monitor: {file_path} ({result.get('size_bytes', 0)} bytes)")
                         return result
                     else:
                         error_text = await resp.text()
                         logger.error(f"Failed to get file from Monitor: {resp.status} - {error_text}")
-                        return {"error": error_text, "status": resp.status}
+                        return {"success": False, "error": error_text, "status": resp.status}
 
         except asyncio.TimeoutError:
             logger.error(f"Timeout requesting file from Monitor: {file_path}")
-            return {"error": "Request timeout"}
+            return {"success": False, "error": "Request timeout"}
         except Exception as e:
             logger.error(f"Error requesting file from Monitor: {e}")
-            return {"error": str(e)}
+            return {"success": False, "error": str(e)}
 
     def parse_llm_response(self, llm_response: Dict[str, Any]) -> Dict[str, Any]:
         """Parse LLM JSON response"""
