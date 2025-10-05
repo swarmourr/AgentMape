@@ -1295,6 +1295,22 @@ class LLMPlanner:
             use_multi_stage=False
         )
 
+    def _format_transformations(self, transformations: List[Dict]) -> str:
+        """Format transformations list for LLM prompt"""
+        if not transformations:
+            return "  (No transformations defined in workflow)"
+
+        formatted = []
+        for trans in transformations:
+            name = trans.get('name', 'unknown')
+            pfn = trans.get('pfn', 'N/A')
+            namespace = trans.get('namespace', '')
+            full_name = f"{namespace}::{name}" if namespace else name
+            formatted.append(f"  - {full_name}")
+            formatted.append(f"    pfn: {pfn}")
+
+        return '\n'.join(formatted) if formatted else "  (No transformations)"
+
     def _build_file_identification_prompt(self, analysis_result: Dict[str, Any], workflow_context: Dict[str, Any]) -> str:
         """Build compact prompt for Stage 1: File identification"""
 
@@ -1325,7 +1341,8 @@ Error Level: {main_error.get('error_level', 'unknown')}
 
 WORKFLOW STRUCTURE:
 Jobs: {len(parsed_structure.get('jobs', []))}
-Transformations: {parsed_structure.get('transformations', [])}
+Transformations Available:
+{self._format_transformations(parsed_structure.get('transformations', []))}
 
 YOUR TASK:
 Analyze this error and determine which files are needed to create a specific fix.
