@@ -1469,12 +1469,16 @@ IMPORTANT: Keep your response concise. Only include the JSON object, no extra te
             return self.generate_fallback_plan(analysis_result, workflow_context)
 
     async def request_file_from_monitor(self, file_path: str, workflow_id: str = None) -> Dict[str, Any]:
-        """Read file content directly from filesystem (or request from Monitor as fallback)"""
+        """Request file content from Monitor (which has access to cluster filesystem)"""
 
-        # STRATEGY 1: Try to read file directly (faster, more reliable)
-        if os.path.exists(file_path):
+        # Check if this looks like a cluster/remote path
+        remote_prefixes = ['/srv/', '/home/', '/opt/', '/usr/local/', '/data/', '/scratch/']
+        is_remote_path = any(file_path.startswith(prefix) for prefix in remote_prefixes)
+
+        # STRATEGY 1: Try direct read ONLY for local paths (workflow YAML, config files in same dir)
+        if not is_remote_path and os.path.exists(file_path):
             try:
-                logger.info(f"Reading file directly: {file_path}")
+                logger.info(f"Reading file directly (local): {file_path}")
                 with open(file_path, 'r', encoding='utf-8') as f:
                     content = f.read()
 
@@ -1497,7 +1501,7 @@ IMPORTANT: Keep your response concise. Only include the JSON object, no extra te
                 logger.error(f"Failed to read file directly: {e}")
                 # Fall through to Monitor request
 
-        # STRATEGY 2: Request from Monitor (fallback for files Planner can't access)
+        # STRATEGY 2: Request from Monitor (for cluster/remote files)
         try:
             monitor_url = self.config.get("monitor_url", "http://localhost:8080")
 

@@ -822,16 +822,34 @@ class PegasusWorkflowManager:
 
             # Extract transformation catalog (if embedded)
             if 'transformationCatalog' in workflow_data or 'pegasus' in workflow_data:
+                # Check both locations: transformationCatalog.transformations AND pegasus.transformations
+                tc_section = workflow_data.get('transformationCatalog', {})
                 pegasus_section = workflow_data.get('pegasus', {})
-                if 'transformations' in pegasus_section:
+
+                transformations_list = tc_section.get('transformations', []) or pegasus_section.get('transformations', [])
+
+                if transformations_list:
                     parsed_structure['catalog_locations']['transformation'] = 'embedded'
-                    for trans in pegasus_section['transformations']:
+                    for trans in transformations_list:
+                        # Transformations can have site-specific pfns
+                        sites = trans.get('sites', [])
+
+                        if sites:
+                            # Use first site's pfn
+                            first_site = sites[0]
+                            pfn = first_site.get('pfn', '')
+                            site = first_site.get('name', '')
+                        else:
+                            # Direct pfn (older format)
+                            pfn = trans.get('pfn', '')
+                            site = trans.get('site', '')
+
                         parsed_structure['transformations'].append({
                             "namespace": trans.get('namespace', ''),
                             "name": trans.get('name', ''),
                             "version": trans.get('version', ''),
-                            "site": trans.get('site', ''),
-                            "pfn": trans.get('pfn', ''),
+                            "site": site,
+                            "pfn": pfn,
                             "type": trans.get('type', 'STAGEABLE')
                         })
 

@@ -1,6 +1,6 @@
 {
-    "ollama_url": "http://mmynm-37-66-209-93.a.free.pinggy.link/api/generate",
-    "ollama_api_base": "http://mmynm-37-66-209-93.a.free.pinggy.link",
+    "ollama_url": "http://hocum-2a02-8428-f963-1801-8f1-be85-870a-5970.a.free.pinggy.link/api/generate",
+    "ollama_api_base": "http://hocum-2a02-8428-f963-1801-8f1-be85-870a-5970.a.free.pinggy.link",
     "ollama_model": "llama3:latest",
     "ollama_check_interval": 30,
     "monitor_url": "http://localhost:8080",
