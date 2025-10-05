@@ -1207,9 +1207,14 @@ class LLMPlanner:
         print(f"{TerminalColor.BRIGHT_MAGENTA.apply('📋 STAGE 1: Identifying Required Files')}")
         print(f"Analyzing error to determine which files are needed for the fix...\n")
 
-        stage1_prompt = self._build_file_identification_prompt(analysis_result, workflow_context)
-
-        logger.info(f"Stage 1 prompt size: {len(stage1_prompt)} chars")
+        try:
+            stage1_prompt = self._build_file_identification_prompt(analysis_result, workflow_context)
+            logger.info(f"Stage 1 prompt size: {len(stage1_prompt)} chars")
+        except Exception as e:
+            logger.error(f"Failed to build Stage 1 prompt: {e}", exc_info=True)
+            print(f"{TerminalColor.RED.apply('✗ Error:')} Failed to build prompt: {str(e)}")
+            print(f"{TerminalColor.YELLOW.apply('→')} Falling back to single-stage approach\n")
+            return await self.generate_plan_with_llm(analysis_result, catalogs, workflow_context, use_multi_stage=False)
 
         try:
             stage1_response = self.ollama_manager.call_llm(stage1_prompt, "You are a Pegasus workflow debugging assistant. Identify which files are needed to fix errors.")
