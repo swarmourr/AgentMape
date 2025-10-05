@@ -226,19 +226,29 @@ PARENT ERROR WILL BE PROVIDED IN:
 - workflow_context['parent_error_analysis']['cascade_errors'] - Will auto-resolve (ignore these)
 - workflow_context['parent_error_analysis']['confidence'] - How confident we are
 
-ERROR TYPE MATCHING:
+⚠️ CRITICAL: READ THE ACTUAL ERROR - DON'T ASSUME!
+
+ERROR TYPE MATCHING (match solution to ACTUAL error):
 1. If analysis mentions "SyntaxError" or "Python error" → Fix Python script, NOT catalog
 2. If analysis mentions "memory exceeded" or "out of memory" → Fix memory in catalog
 3. If analysis mentions "missing file" or "file not found" → Fix replica catalog
 4. If analysis mentions "permission denied" → Fix permissions, NOT catalog
-5. If analysis mentions "syntax error in script" → Manual code review needed
+5. If analysis mentions "syntax error in script" → Fix the script code (use sed/awk)
 6. If error doesn't match known patterns → Use diagnostic commands
 
+🚨 STOP DEFAULTING TO MEMORY FIXES! 🚨
+- NOT every workflow error is a memory issue!
+- Read the analysis.problems_and_solutions carefully
+- Look at the actual error message in the problem field
+- Match your solution to the ACTUAL error type
+- If it's a SyntaxError → Fix syntax, NOT memory
+- If it's a missing file → Fix path, NOT memory
+- If it's a permission issue → Fix permissions, NOT memory
+
 IMPORTANT RULES:
-- 🚨 READ THE ERROR MESSAGE - Don't assume it's a memory issue!
-- Match your solution to the ACTUAL error type from the analysis
-- If analysis says "SyntaxError in script" → DO NOT fix memory!
 - ALWAYS include NEW submission step after modifying workflow YAML
+- Generate ONLY ONE plan with the best solution
+- Focus on the ROOT CAUSE from parent_error_analysis if available
 - DO NOT use --cleanup inplace (we want a new run, not replan the old failed one)
 - ALWAYS consider if the fix should be in the GENERATOR script (for permanent fix)
 - For resource problems: update transformation/site catalog AND suggest generator changes
@@ -315,6 +325,27 @@ EXAMPLE WRONG COMMAND (DO NOT DO THIS):
 {analysis_section}
 """
 
+        # ENHANCED: Add requested files content if available
+        requested_files_content = workflow_context.get('requested_files_content', {})
+        if requested_files_content:
+            files_section = "\n\n=== REQUESTED FILES CONTENT ===\n"
+            files_section += "You requested these files, and here they are:\n\n"
+
+            for file_path, content in requested_files_content.items():
+                files_section += f"\n--- FILE: {file_path} ---\n"
+                if content.startswith("ERROR:"):
+                    files_section += f"{content}\n"
+                else:
+                    # Limit content to 10000 chars for very large files
+                    if len(content) > 10000:
+                        files_section += f"{content[:10000]}\n... (truncated - file too large)\n"
+                    else:
+                        files_section += f"{content}\n"
+                files_section += f"--- END FILE: {file_path} ---\n"
+
+            files_section += "\nNow you have the file content. Generate the specific fix based on what you see.\n"
+            prompt += files_section
+
         # ENHANCED: Add parent error analysis if available
         parent_error_analysis = workflow_context.get('parent_error_analysis')
         if parent_error_analysis and parent_error_analysis.get('parent_error'):
@@ -357,9 +388,46 @@ Analysis Method: {method}
         prompt += """
 
 === YOUR TASK ===
-Generate a repair plan with the following JSON structure:
+
+🔍 IMPORTANT: CAN YOU FIX THIS WITH CURRENT INFORMATION?
+
+Before generating a repair plan, ask yourself:
+1. Do I have enough information to create a specific fix?
+2. For SyntaxError/script issues: Do I have the actual script content?
+3. For configuration issues: Do I have the relevant config file?
+4. For path issues: Do I have the workflow descriptor details?
+
+IF YOU NEED MORE FILES TO CREATE AN ACCURATE FIX:
+Instead of guessing, REQUEST the files you need! Use this JSON format:
 
 {{
+  "needs_more_information": true,
+  "requested_files": [
+    {{
+      "file_path": "/absolute/path/to/file",
+      "reason": "Why you need this file - be specific about what you'll look for"
+    }}
+  ],
+  "analysis_summary": "What you know so far and what's missing"
+}}
+
+Example - When you need a script to fix syntax error:
+{{
+  "needs_more_information": true,
+  "requested_files": [
+    {{
+      "file_path": "/srv/FineTuneLLM",
+      "reason": "Need to see the actual Python script to identify and fix the SyntaxError mentioned in the analysis"
+    }}
+  ],
+  "analysis_summary": "Error indicates SyntaxError in FineTuneLLM transformation script. I need to see the script content to identify the exact syntax issue (missing comma, parenthesis, etc.) and generate a specific sed/awk fix command."
+}}
+
+IF YOU HAVE ENOUGH INFORMATION TO FIX:
+Generate a complete repair plan with this JSON structure:
+
+{{
+  "needs_more_information": false,
   "plan_summary": "Brief description of the fix",
   "repair_strategy": "automatic|semi-automatic|manual",
   "estimated_time": "time estimate",
@@ -532,11 +600,21 @@ COMMAND SYNTAX GUIDE:
 - Check workflow status: pegasus-status /workflow/submit-dir
 - Regenerate workflow: cd /workflow && python generate_workflow.py && pegasus-plan workflow.yml
 
-REPAIR STRATEGY DECISION:
-- Use QUICK FIX (modify workflow.yml) if: One-time issue, need immediate resolution
-- Use PERMANENT FIX (modify generator) if: Recurring issue, need long-term solution
-- Use WORKFLOW REGENERATION if: Major changes needed, multiple catalog updates
-- ALWAYS mention both quick and permanent fix options in the plan
+🎯 REPAIR STRATEGY DECISION - CHOOSE THE BEST ONE:
+
+You must generate ONE SINGLE plan with the BEST solution, not multiple options!
+
+Choose the most appropriate strategy:
+1. QUICK FIX (modify workflow.yml): For one-time issues, immediate resolution needed
+2. PERMANENT FIX (modify generator): For recurring issues, long-term solution needed
+3. WORKFLOW REGENERATION: For major changes, multiple catalog updates
+
+⚠️ IMPORTANT:
+- Generate ONLY ONE plan with the BEST approach for this specific error
+- Do NOT create multiple alternative plans
+- Do NOT include "Option 1", "Option 2" in your plan
+- Pick the MOST EFFECTIVE solution and create repair_steps for ONLY that solution
+- You can MENTION the permanent fix in "generator_modifications_suggested" field, but repair_steps should contain ONLY the immediate fix
 
 🚨 CRITICAL REMINDERS BEFORE GENERATING PLAN 🚨:
 
@@ -589,6 +667,13 @@ REPAIR STRATEGY DECISION:
 4. Are you confident in the fix?
    - Script content visible + clear syntax error → Provide sed/awk fix command
    - No script content OR complex error → Set requires_manual_intervention: true
+
+🎯 GENERATE ONE SINGLE PLAN - NO ALTERNATIVES:
+- Output ONLY ONE JSON plan object
+- Do NOT generate multiple plans or options
+- Do NOT use "Option 1", "Alternative A", "Approach 1" language
+- Pick the BEST solution and create steps for ONLY that solution
+- If you want to mention alternatives, use the "generator_modifications_suggested" field for permanent fixes
 
 Generate the plan now with EXACT paths, NEW submission (NOT replan), and use transformation_scripts content if available:
 """
@@ -857,11 +942,19 @@ class LLMPlanner:
         self,
         analysis_result: Dict[str, Any],
         catalogs: Dict[str, Any],
-        workflow_context: Dict[str, Any]
+        workflow_context: Dict[str, Any],
+        additional_files: Dict[str, str] = None
     ) -> Dict[str, Any]:
-        """Generate repair plan using LLM"""
+        """Generate repair plan using LLM with optional file request capability"""
 
-        logger.info(f"Generating plan for workflow {workflow_context.get('workflow_id')}")
+        workflow_id = workflow_context.get('workflow_id')
+        logger.info(f"Generating plan for workflow {workflow_id}")
+
+        # Add additional files to workflow context if provided
+        if additional_files:
+            if 'requested_files_content' not in workflow_context:
+                workflow_context['requested_files_content'] = {}
+            workflow_context['requested_files_content'].update(additional_files)
 
         # Build prompt
         prompt = self.prompt_builder.build_planner_prompt(analysis_result, catalogs, workflow_context)
@@ -874,12 +967,17 @@ class LLMPlanner:
                 # Parse LLM output
                 plan = self.parse_llm_response(llm_response)
 
+                # Check if LLM is requesting more files
+                if plan.get('needs_more_information'):
+                    logger.info(f"LLM requesting additional files for {workflow_id}")
+                    return await self.handle_file_request(plan, analysis_result, catalogs, workflow_context)
+
                 # Validate plan
                 validation_result = self.validator.validate_plan(plan, workflow_context)
 
                 # Add metadata
                 plan["plan_id"] = str(uuid.uuid4())
-                plan["workflow_id"] = workflow_context.get("workflow_id")
+                plan["workflow_id"] = workflow_id
                 plan["created_at"] = datetime.now().isoformat()
                 plan["validation_result"] = validation_result
                 plan["llm_used"] = True
@@ -898,6 +996,93 @@ class LLMPlanner:
         else:
             logger.warning("LLM not available, using fallback planning")
             return self.generate_fallback_plan(analysis_result, workflow_context)
+
+    async def handle_file_request(
+        self,
+        file_request: Dict[str, Any],
+        analysis_result: Dict[str, Any],
+        catalogs: Dict[str, Any],
+        workflow_context: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Handle LLM's request for additional files"""
+
+        workflow_id = workflow_context.get('workflow_id')
+        requested_files = file_request.get('requested_files', [])
+
+        print(f"\n{TerminalColor.BRIGHT_YELLOW.apply('🔍 LLM REQUESTING ADDITIONAL FILES:')}")
+        print(f"Analysis: {file_request.get('analysis_summary', 'No summary provided')}")
+        print(f"Requested files: {len(requested_files)}")
+
+        # Fetch files from Monitor
+        fetched_files = {}
+
+        for file_req in requested_files:
+            file_path = file_req.get('file_path')
+            reason = file_req.get('reason', 'Not specified')
+
+            print(f"\n  {TerminalColor.CYAN.apply('→')} Requesting: {file_path}")
+            print(f"    Reason: {reason}")
+
+            # Request file from Monitor via PlannerHTTPServer's method
+            file_data = await self.request_file_from_monitor(file_path, workflow_id)
+
+            if file_data.get('success'):
+                content = file_data.get('content')
+                size = file_data.get('size_bytes', 0)
+                fetched_files[file_path] = content
+                print(f"    {TerminalColor.GREEN.apply('✓')} Received ({size} bytes)")
+            else:
+                error = file_data.get('error', 'Unknown error')
+                print(f"    {TerminalColor.RED.apply('✗')} Failed: {error}")
+                fetched_files[file_path] = f"ERROR: Could not fetch file - {error}"
+
+        # Regenerate plan with the fetched files
+        if fetched_files:
+            print(f"\n{TerminalColor.BRIGHT_MAGENTA.apply('🤖 REGENERATING PLAN WITH ADDITIONAL FILES...')}")
+            return await self.generate_plan_with_llm(
+                analysis_result,
+                catalogs,
+                workflow_context,
+                additional_files=fetched_files
+            )
+        else:
+            logger.warning("No files could be fetched, generating fallback plan")
+            return self.generate_fallback_plan(analysis_result, workflow_context)
+
+    async def request_file_from_monitor(self, file_path: str, workflow_id: str = None) -> Dict[str, Any]:
+        """Request specific file content from Monitor on demand"""
+        try:
+            monitor_url = self.config.get("monitor_url", "http://localhost:8080")
+
+            request_data = {
+                "file_path": file_path,
+                "requester": "planner",
+                "workflow_id": workflow_id
+            }
+
+            logger.info(f"Requesting file from Monitor: {file_path}")
+
+            async with ClientSession() as session:
+                async with session.post(
+                    f"{monitor_url}/api/files/get-content",
+                    json=request_data,
+                    timeout=aiohttp.ClientTimeout(total=30)
+                ) as resp:
+                    if resp.status == 200:
+                        result = await resp.json()
+                        logger.info(f"Received file content: {file_path} ({result.get('size_bytes', 0)} bytes)")
+                        return result
+                    else:
+                        error_text = await resp.text()
+                        logger.error(f"Failed to get file from Monitor: {resp.status} - {error_text}")
+                        return {"error": error_text, "status": resp.status}
+
+        except asyncio.TimeoutError:
+            logger.error(f"Timeout requesting file from Monitor: {file_path}")
+            return {"error": "Request timeout"}
+        except Exception as e:
+            logger.error(f"Error requesting file from Monitor: {e}")
+            return {"error": str(e)}
 
     def parse_llm_response(self, llm_response: Dict[str, Any]) -> Dict[str, Any]:
         """Parse LLM JSON response"""
@@ -1080,41 +1265,6 @@ class PlannerHTTPServer:
 
         except Exception as e:
             logger.error(f"Error writing workflow step: {e}")
-
-    async def request_file_from_monitor(self, file_path: str, workflow_id: str = None) -> Dict[str, Any]:
-        """Request specific file content from Monitor on demand"""
-        try:
-            monitor_url = self.config.get("monitor_url", "http://localhost:8080")
-
-            request_data = {
-                "file_path": file_path,
-                "requester": "planner",
-                "workflow_id": workflow_id
-            }
-
-            logger.info(f"Requesting file from Monitor: {file_path}")
-
-            async with ClientSession() as session:
-                async with session.post(
-                    f"{monitor_url}/api/files/get-content",
-                    json=request_data,
-                    timeout=aiohttp.ClientTimeout(total=30)
-                ) as resp:
-                    if resp.status == 200:
-                        result = await resp.json()
-                        logger.info(f"Received file content: {file_path} ({result.get('size_bytes', 0)} bytes)")
-                        return result
-                    else:
-                        error_text = await resp.text()
-                        logger.error(f"Failed to get file from Monitor: {resp.status} - {error_text}")
-                        return {"error": error_text, "status": resp.status}
-
-        except asyncio.TimeoutError:
-            logger.error(f"Timeout requesting file from Monitor: {file_path}")
-            return {"error": "Request timeout"}
-        except Exception as e:
-            logger.error(f"Error requesting file from Monitor: {e}")
-            return {"error": str(e)}
 
     def export_plan_to_file(self, plan: Dict[str, Any], workflow_id: str):
         """Export plan to a separate JSON file for easy reading"""
