@@ -724,6 +724,201 @@ class EnhancedAnalyzerAgent:
         except Exception as e:
             self.logger.error(f"Error writing workflow step: {e}")
 
+    async def request_file_from_monitor(self, file_path: str, workflow_id: str = None) -> Dict[str, Any]:
+        """Request specific file content from Monitor on demand"""
+        try:
+            monitor_url = self.config.get("monitor_url", "http://localhost:8080")
+
+            request_data = {
+                "file_path": file_path,
+                "requester": "analyzer",
+                "workflow_id": workflow_id
+            }
+
+            self.logger.info(f"Requesting file from Monitor: {file_path}")
+
+            async with ClientSession() as session:
+                async with session.post(
+                    f"{monitor_url}/api/files/get-content",
+                    json=request_data,
+                    timeout=aiohttp.ClientTimeout(total=30)
+                ) as resp:
+                    if resp.status == 200:
+                        result = await resp.json()
+                        self.logger.info(f"Received file content: {file_path} ({result.get('size_bytes', 0)} bytes)")
+                        return result
+                    else:
+                        error_text = await resp.text()
+                        self.logger.error(f"Failed to get file from Monitor: {resp.status} - {error_text}")
+                        return {"error": error_text, "status": resp.status}
+
+        except asyncio.TimeoutError:
+            self.logger.error(f"Timeout requesting file from Monitor: {file_path}")
+            return {"error": "Request timeout"}
+        except Exception as e:
+            self.logger.error(f"Error requesting file from Monitor: {e}")
+            return {"error": str(e)}
+
+    def identify_parent_error(self, errors: List[Dict]) -> Dict[str, Any]:
+        """
+        Identify the root cause (parent) error from a list of errors.
+        Many errors are cascade effects of a single root cause.
+        """
+        if not errors:
+            return {"parent_error": None, "cascade_errors": []}
+
+        # Error dependency patterns: parent_error_type -> [cascade_error_patterns]
+        dependency_patterns = {
+            # Syntax errors cause script failures which cause transfer failures
+            "SyntaxError": [
+                "POST_SCRIPT_FAILED", "Transfer output files failure",
+                "job failed", "kickstart failed", "execution failed"
+            ],
+            "IndentationError": [
+                "POST_SCRIPT_FAILED", "Transfer output files failure",
+                "job failed", "kickstart failed"
+            ],
+            "NameError": [
+                "POST_SCRIPT_FAILED", "execution failed", "kickstart failed"
+            ],
+            "ImportError": [
+                "ModuleNotFoundError", "POST_SCRIPT_FAILED", "execution failed"
+            ],
+
+            # Missing files cause many downstream errors
+            "missing file": [
+                "Transfer failure", "No such file", "file not found",
+                "Failed to transfer", "input file missing"
+            ],
+            "FileNotFoundError": [
+                "Transfer failure", "No such file", "input file missing"
+            ],
+
+            # Permission errors block multiple operations
+            "permission denied": [
+                "Transfer failure", "Access denied", "cannot write",
+                "cannot read", "operation not permitted"
+            ],
+            "PermissionError": [
+                "Access denied", "operation not permitted"
+            ],
+
+            # Memory errors cause job failures
+            "out of memory": [
+                "job killed", "exceeded memory", "killed by signal",
+                "OOM", "memory exceeded"
+            ],
+            "MemoryError": [
+                "job killed", "exceeded memory", "OOM"
+            ],
+
+            # Connection errors cause cascading failures
+            "connection refused": [
+                "timeout", "unreachable", "failed to connect",
+                "network error"
+            ],
+            "ConnectionError": [
+                "timeout", "unreachable", "network error"
+            ]
+        }
+
+        # Score each error by how many other errors it might cause
+        error_scores = {}
+        error_relationships = {}  # Track which errors are caused by which
+
+        for i, error in enumerate(errors):
+            error_text = str(error.get('problem', '')) + " " + str(error.get('explanation', ''))
+            error_type = error.get('error_level', 'other')
+
+            score = 0
+            caused_errors = []
+
+            # Check if this error type is a known parent error
+            for parent_type, cascade_patterns in dependency_patterns.items():
+                if parent_type.lower() in error_text.lower():
+                    # Check how many other errors match this parent's cascade patterns
+                    for j, other_error in enumerate(errors):
+                        if i == j:
+                            continue
+
+                        other_text = str(other_error.get('problem', '')) + " " + str(other_error.get('explanation', ''))
+
+                        # Check if other_error matches any cascade pattern
+                        for pattern in cascade_patterns:
+                            if pattern.lower() in other_text.lower():
+                                score += 1
+                                caused_errors.append({
+                                    "error_index": j,
+                                    "error": other_error,
+                                    "pattern_matched": pattern
+                                })
+                                break
+
+            error_scores[i] = score
+            error_relationships[i] = caused_errors
+
+        # If no parent-child relationships found, look for earliest/most severe error
+        if max(error_scores.values()) == 0:
+            # Prioritize by error_level
+            priority_map = {
+                "transformation": 3,
+                "replica": 2,
+                "site": 2,
+                "workflow": 1,
+                "other": 0
+            }
+
+            for i, error in enumerate(errors):
+                error_level = error.get('error_level', 'other')
+                priority_score = error.get('priority', 'medium')
+
+                # Combine level priority and explicit priority
+                level_score = priority_map.get(error_level, 0)
+                priority_value = {"high": 3, "medium": 2, "low": 1}.get(priority_score, 1)
+
+                error_scores[i] = level_score * 10 + priority_value
+
+        # Get the error with highest score (most likely parent)
+        if error_scores:
+            parent_index = max(error_scores, key=error_scores.get)
+            parent_error = errors[parent_index]
+            cascade_errors = error_relationships.get(parent_index, [])
+
+            # Get indices of cascade errors
+            cascade_indices = {ce['error_index'] for ce in cascade_errors}
+
+            # All other errors not identified as cascades are "related" errors
+            related_errors = [
+                errors[i] for i in range(len(errors))
+                if i != parent_index and i not in cascade_indices
+            ]
+
+            result = {
+                "parent_error": parent_error,
+                "parent_error_index": parent_index,
+                "parent_score": error_scores[parent_index],
+                "cascade_errors": [ce['error'] for ce in cascade_errors],
+                "cascade_count": len(cascade_errors),
+                "related_errors": related_errors,
+                "total_errors": len(errors),
+                "confidence": "high" if error_scores[parent_index] > 0 else "medium",
+                "analysis_method": "dependency_pattern" if error_scores[parent_index] > 0 else "priority_based"
+            }
+
+            self.logger.info(
+                f"Parent error identified: {parent_error.get('problem', 'Unknown')} "
+                f"(causes {len(cascade_errors)} cascade errors)"
+            )
+
+            return result
+
+        return {
+            "parent_error": errors[0] if errors else None,
+            "cascade_errors": errors[1:] if len(errors) > 1 else [],
+            "confidence": "low",
+            "analysis_method": "fallback"
+        }
+
     def load_config(self) -> Dict[str, Any]:
         """Load configuration with better defaults"""
         default_config = {
@@ -2285,6 +2480,27 @@ class EnhancedAnalyzerAgent:
             print(f"      - Catalogs included: {sum(1 for k, v in catalogs.items() if isinstance(v, dict))}")
             print(f"      - Analysis problems: {len(analysis_data.get('analysis', {}).get('problems_and_solutions', []))}")
 
+            # ENHANCED: Identify parent error for root cause analysis
+            problems = analysis_data.get('analysis', {}).get('problems_and_solutions', [])
+            parent_error_analysis = None
+
+            if len(problems) > 1:
+                print(f"    {TerminalColor.YELLOW.apply('◆')} Analyzing error dependencies ({len(problems)} errors found)...")
+                parent_error_analysis = self.identify_parent_error(problems)
+
+                if parent_error_analysis.get('parent_error'):
+                    parent = parent_error_analysis['parent_error']
+                    cascade_count = parent_error_analysis.get('cascade_count', 0)
+                    confidence = parent_error_analysis.get('confidence', 'unknown')
+
+                    print(f"    {TerminalColor.GREEN.apply('✓')} Root cause identified (confidence: {confidence}):")
+                    print(f"      • Parent error: {parent.get('problem', 'Unknown')[:80]}")
+                    print(f"      • Cascade errors: {cascade_count}")
+                    print(f"      • Method: {parent_error_analysis.get('analysis_method', 'unknown')}")
+
+                    if cascade_count > 0:
+                        print(f"    {TerminalColor.CYAN.apply('ℹ')} Fix the parent error first - cascade errors should resolve automatically")
+
             # Build webhook payload for Planner (using data retrieved above)
             webhook_data = {
                 "workflow_id": workflow_id,
@@ -2293,6 +2509,7 @@ class EnhancedAnalyzerAgent:
                 "catalogs": catalogs,  # From Monitor
                 "workflow_files": workflow_files,  # From Monitor
                 "pegasus_analyzer": pegasus_analyzer,  # From Monitor
+                "parent_error_analysis": parent_error_analysis,  # Root cause analysis
                 "timestamp": datetime.now().isoformat()
             }
 

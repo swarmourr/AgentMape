@@ -129,6 +129,13 @@ PEGASUS ARCHITECTURE UNDERSTANDING:
 - Data locations are in: replica catalog (LFN → PFN mappings)
 - Executables are in: transformation catalog (programs/scripts to run)
 
+⚠️  CRITICAL: TRANSFORMATION SCRIPTS ARE TEMPORARY!
+- Scripts like /srv/./FineTuneLLM are TEMPORARY execution scripts created by Pegasus
+- The ACTUAL SOURCE is in: workflow generator script (permanent) OR workflow YAML (temporary)
+- If transformation has syntax error: Fix the SOURCE, not the temporary execution script!
+- Workflow files provided include: generator script content + workflow YAML content
+- Use these to find and fix transformation definitions
+
 TYPES OF REPAIRS:
 1. RESOURCE ISSUES (memory, disk, cores):
    - Modify site catalog condor profiles
@@ -152,58 +159,99 @@ TYPES OF REPAIRS:
    - Re-run: pegasus-plan workflow.yml
    - This creates fresh workflow with updated settings
 
-WORKFLOW REPLANNING AFTER FIXES:
-After modifying the workflow descriptor (YAML), you MUST replan the workflow:
+5. UNKNOWN/COMPLEX ERRORS (when error doesn't match common patterns):
+   - Provide diagnostic commands to investigate the issue
+   - Commands: pegasus-analyzer -v, condor_q -analyze, condor_q -better-analyze
+   - Check job logs: cat <submit-dir>/*/jobstate.log
+   - Check Condor logs: condor_q -l <job-id>
+   - Suggest manual investigation steps with clear guidance
+   - Recommend checking Pegasus documentation or support
+   - If unsure about fix: Mark as "requires_manual_intervention: true"
+   - Provide troubleshooting workflow rather than potentially wrong fix
+   - Include commands to gather more information for debugging
 
-1. BASIC REPLAN (if workflow not submitted yet):
+WORKFLOW REPAIR STRATEGY - NEW SUBMISSION (NOT REPLAN):
+After modifying the workflow descriptor (YAML), you MUST submit as a NEW workflow:
+
+🚨 IMPORTANT: DO NOT use --cleanup inplace for failed/held workflows
+Instead, create a NEW submission to keep the old run for debugging
+
+1. FIX THE WORKFLOW FILE:
+   - Modify the YAML file (update memory, fix paths, etc.)
+   - Example: yq eval '.transformationCatalog.transformations[0].profiles.pegasus.memory = 15000' -i <workflow.yml>
+
+2. SUBMIT AS NEW WORKFLOW (NOT replan old one):
    pegasus-plan --dir <workflow.yml> --output-sites <site> --submit
 
-2. REPLAN EXISTING WORKFLOW (already submitted):
-   pegasus-plan --cleanup inplace --dir <workflow.yml> --output-sites <site> --submit
+   This will create a NEW run directory (run0049, run0050, etc.)
+   The old failed run (run0048) is preserved for debugging
 
-   The --cleanup inplace option:
-   - Cleans up the previous workflow instance
-   - Keeps the same submit directory
-   - Replans with updated configuration
-   - Automatically submits the new plan
-
-3. REPLAN WITHOUT AUTO-SUBMIT:
-   pegasus-plan --cleanup inplace --dir <workflow.yml> --output-sites <site>
-   # Then manually: pegasus-run <submit-dir>
-
-4. VALIDATION AFTER REPLAN:
-   pegasus-status <submit-dir>
-   pegasus-analyzer <submit-dir>
+3. VALIDATION AFTER NEW SUBMISSION:
+   - Wait for new workflow to start
+   - Check status: pegasus-status <new-submit-dir>
+   - Monitor: pegasus-analyzer <new-submit-dir>
 
 COMPLETE REPAIR WORKFLOW:
 Step 1: Fix the issue (modify YAML/catalog)
-Step 2: Replan the workflow (pegasus-plan --cleanup inplace)
-Step 3: Validate (pegasus-status)
+Step 2: Submit NEW workflow (pegasus-plan --dir <workflow.yml> --submit)
+Step 3: Validate new submission (pegasus-status)
 Step 4: Monitor execution
 
 You must provide:
 1. Specific bash/Pegasus commands to fix issues
-2. REPLANNING commands (pegasus-plan --cleanup inplace)
-3. Validation steps (pegasus-status, pegasus-analyzer)
+2. NEW SUBMISSION commands (pegasus-plan --dir <workflow.yml> --submit) - NO --cleanup inplace!
+3. Validation steps (pegasus-status on NEW workflow)
 4. Rollback commands if needed
 5. Risk assessment (low/medium/high)
 6. Whether workflow regeneration is needed
 
 Output format: JSON with executable commands.
 
+CRITICAL: READ THE ANALYSIS CAREFULLY BEFORE GENERATING PLAN!
+
+🔥 PARENT ERROR PRIORITIZATION (ROOT CAUSE ANALYSIS):
+When multiple errors are present, the analysis may identify a "parent error" (root cause):
+- Parent errors CAUSE cascade errors - fix the parent first!
+- Example: SyntaxError in script → causes POST_SCRIPT_FAILED → causes Transfer failure
+- Example: Missing input file → causes multiple job failures
+
+IF PARENT ERROR IS IDENTIFIED:
+1. ✅ Focus your plan on fixing the PARENT ERROR ONLY
+2. ✅ Cascade errors will resolve automatically when parent is fixed
+3. ✅ Do NOT create separate steps for cascade errors
+4. ✅ Mention in plan summary: "Fixing root cause - cascade errors will auto-resolve"
+
+PARENT ERROR WILL BE PROVIDED IN:
+- workflow_context['parent_error_analysis']['parent_error'] - The root cause to fix
+- workflow_context['parent_error_analysis']['cascade_errors'] - Will auto-resolve (ignore these)
+- workflow_context['parent_error_analysis']['confidence'] - How confident we are
+
+ERROR TYPE MATCHING:
+1. If analysis mentions "SyntaxError" or "Python error" → Fix Python script, NOT catalog
+2. If analysis mentions "memory exceeded" or "out of memory" → Fix memory in catalog
+3. If analysis mentions "missing file" or "file not found" → Fix replica catalog
+4. If analysis mentions "permission denied" → Fix permissions, NOT catalog
+5. If analysis mentions "syntax error in script" → Manual code review needed
+6. If error doesn't match known patterns → Use diagnostic commands
+
 IMPORTANT RULES:
-- ALWAYS include replanning step after modifying workflow YAML
-- Use --cleanup inplace for existing workflows
+- 🚨 READ THE ERROR MESSAGE - Don't assume it's a memory issue!
+- Match your solution to the ACTUAL error type from the analysis
+- If analysis says "SyntaxError in script" → DO NOT fix memory!
+- ALWAYS include NEW submission step after modifying workflow YAML
+- DO NOT use --cleanup inplace (we want a new run, not replan the old failed one)
 - ALWAYS consider if the fix should be in the GENERATOR script (for permanent fix)
 - For resource problems: update transformation/site catalog AND suggest generator changes
 - Only generate commands you are confident will work
 - Always include validation after modifications
 - Provide rollback strategy for file modifications
 - Mark risky operations clearly
-- If unsure, recommend manual intervention
+- If unsure or error is complex/unknown: Set "requires_manual_intervention": true
+- For unknown errors: Provide diagnostic commands instead of guessing a fix
 - For embedded catalogs, use 'yq' YAML editor
 - For text catalogs, use 'echo' or 'sed'
 - Include working directory context (from braindump submit_dir)
+- Better to suggest investigation steps than a potentially wrong fix
 """
 
     @staticmethod
@@ -265,6 +313,48 @@ EXAMPLE WRONG COMMAND (DO NOT DO THIS):
 
 === FAILURE ANALYSIS ===
 {analysis_section}
+"""
+
+        # ENHANCED: Add parent error analysis if available
+        parent_error_analysis = workflow_context.get('parent_error_analysis')
+        if parent_error_analysis and parent_error_analysis.get('parent_error'):
+            parent = parent_error_analysis['parent_error']
+            cascade_count = parent_error_analysis.get('cascade_count', 0)
+            confidence = parent_error_analysis.get('confidence', 'unknown')
+            method = parent_error_analysis.get('analysis_method', 'unknown')
+
+            parent_section = f"""
+
+🔥 ROOT CAUSE ANALYSIS (PARENT ERROR DETECTED):
+================================================================================
+IMPORTANT: Multiple errors detected, but ONE is the root cause!
+
+Parent Error (ROOT CAUSE - FIX THIS FIRST):
+  Problem: {parent.get('problem', 'Unknown')}
+  Solution: {parent.get('solution', 'Unknown')}
+  Error Level: {parent.get('error_level', 'unknown')}
+  Priority: {parent.get('priority', 'unknown')}
+
+Cascade Errors (will auto-resolve when parent is fixed): {cascade_count}
+Confidence: {confidence}
+Analysis Method: {method}
+
+⚠️  CRITICAL INSTRUCTIONS:
+1. Your repair plan should ONLY fix the parent error above
+2. Do NOT create separate steps for cascade errors - they will resolve automatically
+3. Cascade errors are symptoms of the parent error
+4. Example: If parent is "SyntaxError in script", fixing the script will resolve:
+   - POST_SCRIPT_FAILED errors
+   - Transfer output failures
+   - Job execution failures
+   All these are just symptoms of the syntax error!
+
+5. In your plan_summary, mention: "Fixing root cause: [parent error]. Cascade errors will auto-resolve."
+================================================================================
+"""
+            prompt += parent_section
+
+        prompt += """
 
 === YOUR TASK ===
 Generate a repair plan with the following JSON structure:
@@ -310,6 +400,14 @@ Generate a repair plan with the following JSON structure:
   "requires_approval": true/false,
   "approval_reason": "Why human approval is needed (if applicable)",
 
+  "requires_manual_intervention": true/false,
+  "manual_intervention_reason": "Why this issue needs manual investigation (if applicable - for unknown/complex errors)",
+  "diagnostic_commands": [
+    "List of diagnostic commands to run for troubleshooting",
+    "Example: pegasus-analyzer -v <submit-dir>",
+    "Example: condor_q -better-analyze <job-id>"
+  ],
+
   "generator_script_review_needed": true/false,
   "generator_modifications_suggested": [
     "Description of changes needed in generator script for permanent fix",
@@ -328,46 +426,99 @@ Example 1 - MEMORY ISSUE (Transformation Catalog - EMBEDDED):
   Step 1: Update transformation memory in workflow YAML
     yq eval '.transformationCatalog.transformations[0].profiles.pegasus.memory = 15000' -i {dax_path}
 
-  Step 2: Replan workflow with updated configuration
-    cd {submit_dir}
-    pegasus-plan --cleanup inplace --dir {dax_path} --output-sites local --submit
+  Step 2: Submit NEW workflow (NOT replan old one)
+    pegasus-plan --dir {dax_path} --output-sites local --submit
 
-  Step 3: Validate replanning
-    pegasus-status {submit_dir}
+  Step 3: Validate NEW submission (new run will be created)
+    # New run directory will be created automatically (e.g., run0049)
+    # Wait a moment, then check status of the new run
 
-  Step 4: Monitor execution
-    pegasus-analyzer {submit_dir}
+  Step 4: Monitor new workflow execution
+    # Find new run: ls -lt {workflow_context.get('workflow_dir')}/run* | head -1
+    # Then: pegasus-status <new-run-dir>
 
+  Note: Old run ({submit_dir}) is preserved for debugging
   Note: For permanent fix, update memory in generator script and regenerate
 
 Example 2 - MEMORY ISSUE (Site Catalog - EMBEDDED):
   Step 1: Update site catalog memory
-    yq eval '.siteCatalog.sites[] | select(.name == "condorpool") | .profiles.condor.request_memory = "8GB"' -i workflow.yml
+    yq eval '.siteCatalog.sites[] | select(.name == "condorpool") | .profiles.condor.request_memory = "8GB"' -i {dax_path}
 
-  Step 2: Replan and submit
-    pegasus-plan --cleanup inplace --dir /path/to/workflow.yml --output-sites local --submit
+  Step 2: Submit NEW workflow
+    pegasus-plan --dir {dax_path} --output-sites local --submit
 
-  Step 3: Validate
-    pegasus-status /path/to/submit_dir
+  Step 3: Validate new submission
+    # New run created automatically, old run preserved
 
 Example 3 - MISSING FILE (Replica Catalog - EMBEDDED):
   Step 1: Verify file exists
     test -f /data/input.csv || echo "ERROR: File not found"
 
   Step 2: Add to replica catalog in workflow YAML
-    yq eval '.replicaCatalog.replicas += [{{"lfn": "input.csv", "pfn": "file:///data/input.csv", "site": "local"}}]' -i workflow.yml
+    yq eval '.replicaCatalog.replicas += [{{"lfn": "input.csv", "pfn": "file:///data/input.csv", "site": "local"}}]' -i {dax_path}
 
-  Step 3: Replan workflow
-    pegasus-plan --cleanup inplace --dir /path/to/workflow.yml --output-sites local --submit
+  Step 3: Submit NEW workflow
+    pegasus-plan --dir {dax_path} --output-sites local --submit
 
   Step 4: Validate
-    pegasus-status /path/to/submit_dir
+    # New run will be created, check its status
 
 Example 4 - DISK SPACE ISSUE:
   Step 1: Update disk requirement in site catalog
     yq eval '.sites[0].profiles.condor.request_disk = "10GB"' -i workflow.yml
   Step 2: Update generator for permanent fix
     # Add note to modify generator script disk settings
+
+Example 5 - SYNTAX ERROR IN TRANSFORMATION SCRIPT (Code issue, CAN be auto-fixed!):
+  Problem: SyntaxError in FineTuneLLM script: invalid syntax. Perhaps you forgot a comma?
+
+  IMPORTANT: Transformation scripts are provided in workflow_files.transformation_scripts!
+  The script content is available - LLM can analyze and suggest fixes!
+
+  Step 1: Get transformation script path from YAML
+    yq eval '.transformationCatalog.transformations[] | select(.name == "FineTuneLLM") | .pfn' {dax_path}
+    # Returns: /srv/FineTuneLLM (actual script path)
+
+  Step 2: Review the script content (provided in workflow_files)
+    # Script content is in: workflow_files['transformation_scripts']['FineTuneLLM']['content']
+    # Analyze the script for syntax errors
+    # Identify the missing comma or syntax issue
+
+  Step 3: Fix the syntax error in the script
+    # Example fix for missing comma in function call:
+    sed -i 's/arg1 arg2/arg1, arg2/' /srv/FineTuneLLM
+    # OR use a more specific fix based on the actual error
+
+  Step 4: Validate the fix
+    python -m py_compile /srv/FineTuneLLM
+
+  Step 5: Submit NEW workflow
+    pegasus-plan --dir {dax_path} --output-sites local --submit
+
+  Note: If transformation_scripts is available, LLM CAN suggest specific fix!
+  Note: If script content not available, mark requires_manual_intervention: true
+
+Example 6 - UNKNOWN/COMPLEX ERROR (Error pattern not recognized):
+  Problem: Unfamiliar error or complex multi-factor issue
+
+  Step 1: Run diagnostic commands to gather information
+    pegasus-analyzer -v {submit_dir}
+    condor_q -better-analyze <job-id>
+
+  Step 2: Check detailed logs
+    cat {submit_dir}/*/jobstate.log
+    condor_q -l <job-id> | grep -i hold
+
+  Step 3: Provide troubleshooting guidance
+    # Check Pegasus logs: {submit_dir}/*.log
+    # Check job stderr: {submit_dir}/*/*.err
+    # Review Pegasus documentation: https://pegasus.isi.edu/documentation/
+
+  Step 4: Mark for manual intervention
+    requires_manual_intervention: true
+    approval_reason: "Complex error requiring expert analysis"
+
+  Note: When unsure, provide diagnostic steps rather than risky fixes
 
 COMMAND SYNTAX GUIDE:
 - Add to replica catalog (text): echo 'lfn pfn site' >> /path/rc.txt
@@ -390,24 +541,56 @@ REPAIR STRATEGY DECISION:
 🚨 CRITICAL REMINDERS BEFORE GENERATING PLAN 🚨:
 
 1. ALWAYS use the exact paths provided above:
-   - Submit Dir: {submit_dir}
    - Workflow YAML: {dax_path}
+   - Old Submit Dir (for reference): {submit_dir}
 
 2. ALWAYS include BOTH steps for workflow modifications:
    Step 1: Modify the file (yq/sed/echo command)
-   Step 2: Replan the workflow (pegasus-plan --cleanup inplace --dir {dax_path} ...)
+   Step 2: Submit NEW workflow (pegasus-plan --dir {dax_path} --submit)
+
+   ⚠️ DO NOT use --cleanup inplace! We want a NEW run, not replan the old failed one!
 
 3. DO NOT use placeholders like:
    ❌ /path/to/workflow.yml
    ❌ <workflow.yml>
    ❌ /workflow/submit-dir
+   ✅ Use: {dax_path}
 
 4. Memory issues REQUIRE:
    - Step 1: Update memory value with yq in {dax_path}
-   - Step 2: Replan with: pegasus-plan --cleanup inplace --dir {dax_path} --output-sites local --submit
-   - Step 3: Validate with: pegasus-status {submit_dir}
+   - Step 2: Submit NEW workflow: pegasus-plan --dir {dax_path} --output-sites local --submit
+   - Step 3: Note that new run will be created (e.g., run0049)
+   - Step 4: Old run {submit_dir} is preserved for debugging
 
-Generate the plan now with EXACT paths and ALL required steps:
+5. VALIDATION commands should note:
+   - "New run directory will be created automatically"
+   - "Wait for new workflow to start, then check status"
+   - "Old failed run is preserved"
+
+🔥 FINAL CHECK BEFORE GENERATING PLAN 🔥:
+
+1. What is the ACTUAL error from the analysis?
+   - SyntaxError in transformation script? → Check if script content is in transformation_scripts
+   - Memory error? → Fix memory in catalog
+   - Missing file? → Fix replica catalog
+   - Other? → Diagnostic commands
+
+2. Is transformation script content available?
+   - If workflow_files.transformation_scripts has the script → LLM CAN analyze and fix it!
+   - Script content shows the exact code → Identify the syntax error
+   - Generate sed/awk command to fix the specific error
+   - If script not available → Mark requires_manual_intervention: true
+
+3. Does your solution match the error type?
+   - If analysis says "SyntaxError in FineTuneLLM" AND script content available → Fix the script!
+   - If analysis says "SyntaxError" but NO script content → Diagnostic commands only
+   - If analysis says "exceeded memory" → Fix memory in catalog
+
+4. Are you confident in the fix?
+   - Script content visible + clear syntax error → Provide sed/awk fix command
+   - No script content OR complex error → Set requires_manual_intervention: true
+
+Generate the plan now with EXACT paths, NEW submission (NOT replan), and use transformation_scripts content if available:
 """
         return prompt
 
@@ -463,6 +646,30 @@ Generate the plan now with EXACT paths and ALL required steps:
                 info.append("=== END YAML CONTENT ===\n")
             else:
                 info.append("  → WARNING: YAML content not available")
+
+        # ENHANCED: Include transformation scripts content
+        if workflow_files.get('transformation_scripts'):
+            trans_scripts = workflow_files['transformation_scripts']
+            info.append(f"\n=== TRANSFORMATION SCRIPTS ({len(trans_scripts)} available) ===")
+            info.append("These are the actual executable scripts from the workflow:")
+
+            for script_name, script_data in trans_scripts.items():
+                info.append(f"\n--- Script: {script_name} ---")
+                info.append(f"Path: {script_data.get('path')}")
+                info.append(f"Type: {script_data.get('type')}")
+
+                if 'content' in script_data:
+                    info.append(f"\n=== SCRIPT CONTENT ({script_name}) ===")
+                    info.append(script_data['content'])
+                    info.append(f"=== END SCRIPT CONTENT ({script_name}) ===")
+                    info.append("\n🔧 THIS SCRIPT CAN BE MODIFIED:")
+                    info.append(f"   - Use sed/awk to fix syntax errors")
+                    info.append(f"   - Path: {script_data.get('path')}")
+                    info.append(f"   - Validate with: python -m py_compile {script_data.get('path')}")
+                elif 'error' in script_data:
+                    info.append(f"ERROR: Could not read script - {script_data.get('error')}")
+
+            info.append("\n=== END TRANSFORMATION SCRIPTS ===\n")
 
         # Use generator script from context
         if workflow_files.get('generator_script'):
@@ -874,6 +1081,41 @@ class PlannerHTTPServer:
         except Exception as e:
             logger.error(f"Error writing workflow step: {e}")
 
+    async def request_file_from_monitor(self, file_path: str, workflow_id: str = None) -> Dict[str, Any]:
+        """Request specific file content from Monitor on demand"""
+        try:
+            monitor_url = self.config.get("monitor_url", "http://localhost:8080")
+
+            request_data = {
+                "file_path": file_path,
+                "requester": "planner",
+                "workflow_id": workflow_id
+            }
+
+            logger.info(f"Requesting file from Monitor: {file_path}")
+
+            async with ClientSession() as session:
+                async with session.post(
+                    f"{monitor_url}/api/files/get-content",
+                    json=request_data,
+                    timeout=aiohttp.ClientTimeout(total=30)
+                ) as resp:
+                    if resp.status == 200:
+                        result = await resp.json()
+                        logger.info(f"Received file content: {file_path} ({result.get('size_bytes', 0)} bytes)")
+                        return result
+                    else:
+                        error_text = await resp.text()
+                        logger.error(f"Failed to get file from Monitor: {resp.status} - {error_text}")
+                        return {"error": error_text, "status": resp.status}
+
+        except asyncio.TimeoutError:
+            logger.error(f"Timeout requesting file from Monitor: {file_path}")
+            return {"error": "Request timeout"}
+        except Exception as e:
+            logger.error(f"Error requesting file from Monitor: {e}")
+            return {"error": str(e)}
+
     def export_plan_to_file(self, plan: Dict[str, Any], workflow_id: str):
         """Export plan to a separate JSON file for easy reading"""
         try:
@@ -938,12 +1180,14 @@ class PlannerHTTPServer:
             analysis_result = data.get("result", {}).get("analysis", {})
             catalogs = data.get("catalogs", {})
             workflow_files = data.get("workflow_files", {})  # ENHANCED: Get workflow files from Monitor
+            parent_error_analysis = data.get("parent_error_analysis")  # ENHANCED: Get root cause analysis
 
             workflow_context = {
                 "workflow_id": workflow_id,
                 "workflow_dir": data.get("workflow_dir"),
                 "state": "failed",
-                "workflow_files": workflow_files  # ENHANCED: Include workflow files in context
+                "workflow_files": workflow_files,  # ENHANCED: Include workflow files in context
+                "parent_error_analysis": parent_error_analysis  # ENHANCED: Include root cause analysis
             }
 
             # Write to shared log
@@ -951,6 +1195,15 @@ class PlannerHTTPServer:
             receive_summary = f"Catalogs Received: {catalog_count}\n"
             receive_summary += f"Workflow Files Received: {len(workflow_files)}\n"
             receive_summary += f"Problems to Solve: {len(analysis_result.get('problems_and_solutions', []))}"
+
+            # ENHANCED: Add parent error info to summary
+            if parent_error_analysis and parent_error_analysis.get('parent_error'):
+                parent = parent_error_analysis['parent_error']
+                cascade_count = parent_error_analysis.get('cascade_count', 0)
+                receive_summary += f"\n\nROOT CAUSE ANALYSIS:"
+                receive_summary += f"\nParent Error: {parent.get('problem', 'Unknown')}"
+                receive_summary += f"\nCascade Errors: {cascade_count}"
+                receive_summary += f"\nConfidence: {parent_error_analysis.get('confidence', 'unknown')}"
 
             self.write_workflow_step(
                 workflow_id,
@@ -1000,6 +1253,22 @@ class PlannerHTTPServer:
                 gs = workflow_files['generator_script']
                 print(f"  {TerminalColor.GREEN.apply('✓')} Generator Script: {gs.get('filename')} ({gs.get('size')} bytes)")
             print(f"{TerminalColor.YELLOW.apply('Problems to solve:')} {len(analysis_result.get('problems_and_solutions', []))}")
+
+            # ENHANCED: Display parent error analysis if available
+            if parent_error_analysis and parent_error_analysis.get('parent_error'):
+                print(f"\n{TerminalColor.BRIGHT_MAGENTA.apply('🔍 ROOT CAUSE ANALYSIS:')}")
+                parent = parent_error_analysis['parent_error']
+                cascade_count = parent_error_analysis.get('cascade_count', 0)
+                confidence = parent_error_analysis.get('confidence', 'unknown')
+
+                print(f"  {TerminalColor.YELLOW.apply('Parent Error:')} {parent.get('problem', 'Unknown')}")
+                print(f"  {TerminalColor.YELLOW.apply('Cascade Errors:')} {cascade_count}")
+                print(f"  {TerminalColor.YELLOW.apply('Confidence:')} {confidence}")
+                print(f"  {TerminalColor.YELLOW.apply('Method:')} {parent_error_analysis.get('analysis_method', 'unknown')}")
+
+                if cascade_count > 0:
+                    print(f"  {TerminalColor.CYAN.apply('💡 Strategy:')} Focus on fixing parent error - cascade errors should resolve automatically")
+
             print(f"{'='*80}\n")
 
             logger.info(f"Received analysis completion for workflow {workflow_id}")

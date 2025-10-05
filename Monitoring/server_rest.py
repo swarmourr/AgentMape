@@ -918,10 +918,53 @@ class PegasusWorkflowManager:
                         "path": generator_scripts[0],
                         "content": content,
                         "size": len(content),
-                        "type": "python"
+                        "type": "python",
+                        "note": "This generator creates the workflow - transformation scripts may be defined here"
                     }
             except Exception as e:
                 logger.error(f"Error reading generator script: {e}")
+
+        # ENHANCED: Read transformation scripts from workflow YAML
+        if workflow_files.get('workflow_yaml'):
+            parsed = workflow_files['workflow_yaml'].get('parsed_structure', {})
+            transformations = parsed.get('transformations', [])
+
+            if transformations:
+                transformation_scripts = {}
+                for trans in transformations:
+                    script_name = trans.get('name')
+                    script_path = trans.get('pfn')
+
+                    if script_path and os.path.exists(script_path):
+                        try:
+                            with open(script_path, 'r') as f:
+                                script_content = f.read()
+                                # Limit to 5KB for scripts
+                                if len(script_content) > 5000:
+                                    script_content = script_content[:5000] + "\n... (truncated - script too large)"
+
+                                transformation_scripts[script_name] = {
+                                    "name": script_name,
+                                    "path": script_path,
+                                    "content": script_content,
+                                    "size": len(script_content),
+                                    "type": trans.get('type', 'STAGEABLE'),
+                                    "note": "Actual transformation script from workflow YAML pfn"
+                                }
+                                logger.info(f"Read transformation script: {script_name} from {script_path}")
+                        except Exception as e:
+                            logger.warning(f"Could not read transformation script {script_path}: {e}")
+                            transformation_scripts[script_name] = {
+                                "name": script_name,
+                                "path": script_path,
+                                "error": str(e),
+                                "note": "Script exists in YAML but could not be read"
+                            }
+                    else:
+                        logger.debug(f"Transformation {script_name} has no readable pfn: {script_path}")
+
+                if transformation_scripts:
+                    workflow_files['transformation_scripts'] = transformation_scripts
 
         return workflow_files
 
@@ -1697,6 +1740,9 @@ class EnhancedPegasusMCPServer:
         self.app.router.add_get('/api/agents/registry', self.handle_get_agents)
         self.app.router.add_post('/api/agents/register', self.handle_register_agent)
 
+        # File content endpoint (for dynamic file reading by Analyzer/Planner)
+        self.app.router.add_post('/api/files/get-content', self.handle_get_file_content)
+
     async def handle_health(self, request):
         """Health check endpoint"""
         try:
@@ -1813,13 +1859,72 @@ class EnhancedPegasusMCPServer:
                 data['http_url'],
                 data.get('capabilities', [])
             )
-            
+
             if success:
                 return web.json_response({"success": True, "message": f"Agent {data['agent_id']} registered"})
             else:
                 return web.json_response({"success": False, "message": "Failed to register agent"}, status=400)
-                
+
         except Exception as e:
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def handle_get_file_content(self, request):
+        """Serve file content on demand to other agents (Analyzer/Planner)"""
+        try:
+            data = await request.json()
+            file_path = data.get('file_path')
+            workflow_id = data.get('workflow_id')  # Optional for logging
+            requester = data.get('requester', 'unknown')  # Which agent is requesting
+
+            if not file_path:
+                return web.json_response({"error": "file_path is required"}, status=400)
+
+            # Security: Only allow reading files within workflow directories or known safe paths
+            # Prevent directory traversal attacks
+            if ".." in file_path or file_path.startswith("/etc") or file_path.startswith("/root"):
+                logger.warning(f"Blocked potentially unsafe file request: {file_path} from {requester}")
+                return web.json_response({"error": "Access denied - unsafe path"}, status=403)
+
+            if not os.path.exists(file_path):
+                return web.json_response({"error": f"File not found: {file_path}"}, status=404)
+
+            # Check file size - limit to 10MB
+            file_size = os.path.getsize(file_path)
+            if file_size > 10 * 1024 * 1024:
+                return web.json_response({
+                    "error": f"File too large ({file_size} bytes). Maximum 10MB allowed."
+                }, status=413)
+
+            # Read file content
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+
+                logger.info(f"Served file {file_path} ({file_size} bytes) to {requester}")
+
+                return web.json_response({
+                    "success": True,
+                    "file_path": file_path,
+                    "content": content,
+                    "size_bytes": file_size,
+                    "encoding": "utf-8"
+                })
+
+            except UnicodeDecodeError:
+                # Try binary read for non-text files
+                with open(file_path, 'rb') as f:
+                    content_bytes = f.read()
+
+                return web.json_response({
+                    "success": True,
+                    "file_path": file_path,
+                    "content": content_bytes.hex(),  # Return as hex string
+                    "size_bytes": file_size,
+                    "encoding": "binary"
+                })
+
+        except Exception as e:
+            logger.error(f"Error serving file content: {e}")
             return web.json_response({"error": str(e)}, status=500)
 
     # FIXED: Add the missing analysis queue processor
