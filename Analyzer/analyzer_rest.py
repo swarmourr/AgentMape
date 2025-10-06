@@ -85,27 +85,35 @@ class PromptManager:
             "  }\n"
             "}\n"
             "\n"
+            "CRITICAL: Read the error logs CAREFULLY. Do NOT assume errors are syntax errors unless you see explicit evidence like:\n"
+            "  - 'SyntaxError: invalid syntax'\n"
+            "  - 'IndentationError'\n"
+            "  - 'missing comma' or 'unexpected token'\n"
+            "\n"
+            "Many workflow failures are NOT syntax errors. Common actual causes:\n"
+            "  - Memory/resource limits (OOM, cgroup memory exceeded)\n"
+            "  - Missing files (file not found, replica errors)\n"
+            "  - Permission issues (permission denied)\n"
+            "  - Timeout/network errors\n"
+            "\n"
             "IMPORTANT INSTRUCTIONS FOR files_needed_for_fix field:\n"
             "\n"
             "🔍 HOW TO EXTRACT TRANSFORMATION SCRIPT PATHS:\n"
-            "1. If error mentions transformation/script name (e.g., 'SyntaxError in FineTuneLLM'):\n"
-            "   → Look in the Workflow JSON for: workflow.pegasus.transformations[] array\n"
-            "   → Find the transformation with matching 'name' field\n"
-            "   → Extract the 'pfn' (Physical File Name) - this is the ACTUAL script path\n"
-            "   → Include this pfn path in files_needed_for_fix\n"
+            "1. IF AND ONLY IF you see explicit syntax/code errors (like 'SyntaxError', 'IndentationError'):\n"
+            "   → Look in workflow.pegasus.transformations[] array\n"
+            "   → Find transformation with matching 'name' field\n"
+            "   → Extract 'pfn' (Physical File Name) - the script path\n"
             "\n"
-            "Example:\n"
-            "  Error log: 'POST_SCRIPT_FAILED for FineTuneLLM transformation - SyntaxError'\n"
-            "  ↓\n"
-            "  Search workflow.pegasus.transformations for name='FineTuneLLM'\n"
-            "  ↓\n"
-            "  Found: {name: 'FineTuneLLM', pfn: '/srv/pegasus-5.0.8/.../bin/FineTuneLLM', ...}\n"
-            "  ↓\n"
-            "  Output: {\"path\": \"/srv/pegasus-5.0.8/.../bin/FineTuneLLM\", \"reason\": \"Need script content to identify and fix SyntaxError\"}\n"
+            "Examples of WHEN to request script files:\n"
+            "  ✓ Error: 'SyntaxError: invalid syntax at line 42' → Request script pfn\n"
+            "  ✓ Error: 'IndentationError: unexpected indent' → Request script pfn\n"
+            "  ✗ Error: 'cgroup memory limit exceeded' → NO script needed (resource issue)\n"
+            "  ✗ Error: 'File not found: /data/input.txt' → NO script needed (missing file)\n"
+            "  ✗ Error: 'POST_SCRIPT_FAILED' with no syntax details → Likely NOT syntax error\n"
             "\n"
-            "2. For configuration errors: Specify the config file path\n"
-            "3. For workflow/catalog issues: Usually workflow.yml is already available, no need to request\n"
-            "4. If no additional files needed: Use empty array []\n"
+            "2. For configuration errors: Specify config file path\n"
+            "3. For workflow issues: workflow.yml already available\n"
+            "4. If no files needed: Use empty array []\n"
             f"Logs:\n{logs}\n\nWorkflow:\n{json.dumps(workflow, indent=2)}"
         )
     
@@ -790,40 +798,37 @@ class EnhancedAnalyzerAgent:
 
     def identify_parent_error(self, errors: List[Dict]) -> Dict[str, Any]:
         """
-        Identify the root cause (parent) error using INTELLIGENT causality analysis.
+        Identify the root cause (parent) error using causality analysis.
 
         Smart Logic:
-        1. Code/Script errors (SyntaxError, etc.) ALWAYS come first in the causal chain
-        2. Execution errors (job failed, etc.) happen BECAUSE of code errors
-        3. Data errors (replica missing, etc.) happen BECAUSE execution failed
+        1. Explicit syntax errors (SyntaxError, IndentationError) are code issues
+        2. Resource errors (OOM, memory limit) are infrastructure issues
+        3. Missing files/permissions are configuration issues
+        4. Generic failures may have various causes - don't assume syntax
 
-        Priority of root causes (most fundamental to least):
-        1. Code/Syntax errors (script bugs)
-        2. Configuration errors (wrong paths, permissions)
-        3. Resource errors (memory, disk)
-        4. Data errors (missing files)
-        5. Network errors (timeouts)
+        Priority of root causes (by explicitness):
+        1. Explicit code errors with error names (SyntaxError, IndentationError)
+        2. Configuration errors (permissions, missing files)
+        3. Resource errors (memory, disk, timeout)
+        4. Generic execution failures (investigate actual logs)
         """
         if not errors:
             return {"parent_error": None, "cascade_errors": []}
 
         # SMART CAUSALITY: Define error hierarchy (root → symptom)
         error_hierarchy = {
-            # Level 1: CODE ERRORS (Most fundamental - always root cause)
+            # Level 1: EXPLICIT CODE ERRORS (Only when clearly stated)
             "code_error": {
                 "patterns": [
-                    # Python exception names
-                    "SyntaxError", "IndentationError", "NameError", "ImportError",
-                    "TypeError", "ValueError", "AttributeError",
-                    # Natural language descriptions (case-insensitive)
-                    "syntax error", "indentation error", "name error", "import error",
-                    "type error", "value error", "attribute error",
-                    "missing comma", "invalid syntax", "unexpected indent",
-                    "script.*error", "code.*error", "python.*error"  # Flexible patterns
+                    # Only explicit Python exception names (case-sensitive to avoid false positives)
+                    r"\bSyntaxError\b", r"\bIndentationError\b", r"\bNameError\b",
+                    r"\bImportError\b", r"\bTypeError\b",
+                    # Very specific syntax patterns (not generic)
+                    r"invalid syntax at line \d+", r"unexpected indent",
+                    r"expected.*before", r"missing closing"
                 ],
-                "priority": 100,  # Highest priority
-                "causes": ["execution failure", "job failed", "POST_SCRIPT_FAILED",
-                          "replica", "staging", "transfer", "output", "unable to transfer"]
+                "priority": 100,  # Highest when explicitly found
+                "causes": ["execution failure", "POST_SCRIPT_FAILED"]
             },
 
             # Level 2: CONFIGURATION ERRORS (Very fundamental)
@@ -834,19 +839,26 @@ class EnhancedAnalyzerAgent:
                 "causes": ["execution failure", "job failed", "cannot access"]
             },
 
-            # Level 3: RESOURCE ERRORS (Can cause execution failures)
+            # Level 3: RESOURCE ERRORS (Very common, equal priority to code errors)
             "resource_error": {
-                "patterns": ["out of memory", "MemoryError", "disk full", "quota exceeded"],
-                "priority": 80,
-                "causes": ["job killed", "process terminated", "exceeded"]
+                "patterns": [
+                    "out of memory", "MemoryError", "OOM", "memory limit",
+                    "cgroup memory", "disk full", "quota exceeded",
+                    "exceeded.*memory", "killed.*memory", "SIGKILL"
+                ],
+                "priority": 100,  # Same as code errors - equally important
+                "causes": ["job killed", "process terminated", "POST_SCRIPT_FAILED"]
             },
 
-            # Level 4: DATA ERRORS (Often symptoms, but can be root)
+            # Level 4: DATA ERRORS (Common root cause)
             "data_error": {
-                "patterns": ["missing file", "FileNotFoundError", "No such file",
-                           "Replica not found", "input file"],
-                "priority": 70,
-                "causes": ["transfer failure", "staging failed"]
+                "patterns": [
+                    "missing file", "FileNotFoundError", "No such file",
+                    "file not found", "Replica not found", "cannot find file",
+                    "unable to transfer", "transfer.*failed", "staging failed"
+                ],
+                "priority": 95,  # High priority - very common root cause
+                "causes": ["POST_SCRIPT_FAILED", "execution failed"]
             },
 
             # Level 5: NETWORK ERRORS (Usually symptoms)
@@ -856,11 +868,13 @@ class EnhancedAnalyzerAgent:
                 "causes": ["transfer failed", "communication error"]
             },
 
-            # Level 6: GENERIC EXECUTION ERRORS (Almost always symptoms)
+            # Level 6: GENERIC EXECUTION ERRORS (Symptoms, not root causes)
+            # NOTE: POST_SCRIPT_FAILED alone is NOT a syntax error!
+            # It could be memory, missing files, permissions, etc.
             "execution_error": {
-                "patterns": ["job failed", "POST_SCRIPT_FAILED", "execution failed"],
-                "priority": 50,
-                "causes": []  # These are usually symptoms
+                "patterns": [r"\bjob failed\b", r"\bexecution failed\b"],
+                "priority": 30,  # Low priority - usually symptoms
+                "causes": []  # These are symptoms, not causes
             }
         }
 
