@@ -42,6 +42,7 @@ class TerminalColor(Enum):
     BRIGHT_MAGENTA = '\033[95m'
     BRIGHT_CYAN = '\033[96m'
     WHITE = '\033[97m'
+    BRIGHT_WHITE = '\033[97;1m'
     RESET = '\033[0m'
 
     def apply(self, text):
