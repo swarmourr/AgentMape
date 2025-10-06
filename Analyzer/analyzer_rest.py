@@ -2755,13 +2755,63 @@ class EnhancedAnalyzerAgent:
                     if cascade_count > 0:
                         print(f"    {TerminalColor.CYAN.apply('ℹ')} Fix the parent error first - cascade errors should resolve automatically")
 
+            # OPTIMIZATION: Only include transformations if Planner needs them
+            # Check if LLM requested any script files
+            needs_transformations = False
+            problems = analysis.get('problems_and_solutions', [])
+
+            for problem in problems:
+                files_needed = problem.get('files_needed_for_fix', [])
+                if files_needed:
+                    # Check if any requested file is a script (has transformation context)
+                    for file_info in files_needed:
+                        if 'script' in file_info.get('reason', '').lower() or 'transformation' in file_info.get('reason', '').lower():
+                            needs_transformations = True
+                            break
+                if needs_transformations:
+                    break
+
+            # Strip transformations if not needed
+            optimized_workflow_files = workflow_files.copy()
+            if not needs_transformations and workflow_files.get('workflow_yaml'):
+                wf_yaml = workflow_files['workflow_yaml'].copy()
+
+                # Remove from parsed_structure
+                if 'parsed_structure' in wf_yaml:
+                    parsed = wf_yaml['parsed_structure'].copy()
+                    if 'transformations' in parsed:
+                        trans_count = len(parsed['transformations'])
+                        del parsed['transformations']
+                        print(f"    {TerminalColor.CYAN.apply('ℹ')} Optimization: Removed {trans_count} transformations from parsed_structure")
+                    wf_yaml['parsed_structure'] = parsed
+
+                # Remove from raw_content (YAML dict)
+                if 'raw_content' in wf_yaml and isinstance(wf_yaml['raw_content'], dict):
+                    raw = wf_yaml['raw_content'].copy()
+                    # Check both locations: transformationCatalog and pegasus.transformations
+                    if 'transformationCatalog' in raw:
+                        del raw['transformationCatalog']
+                        print(f"    {TerminalColor.CYAN.apply('ℹ')} Optimization: Removed transformationCatalog from raw_content")
+                    if 'pegasus' in raw and isinstance(raw['pegasus'], dict):
+                        pegasus = raw['pegasus'].copy()
+                        if 'transformations' in pegasus:
+                            del pegasus['transformations']
+                            raw['pegasus'] = pegasus
+                            print(f"    {TerminalColor.CYAN.apply('ℹ')} Optimization: Removed pegasus.transformations from raw_content")
+                    wf_yaml['raw_content'] = raw
+
+                optimized_workflow_files['workflow_yaml'] = wf_yaml
+            elif needs_transformations:
+                trans_count = len(workflow_files.get('workflow_yaml', {}).get('parsed_structure', {}).get('transformations', []))
+                print(f"    {TerminalColor.CYAN.apply('ℹ')} Including {trans_count} transformations (needed for script fixes)")
+
             # Build webhook payload for Planner (using data retrieved above)
             webhook_data = {
                 "workflow_id": workflow_id,
                 "workflow_dir": workflow_dir,
                 "result": analysis_data,
                 "catalogs": catalogs,  # From Monitor
-                "workflow_files": workflow_files,  # From Monitor
+                "workflow_files": optimized_workflow_files,  # Optimized workflow files
                 "pegasus_analyzer": pegasus_analyzer,  # From Monitor
                 "parent_error_analysis": parent_error_analysis,  # Root cause analysis
                 "timestamp": datetime.now().isoformat()
