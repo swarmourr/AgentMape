@@ -625,12 +625,19 @@ class PegasusWorkflowManager:
     def notify_workflow_held_sync(self, workflow_id: str, workflow_dir: str, hold_data: Dict[str, Any]):
         """Synchronous notification for held workflow with analysis request"""
         workflow_key = f"{workflow_id}_{hold_data.get('job_id', 'unknown')}"
-        
+
         if workflow_key in self.known_held_workflows:
             return  # Already notified
 
         self.known_held_workflows.add(workflow_key)
-        
+
+        # Print nice notification
+        print(f"\n┌─ {TerminalColor.BRIGHT_YELLOW.apply('⚠️  WORKFLOW HELD DETECTED')} {'─'*50}")
+        print(f"│  {TerminalColor.CYAN.apply('Workflow:')} {workflow_id[:60]}")
+        print(f"│  {TerminalColor.CYAN.apply('Job ID:')} {hold_data.get('job_id', 'unknown')}")
+        print(f"│  {TerminalColor.YELLOW.apply('→ Scheduling analysis...')}")
+        print(f"└{'─'*78}\n")
+
         notification_data = {
             "workflow_id": workflow_id,
             "workflow_dir": workflow_dir,
@@ -639,7 +646,7 @@ class PegasusWorkflowManager:
         }
 
         self.queue_notification("workflow_held", notification_data)
-        
+
         # FIXED: Use thread-safe batched scheduling
         batch_delay = self.config.get("analysis_batch_delay", 30)
         self.schedule_analysis_request(workflow_id, workflow_dir, "held", delay_seconds=batch_delay)
@@ -650,7 +657,15 @@ class PegasusWorkflowManager:
             return  # Already notified
 
         self.known_failed_workflows.add(workflow_id)
-        
+
+        # Print nice notification
+        print(f"\n┌─ {TerminalColor.BRIGHT_RED.apply('❌ WORKFLOW FAILURE DETECTED')} {'─'*48}")
+        print(f"│  {TerminalColor.CYAN.apply('Workflow:')} {workflow_id[:60]}")
+        workflow_dir_display = workflow_dir if len(workflow_dir) <= 60 else '...' + workflow_dir[-57:]
+        print(f"│  {TerminalColor.CYAN.apply('Directory:')} {workflow_dir_display}")
+        print(f"│  {TerminalColor.YELLOW.apply('→ Scheduling analysis...')}")
+        print(f"└{'─'*78}\n")
+
         notification_data = {
             "workflow_id": workflow_id,
             "workflow_dir": workflow_dir,
@@ -659,7 +674,7 @@ class PegasusWorkflowManager:
         }
 
         self.queue_notification("workflow_failed", notification_data)
-        
+
         # FIXED: Use thread-safe scheduling instead of asyncio.create_task
         self.schedule_analysis_request(workflow_id, workflow_dir, "failed")
 

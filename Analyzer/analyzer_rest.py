@@ -1596,35 +1596,52 @@ class EnhancedAnalyzerAgent:
             self.analysis_table.insert(analysis_record)
 
             # PRINT ANALYSIS OUTPUT TO CONSOLE
-            print(f"\n{'='*80}")
-            print(f"{TerminalColor.BRIGHT_GREEN.apply('🔍 WORKFLOW ANALYSIS COMPLETED')}")
-            print(f"{'='*80}")
-            print(f"{TerminalColor.CYAN.apply('Workflow ID:')} {workflow_id}")
-            print(f"{TerminalColor.CYAN.apply('Workflow Dir:')} {workflow_dir}")
-            print(f"{TerminalColor.CYAN.apply('Analysis Type:')} Failed Workflow")
-            print(f"{TerminalColor.CYAN.apply('LLM Used:')} {bool(llm_response)}")
-            print(f"{TerminalColor.CYAN.apply('Fallback Mode:')} {'fallback_mode' in analysis_result}")
-            print(f"{TerminalColor.CYAN.apply('Ollama Healthy:')} {self.ollama_manager.is_healthy}")
+            print(f"\n╔{'═'*78}╗")
+            print(f"║ {TerminalColor.BRIGHT_GREEN.apply('✅ WORKFLOW ANALYSIS COMPLETED'):76} ║")
+            print(f"╠{'═'*78}╣")
+            workflow_dir_display = workflow_dir if len(workflow_dir) <= 54 else '...' + workflow_dir[-51:]
+            print(f"║ {TerminalColor.CYAN.apply('Workflow ID:'):20} {workflow_id[:54]:54} ║")
+            print(f"║ {TerminalColor.CYAN.apply('Workflow Dir:'):20} {workflow_dir_display:54} ║")
+            print(f"║ {TerminalColor.CYAN.apply('Analysis Type:'):20} {'Failed Workflow':54} ║")
+            llm_status = TerminalColor.GREEN.apply('Yes') if llm_response else TerminalColor.YELLOW.apply('No (Fallback)')
+            print(f"║ {TerminalColor.CYAN.apply('LLM Used:'):20} {llm_status:54} ║")
+            print(f"╚{'═'*78}╝\n")
 
-            print(f"\n{TerminalColor.BRIGHT_YELLOW.apply('📋 Problems & Solutions:')}")
+            print(f"┌─ {TerminalColor.BRIGHT_YELLOW.apply('PROBLEMS & SOLUTIONS')} {'─'*55}")
             problems = analysis_result.get("problems_and_solutions", [])
             if problems:
                 for idx, problem in enumerate(problems, 1):
-                    print(f"\n  {TerminalColor.WHITE.apply(f'Issue #{idx}:')}")
-                    print(f"    {TerminalColor.RED.apply('Problem:')} {problem.get('problem', 'N/A')}")
-                    print(f"    {TerminalColor.GREEN.apply('Solution:')} {problem.get('solution', 'N/A')}")
-                    print(f"    {TerminalColor.YELLOW.apply('Priority:')} {problem.get('priority', 'N/A')}")
-                    print(f"    {TerminalColor.BLUE.apply('Error Level:')} {problem.get('error_level', 'N/A')}")
+                    print(f"│")
+                    print(f"│  {TerminalColor.BRIGHT_WHITE.apply(f'Issue #{idx}:')}")
+                    problem_text = problem.get('problem', 'N/A')
+                    if len(problem_text) > 60:
+                        problem_text = problem_text[:57] + '...'
+                    print(f"│    {TerminalColor.RED.apply('Problem:')} {problem_text}")
+
+                    solution_text = problem.get('solution', 'N/A')
+                    if len(solution_text) > 60:
+                        solution_text = solution_text[:57] + '...'
+                    print(f"│    {TerminalColor.GREEN.apply('Solution:')} {solution_text}")
+
+                    print(f"│    {TerminalColor.YELLOW.apply('Priority:')} {problem.get('priority', 'N/A')} | {TerminalColor.BLUE.apply('Level:')} {problem.get('error_level', 'N/A')}")
+
                     if problem.get('file_path'):
-                        print(f"    {TerminalColor.CYAN.apply('File:')} {problem.get('file_path')}")
+                        file_path = problem.get('file_path')
+                        if len(file_path) > 60:
+                            file_path = '...' + file_path[-57:]
+                        print(f"│    {TerminalColor.CYAN.apply('File:')} {file_path}")
             else:
-                print(f"  {TerminalColor.YELLOW.apply('No specific problems identified')}")
+                print(f"│  {TerminalColor.YELLOW.apply('⚠ No specific problems identified')}")
 
             confidence = analysis_result.get("confidence_score", {})
             if confidence:
-                print(f"\n{TerminalColor.BRIGHT_MAGENTA.apply('📊 Confidence Score:')} {confidence.get('score', 'N/A')}")
-                print(f"  {confidence.get('explanation', 'N/A')}")
-            print(f"{'='*80}\n")
+                print(f"│")
+                print(f"│  {TerminalColor.BRIGHT_MAGENTA.apply('📊 Confidence:')} {confidence.get('score', 'N/A')}")
+                conf_text = confidence.get('explanation', 'N/A')
+                if len(conf_text) > 70:
+                    conf_text = conf_text[:67] + '...'
+                print(f"│     {conf_text}")
+            print(f"└{'─'*78}\n")
 
             return {
                 "status": "success",
@@ -2474,14 +2491,15 @@ class EnhancedAnalyzerAgent:
             )
 
             # STEP 1: Print analysis start
-            print(f"\n{'='*80}")
-            print(f"{TerminalColor.BRIGHT_CYAN.apply('🔄 STEP 1: STARTING WORKFLOW ANALYSIS')}")
-            print(f"{'='*80}")
-            print(f"{TerminalColor.YELLOW.apply('Request ID:')} {request_id}")
-            print(f"{TerminalColor.YELLOW.apply('Workflow ID:')} {workflow_id}")
-            print(f"{TerminalColor.YELLOW.apply('Workflow Dir:')} {workflow_dir}")
-            print(f"{TerminalColor.YELLOW.apply('Analysis Type:')} {analysis_type}")
-            print(f"{'='*80}\n")
+            print(f"\n╔{'═'*78}╗")
+            print(f"║ {TerminalColor.BRIGHT_CYAN.apply('🔍 ANALYZER - STARTING WORKFLOW ANALYSIS'):76} ║")
+            print(f"╠{'═'*78}╣")
+            print(f"║ {TerminalColor.YELLOW.apply('Request ID:'):20} {request_id[:54]:54} ║")
+            print(f"║ {TerminalColor.YELLOW.apply('Workflow ID:'):20} {workflow_id[:54]:54} ║")
+            workflow_dir_display = workflow_dir if len(workflow_dir) <= 54 else '...' + workflow_dir[-51:]
+            print(f"║ {TerminalColor.YELLOW.apply('Workflow Dir:'):20} {workflow_dir_display:54} ║")
+            print(f"║ {TerminalColor.YELLOW.apply('Analysis Type:'):20} {analysis_type:54} ║")
+            print(f"╚{'═'*78}╝\n")
 
             # Perform analysis
             if analysis_type == "held":
@@ -2516,17 +2534,22 @@ class EnhancedAnalyzerAgent:
             # STEP 2: Analysis completed (already printed in analyze_failed_workflow)
 
             # STEP 3: Notify requester via HTTP webhook
-            print(f"\n{'='*80}")
-            print(f"{TerminalColor.BRIGHT_MAGENTA.apply('🔄 STEP 2: NOTIFYING CONNECTED AGENTS')}")
-            print(f"{'='*80}\n")
+            print(f"\n┌─ {TerminalColor.BRIGHT_MAGENTA.apply('STEP 2/2:')} {TerminalColor.BRIGHT_WHITE.apply('Notifying Connected Agents')} {'─'*37}")
+            print(f"│  Sending analysis results to Planner...")
 
             await self.notify_analysis_complete(analysis_request, result)
 
+            print(f"│  {TerminalColor.GREEN.apply('✓ Notification sent successfully')}")
+            print(f"└{'─'*78}\n")
+
             self.logger.info(f"Completed analysis for workflow {workflow_id} (request: {request_id})")
 
-            print(f"\n{'='*80}")
-            print(f"{TerminalColor.BRIGHT_GREEN.apply('✅ ANALYSIS WORKFLOW COMPLETED SUCCESSFULLY')}")
-            print(f"{'='*80}\n")
+            print(f"╔{'═'*78}╗")
+            print(f"║ {TerminalColor.BRIGHT_GREEN.apply('✅ ANALYSIS WORKFLOW COMPLETED SUCCESSFULLY'):76} ║")
+            print(f"╠{'═'*78}╣")
+            print(f"║ {TerminalColor.CYAN.apply('Problems Found:'):20} {problems_count:54} ║")
+            print(f"║ {TerminalColor.CYAN.apply('Hold Issues:'):20} {hold_issues_count:54} ║")
+            print(f"╚{'═'*78}╝\n")
 
         except Exception as e:
             self.logger.error(f"Error processing analysis request {request_id}: {e}")

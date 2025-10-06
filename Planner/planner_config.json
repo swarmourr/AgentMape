@@ -9,7 +9,7 @@
     "http_port": 8082,
     "mcp_port": 8767,
     "log_level": "INFO",
-    "connection_timeout": 120,
+    "connection_timeout": 600,
     "enable_auto_planning": true,
     "auto_approve_low_risk": true,
     "auto_approve_confidence_threshold": 0.75,

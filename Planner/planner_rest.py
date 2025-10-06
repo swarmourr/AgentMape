@@ -91,7 +91,7 @@ class OllamaManager:
         payload = {
             "model": self.ollama_model,
             "prompt": full_prompt,
-            "stream": False,
+            "stream": True,  # Enable streaming to avoid timeout on long responses
             "format": "json",
             "options": {
                 "temperature": 0.1,
@@ -102,22 +102,48 @@ class OllamaManager:
 
         try:
             logger.info(f"Calling Ollama with prompt length: {len(full_prompt)} chars")
+
+            # Use streaming to avoid timeout on long responses
             response = requests.post(
                 self.ollama_url,
                 json=payload,
-                timeout=self.connection_timeout
+                timeout=self.connection_timeout,
+                stream=True
             )
 
             if response.status_code == 200:
-                result = response.json()
-                response_text = result.get("response", "")
-                logger.info(f"Ollama response length: {len(response_text)} chars")
+                # Collect streaming chunks
+                full_response = ""
+                done = False
+                last_print_len = 0
 
-                # Check if response was truncated
-                if result.get("done") == False:
-                    logger.warning("Ollama response may be truncated (done=False)")
+                print(f"  {TerminalColor.CYAN.apply('⏳ Streaming LLM response...')}", end='', flush=True)
 
-                return result
+                for line in response.iter_lines():
+                    if line:
+                        try:
+                            chunk = json.loads(line.decode('utf-8'))
+                            full_response += chunk.get("response", "")
+                            done = chunk.get("done", False)
+
+                            # Show progress every 2000 chars with animated dots
+                            if len(full_response) - last_print_len >= 2000:
+                                print(f"\r  {TerminalColor.CYAN.apply('⏳ Streaming LLM response...')} {len(full_response):,} chars", end='', flush=True)
+                                last_print_len = len(full_response)
+
+                        except json.JSONDecodeError as e:
+                            logger.warning(f"Failed to parse streaming chunk: {e}")
+                            continue
+
+                # Clear progress line and show completion
+                print(f"\r  {TerminalColor.GREEN.apply('✓ LLM response received:')} {len(full_response):,} chars                    ")
+                logger.info(f"Ollama response length: {len(full_response)} chars")
+
+                # Return in same format as non-streaming
+                return {
+                    "response": full_response,
+                    "done": done
+                }
             else:
                 logger.error(f"Ollama API error: {response.status_code}")
                 logger.error(f"Response body: {response.text[:500]}")
@@ -1198,15 +1224,16 @@ class LLMPlanner:
         """
         workflow_id = workflow_context.get('workflow_id')
 
-        print(f"\n{'='*80}")
-        print(f"{TerminalColor.BRIGHT_CYAN.apply('🔄 MULTI-STAGE LLM PLANNING')}")
-        print(f"{'='*80}")
-        print(f"{TerminalColor.YELLOW.apply('Breaking down planning into smaller, focused requests')}")
-        print(f"{'='*80}\n")
+        print(f"\n╔{'═'*78}╗")
+        print(f"║ {TerminalColor.BRIGHT_CYAN.apply('🔄 MULTI-STAGE LLM PLANNING'):76} ║")
+        print(f"╠{'═'*78}╣")
+        print(f"║ {TerminalColor.YELLOW.apply('Breaking down planning into smaller, focused requests'):76} ║")
+        print(f"╚{'═'*78}╝\n")
 
         # ===== STAGE 1: Identify Required Files =====
-        print(f"{TerminalColor.BRIGHT_MAGENTA.apply('📋 STAGE 1: Identifying Required Files')}")
-        print(f"Analyzing error to determine which files are needed for the fix...\n")
+        print(f"┌─ {TerminalColor.BRIGHT_MAGENTA.apply('STAGE 1/3:')} {TerminalColor.BRIGHT_WHITE.apply('Identifying Required Files')} {'─'*34}")
+        print(f"│  Analyzing error to determine which files are needed for the fix...")
+        print(f"│")
 
         try:
             stage1_prompt = self._build_file_identification_prompt(analysis_result, workflow_context)
@@ -1235,11 +1262,18 @@ class LLMPlanner:
             files_needed = self._parse_file_identification_response(stage1_response)
 
             if files_needed:
-                print(f"{TerminalColor.GREEN.apply('✓')} Identified {len(files_needed)} file(s) needed for fix")
+                print(f"│  {TerminalColor.GREEN.apply('✓ Success:')} Identified {len(files_needed)} file(s) needed for fix")
                 for f in files_needed:
-                    print(f"  • {f.get('path')} - {f.get('reason')}")
+                    path = f.get('path', '')
+                    reason = f.get('reason', 'No reason provided')
+                    # Truncate long paths
+                    if len(path) > 50:
+                        path = '...' + path[-47:]
+                    print(f"│    {TerminalColor.CYAN.apply('•')} {path}")
+                    print(f"│      {TerminalColor.YELLOW.apply('→')} {reason}")
             else:
-                print(f"{TerminalColor.YELLOW.apply('⚠')} No additional files needed")
+                print(f"│  {TerminalColor.YELLOW.apply('⚠ Info:')} No additional files needed")
+            print(f"└{'─'*78}\n")
 
         except Exception as e:
             logger.error(f"Stage 1 parsing failed: {e}")
@@ -1248,7 +1282,7 @@ class LLMPlanner:
         # ===== STAGE 2: Fetch Required Files =====
         fetched_files = {}
         if files_needed:
-            print(f"\n{TerminalColor.BRIGHT_MAGENTA.apply('📥 STAGE 2: Fetching Required Files')}\n")
+            print(f"┌─ {TerminalColor.BRIGHT_MAGENTA.apply('STAGE 2/3:')} {TerminalColor.BRIGHT_WHITE.apply('Fetching Required Files')} {'─'*37}")
 
             for idx, file_info in enumerate(files_needed, 1):
                 file_path = file_info.get('path')
@@ -1256,35 +1290,41 @@ class LLMPlanner:
 
                 # Skip placeholder paths
                 if not file_path or '/absolute/path' in file_path or file_path == 'path':
-                    print(f"{TerminalColor.YELLOW.apply('⚠ Warning:')} LLM returned placeholder path: {file_path}")
-                    print(f"     {TerminalColor.YELLOW.apply('Skipping')} - cannot fetch placeholder paths")
+                    print(f"│  {TerminalColor.YELLOW.apply('⚠ Warning:')} LLM returned placeholder path: {file_path}")
+                    print(f"│  {TerminalColor.YELLOW.apply('  Skipping')} - cannot fetch placeholder paths")
                     continue
 
                 try:
-                    print(f"{TerminalColor.BRIGHT_WHITE.apply(f'[{idx}/{len(files_needed)}]')} {TerminalColor.CYAN.apply('Fetching:')} {file_path}")
-                    print(f"     {TerminalColor.YELLOW.apply('Reason:')} {reason}")
+                    # Truncate path for display
+                    display_path = file_path
+                    if len(display_path) > 55:
+                        display_path = '...' + display_path[-52:]
+
+                    print(f"│  {TerminalColor.BRIGHT_WHITE.apply(f'[{idx}/{len(files_needed)}]')} {TerminalColor.CYAN.apply('Fetching:')} {display_path}")
 
                     file_data = await self.request_file_from_monitor(file_path, workflow_id)
                 except Exception as e:
                     logger.error(f"Error during file fetch: {e}")
-                    print(f"     {TerminalColor.RED.apply('✗ Error:')} {str(e)}")
+                    print(f"│      {TerminalColor.RED.apply('✗ Error:')} {str(e)[:60]}")
                     continue
 
                 if file_data.get('success'):
                     fetched_files[file_path] = file_data.get('content')
                     size_kb = file_data.get('size_bytes', 0) / 1024
-                    print(f"     {TerminalColor.GREEN.apply('✓ Success:')} Retrieved {size_kb:.1f} KB\n")
+                    print(f"│      {TerminalColor.GREEN.apply('✓ Success:')} Retrieved {size_kb:.1f} KB")
                 else:
                     error_msg = file_data.get('error', 'Unknown error')
-                    print(f"     {TerminalColor.RED.apply('✗ Failed:')} {error_msg}\n")
+                    print(f"│      {TerminalColor.RED.apply('✗ Failed:')} {error_msg[:50]}")
 
-            print(f"{'='*80}")
-            print(f"{TerminalColor.BRIGHT_GREEN.apply(f'✓ Fetched {len(fetched_files)}/{len(files_needed)} file(s)')}")
-            print(f"{'='*80}\n")
+            print(f"│")
+            print(f"│  {TerminalColor.BRIGHT_GREEN.apply(f'✓ Fetched {len(fetched_files)}/{len(files_needed)} file(s) successfully')}")
+            print(f"└{'─'*78}\n")
 
         # ===== STAGE 3: Generate Repair Plan =====
-        print(f"{TerminalColor.BRIGHT_MAGENTA.apply('🛠️  STAGE 3: Generating Repair Plan')}")
-        print(f"Creating specific repair steps with the fetched file content...\n")
+        print(f"┌─ {TerminalColor.BRIGHT_MAGENTA.apply('STAGE 3/3:')} {TerminalColor.BRIGHT_WHITE.apply('Generating Repair Plan')} {'─'*39}")
+        print(f"│  Creating specific repair steps with the fetched file content...")
+        print(f"│  {TerminalColor.YELLOW.apply('⏳ This may take 2-5 minutes for large prompts...')}")
+        print(f"└{'─'*78}\n")
 
         # Now call single-stage with fetched files and multi_stage=False to avoid recursion
         return await self.generate_plan_with_llm(
