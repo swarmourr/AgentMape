@@ -1125,6 +1125,9 @@ class EnhancedAnalyzerAgent:
         self.app.router.add_get('/api/ollama/status', self.handle_ollama_status)
         self.app.router.add_post('/api/ollama/test', self.handle_test_ollama)
 
+        # Statistics endpoint for dashboard
+        self.app.router.add_get('/api/stats', self.handle_get_stats)
+
     def send_logs_and_workflow_to_llm_enhanced(self, logs: str, workflow: Dict[str, Any], analysis_type: str = "failed", hold_reason: str = "") -> Optional[Dict[str, Any]]:
         """Enhanced LLM communication with better error handling and fallback"""
         
@@ -2380,6 +2383,25 @@ class EnhancedAnalyzerAgent:
             })
         except Exception as e:
             return web.json_response({"status": "error", "error": str(e)}, status=500)
+
+    async def handle_get_stats(self, request):
+        """Get analyzer statistics for dashboard"""
+        try:
+            total_analyses = len(self.analysis_table.all())
+            active_analyses = len(self.active_analyses)
+
+            # Count completed analyses (status = completed)
+            completed_analyses = len([a for a in self.analysis_table.all() if a.get('status') == 'completed'])
+
+            return web.json_response({
+                "analyses_completed": completed_analyses,
+                "total_analyses": total_analyses,
+                "active_analyses": active_analyses,
+                "queue_size": len(self.analysis_queue),
+                "timestamp": datetime.now().isoformat()
+            })
+        except Exception as e:
+            return web.json_response({"error": str(e)}, status=500)
 
     def save_request_to_file(self, request_type: str, data: Dict[str, Any], agent_name: str = "analyzer"):
         """Save last request to file for debugging"""

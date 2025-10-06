@@ -238,6 +238,148 @@
         ::-webkit-scrollbar-thumb:hover {
             background: #6bb5ff;
         }
+
+        /* Modal styling */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            margin: 5% auto;
+            padding: 0;
+            border: 2px solid #4a9eff;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 1000px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 0 40px rgba(74, 158, 255, 0.5);
+            animation: slideDown 0.3s;
+        }
+
+        @keyframes slideDown {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-header {
+            padding: 20px;
+            background: rgba(74, 158, 255, 0.1);
+            border-bottom: 2px solid #4a9eff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            color: #4a9eff;
+            margin: 0;
+        }
+
+        .close {
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: #fff;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .detail-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            border-left: 4px solid #4a9eff;
+        }
+
+        .detail-section h3 {
+            color: #4a9eff;
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+
+        .detail-item {
+            margin: 10px 0;
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            gap: 10px;
+        }
+
+        .detail-label {
+            color: #a0a0a0;
+            font-weight: bold;
+        }
+
+        .detail-value {
+            color: #e0e0e0;
+            word-break: break-all;
+        }
+
+        .workflow-item {
+            cursor: pointer;
+            transition: background 0.2s ease, transform 0.2s ease;
+        }
+
+        .workflow-item:hover {
+            background: rgba(74, 158, 255, 0.2);
+            transform: translateX(10px);
+        }
+
+        .error-box {
+            background: rgba(231, 76, 60, 0.1);
+            border-left: 4px solid #e74c3c;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+
+        .plan-box {
+            background: rgba(46, 204, 113, 0.1);
+            border-left: 4px solid #2ecc71;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+
+        .code-block {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid #4a9eff;
+            border-radius: 5px;
+            padding: 10px;
+            overflow-x: auto;
+            font-family: 'Monaco', monospace;
+            font-size: 0.85em;
+            margin: 10px 0;
+        }
     </style>
 </head>
 <body>
@@ -338,6 +480,22 @@
         </div>
     </div>
 
+    <!-- Modal for Workflow Details -->
+    <div id="workflowModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📋 Workflow Details</h2>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body" id="modal-body">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    Loading workflow details...
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Auto-refresh every 3 seconds
         const REFRESH_INTERVAL = 3000;
@@ -409,7 +567,7 @@
             }
 
             listDiv.innerHTML = workflows.map(wf => `
-                <div class="workflow-item">
+                <div class="workflow-item" onclick="showWorkflowDetails('${wf.workflow_id}')">
                     <div>
                         <strong>${wf.workflow_id || 'Unknown'}</strong>
                         <span class="workflow-status status-${wf.status.toLowerCase()}">
@@ -421,6 +579,138 @@
                     </div>
                 </div>
             `).join('');
+        }
+
+        // Modal functionality
+        const modal = document.getElementById('workflowModal');
+        const closeBtn = document.getElementsByClassName('close')[0];
+
+        closeBtn.onclick = function() {
+            modal.style.display = 'none';
+        }
+
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        async function showWorkflowDetails(workflowId) {
+            const modalBody = document.getElementById('modal-body');
+            modal.style.display = 'block';
+
+            // Show loading
+            modalBody.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    Loading workflow details...
+                </div>
+            `;
+
+            try {
+                const response = await fetch(`/api/workflow/${workflowId}/details`);
+                const data = await response.json();
+
+                modalBody.innerHTML = renderWorkflowDetails(data);
+            } catch (error) {
+                modalBody.innerHTML = `
+                    <div class="error-box">
+                        <strong>Error:</strong> ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        function renderWorkflowDetails(data) {
+            let html = '';
+
+            // Basic Info
+            html += `
+                <div class="detail-section">
+                    <h3>🆔 Basic Information</h3>
+                    <div class="detail-item">
+                        <div class="detail-label">Workflow ID:</div>
+                        <div class="detail-value">${data.workflow_id}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Last Updated:</div>
+                        <div class="detail-value">${new Date(data.timestamp).toLocaleString()}</div>
+                    </div>
+                </div>
+            `;
+
+            // Monitor Data
+            if (data.monitor_data && !data.monitor_data.error) {
+                html += `
+                    <div class="detail-section">
+                        <h3>🔍 Monitor Status</h3>
+                        <div class="code-block">${JSON.stringify(data.monitor_data, null, 2)}</div>
+                    </div>
+                `;
+            }
+
+            // Analysis Data
+            if (data.analysis_data && !data.analysis_data.error) {
+                html += `<div class="detail-section"><h3>🧠 Analysis Results</h3>`;
+
+                const analysis = data.analysis_data.analysis || {};
+                const problems = analysis.problems_and_solutions || [];
+
+                if (problems.length > 0) {
+                    html += `<h4>Problems Detected:</h4>`;
+                    problems.forEach((problem, idx) => {
+                        html += `
+                            <div class="error-box">
+                                <strong>Problem ${idx + 1}:</strong> ${problem.problem || 'N/A'}<br>
+                                <strong>Solution:</strong> ${problem.solution || 'N/A'}<br>
+                                <strong>Priority:</strong> ${problem.priority || 'N/A'} |
+                                <strong>Level:</strong> ${problem.error_level || 'N/A'}
+                            </div>
+                        `;
+                    });
+                } else {
+                    html += `<p>No problems detected</p>`;
+                }
+
+                html += `</div>`;
+            } else if (data.analysis_data && data.analysis_data.error) {
+                html += `
+                    <div class="detail-section">
+                        <h3>🧠 Analysis Results</h3>
+                        <p style="color: #f39c12;">⚠️ ${data.analysis_data.error}</p>
+                    </div>
+                `;
+            }
+
+            // Plans
+            if (data.plans && data.plans.length > 0) {
+                html += `
+                    <div class="detail-section">
+                        <h3>🛠️ Repair Plans (${data.plans.length})</h3>
+                `;
+
+                data.plans.forEach((plan, idx) => {
+                    html += `
+                        <div class="plan-box">
+                            <strong>Plan ${idx + 1}:</strong> ${plan.description || plan.plan_summary || 'N/A'}<br>
+                            <strong>Risk Level:</strong> ${plan.risk_level || 'N/A'}<br>
+                            <strong>Steps:</strong> ${(plan.repair_steps || plan.steps || []).length}<br>
+                            <strong>Created:</strong> ${plan.created_at ? new Date(plan.created_at).toLocaleString() : 'N/A'}
+                        </div>
+                    `;
+                });
+
+                html += `</div>`;
+            } else {
+                html += `
+                    <div class="detail-section">
+                        <h3>🛠️ Repair Plans</h3>
+                        <p style="color: #f39c12;">⚠️ No repair plans generated yet</p>
+                    </div>
+                `;
+            }
+
+            return html;
         }
 
         // Initial fetch

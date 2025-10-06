@@ -79,11 +79,12 @@ class DashboardMonitor:
     def get_analyzer_stats(self) -> Dict:
         """Récupère les stats de l'Analyzer"""
         try:
-            # Try to get analysis status (doesn't have /api/stats endpoint)
-            # Return default values for now
-            return {"analyses_completed": "N/A", "active_analyses": 0}
-        except:
-            return {"analyses_completed": "N/A", "active_analyses": 0}
+            response = requests.get(f"{ANALYZER_URL}/api/stats", timeout=2)
+            if response.status_code == 200:
+                return response.json()
+        except Exception as e:
+            print(f"Error getting analyzer stats: {e}")
+            return {"analyses_completed": 0, "active_analyses": 0}
 
     def get_planner_stats(self) -> Dict:
         """Récupère les stats du Planner"""
@@ -168,6 +169,47 @@ def get_workflows():
         "workflows": data["workflows"],
         "counts": data["workflow_counts"]
     })
+
+@app.route('/api/workflow/<workflow_id>/details')
+def get_workflow_details(workflow_id):
+    """API pour récupérer les détails d'un workflow spécifique"""
+    try:
+        details = {}
+
+        # Get workflow status from Monitor
+        try:
+            response = requests.get(f"{MONITOR_URL}/api/workflows/{workflow_id}/status", timeout=2)
+            if response.status_code == 200:
+                details["monitor_data"] = response.json()
+        except:
+            details["monitor_data"] = {"error": "Could not fetch from Monitor"}
+
+        # Get analysis results from Analyzer
+        try:
+            response = requests.get(f"{ANALYZER_URL}/api/analysis/{workflow_id}/results", timeout=2)
+            if response.status_code == 200:
+                details["analysis_data"] = response.json()
+        except:
+            details["analysis_data"] = {"error": "No analysis found"}
+
+        # Get plans from Planner
+        try:
+            response = requests.get(f"{PLANNER_URL}/api/plans", timeout=2)
+            if response.status_code == 200:
+                all_plans = response.json().get("plans", [])
+                # Filter plans for this workflow
+                workflow_plans = [p for p in all_plans if p.get("workflow_id") == workflow_id]
+                details["plans"] = workflow_plans
+        except:
+            details["plans"] = []
+
+        details["workflow_id"] = workflow_id
+        details["timestamp"] = datetime.now().isoformat()
+
+        return jsonify(details)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     print(f"""
