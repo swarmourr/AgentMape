@@ -58,25 +58,45 @@ class DashboardMonitor:
             response = requests.get(f"{MONITOR_URL}/api/workflows", timeout=2)
             if response.status_code == 200:
                 data = response.json()
-                return data.get("workflows", [])
-        except:
+                # Combine active and monitored workflows
+                active = data.get("active_workflows", [])
+                monitored = data.get("monitored_workflows", [])
+
+                # Format workflows with status
+                workflows = []
+                for wf in active:
+                    workflows.append({
+                        "workflow_id": wf.get("workflow_id", "Unknown"),
+                        "status": "running",
+                        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    })
+
+                return workflows
+        except Exception as e:
+            print(f"Error getting workflows: {e}")
             return []
 
     def get_analyzer_stats(self) -> Dict:
         """Récupère les stats de l'Analyzer"""
         try:
-            response = requests.get(f"{ANALYZER_URL}/api/stats", timeout=2)
-            if response.status_code == 200:
-                return response.json()
+            # Try to get analysis status (doesn't have /api/stats endpoint)
+            # Return default values for now
+            return {"analyses_completed": "N/A", "active_analyses": 0}
         except:
-            return {"analyses_completed": 0, "active_analyses": 0}
+            return {"analyses_completed": "N/A", "active_analyses": 0}
 
     def get_planner_stats(self) -> Dict:
         """Récupère les stats du Planner"""
         try:
-            response = requests.get(f"{PLANNER_URL}/api/stats", timeout=2)
+            # Get plans from /api/plans endpoint
+            response = requests.get(f"{PLANNER_URL}/api/plans", timeout=2)
             if response.status_code == 200:
-                return response.json()
+                data = response.json()
+                plans = data.get("plans", [])
+                return {
+                    "plans_generated": len(plans),
+                    "active_planning": 0
+                }
         except:
             return {"plans_generated": 0, "active_planning": 0}
 
@@ -98,17 +118,14 @@ class DashboardMonitor:
         planner_stats = self.get_planner_stats()
 
         # Compter les workflows par statut
+        # Note: Le Monitor ne retourne pas les statuts détaillés pour l'instant
+        # On affiche juste le nombre de workflows actifs
         workflow_counts = {
-            "running": 0,
-            "failed": 0,
-            "held": 0,
-            "success": 0
+            "running": len(workflows),
+            "failed": 0,  # Ces données viendraient de l'Analyzer
+            "held": 0,    # Ces données viendraient de l'Analyzer
+            "success": 0  # À implémenter
         }
-
-        for wf in workflows:
-            status = wf.get("status", "unknown").lower()
-            if status in workflow_counts:
-                workflow_counts[status] += 1
 
         return {
             "timestamp": datetime.now().isoformat(),
