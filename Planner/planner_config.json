@@ -1,6 +1,6 @@
 {
-    "ollama_url": "http://lzyhk-2001-863-3aa-9426-a544-47ad-aab6-cabd.a.free.pinggy.link/api/generate",
-    "ollama_api_base": "http://lzyhk-2001-863-3aa-9426-a544-47ad-aab6-cabd.a.free.pinggy.link",
+    "ollama_url": "http://fetos-2001-863-3ab-b53a-2c8e-a09d-777d-b45.a.free.pinggy.link/api/generate",
+    "ollama_api_base": "http://fetos-2001-863-3ab-b53a-2c8e-a09d-777d-b45.a.free.pinggy.link",
     "ollama_model": "llama3.3:latest",
     "ollama_check_interval": 30,
     "monitor_url": "http://localhost:8080",
