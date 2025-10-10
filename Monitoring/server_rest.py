@@ -1557,8 +1557,11 @@ class PegasusWorkflowManager:
             return []
 
     def find_yaml_file(self, workflow_dir: str) -> Optional[str]:
-        """Find the main workflow YAML file"""
+        """Find the main workflow YAML file and return ABSOLUTE path"""
         import yaml
+
+        # Ensure workflow_dir is absolute
+        workflow_dir = os.path.abspath(workflow_dir)
 
         # Try braindump first to get the workflow file
         braindump_path = os.path.join(workflow_dir, 'braindump.yml')
@@ -1567,8 +1570,12 @@ class PegasusWorkflowManager:
                 with open(braindump_path, 'r') as f:
                     braindump = yaml.safe_load(f)
                     dax_path = braindump.get('dax')
-                    if dax_path and os.path.exists(dax_path):
-                        return dax_path
+                    if dax_path:
+                        # Ensure absolute path
+                        if not os.path.isabs(dax_path):
+                            dax_path = os.path.join(workflow_dir, dax_path)
+                        if os.path.exists(dax_path):
+                            return os.path.abspath(dax_path)
             except:
                 pass
 
@@ -1579,12 +1586,12 @@ class PegasusWorkflowManager:
         for f in yaml_files:
             basename = os.path.basename(f).lower()
             if basename in ['workflow.yml', 'workflow.yaml', 'dax.yml', 'dax.yaml']:
-                return f
+                return os.path.abspath(f)
 
         # Priority 2: Any YAML except braindump
         for f in yaml_files:
             if 'braindump' not in os.path.basename(f).lower():
-                return f
+                return os.path.abspath(f)
 
         return None
 
@@ -1620,9 +1627,12 @@ class PegasusWorkflowManager:
         Collect workflow metadata (PATHS ONLY - no content).
         Extracts ALL transformation and replica PFNs from workflow YAML.
         """
+        # Ensure iwd is absolute path
+        iwd = os.path.abspath(iwd)
+
         metadata = {
             "workflow_id": workflow_id,
-            "iwd": iwd,
+            "iwd": iwd,  # Now absolute
             "collected_at": datetime.now().isoformat(),
             "workflow_yaml_path": None,
             "catalog_info": {},
@@ -1632,7 +1642,7 @@ class PegasusWorkflowManager:
         }
 
         try:
-            # Find workflow YAML file path
+            # Find workflow YAML file path (returns absolute path)
             yaml_path = self.find_yaml_file(iwd)
             if yaml_path:
                 metadata["workflow_yaml_path"] = yaml_path
@@ -1819,7 +1829,7 @@ class PegasusWorkflowManager:
             # Find other important file paths
             braindump_path = os.path.join(iwd, 'braindump.txt')
             if os.path.exists(braindump_path):
-                metadata["file_paths"]["braindump"] = braindump_path
+                metadata["file_paths"]["braindump"] = os.path.abspath(braindump_path)
 
             logger.info(f"✓ Collected metadata for {workflow_id}: YAML={bool(yaml_path)}, Transformations={len(metadata['transformation_pfns'])}, Replicas={len(metadata['replica_pfns'])}")
 
@@ -1829,7 +1839,10 @@ class PegasusWorkflowManager:
         return metadata
 
     def find_catalog_file(self, workflow_dir: str, catalog_type: str) -> str:
-        """Find separate catalog file"""
+        """Find separate catalog file and return ABSOLUTE path"""
+        # Ensure workflow_dir is absolute
+        workflow_dir = os.path.abspath(workflow_dir)
+
         patterns = {
             'replica': ['*replica*.yml', '*replica*.yaml', '*rc.yml'],
             'transformation': ['*transformation*.yml', '*tc.yml', '*transformation*.yaml'],
@@ -1839,7 +1852,7 @@ class PegasusWorkflowManager:
         for pattern in patterns.get(catalog_type, []):
             matches = glob.glob(os.path.join(workflow_dir, pattern))
             if matches:
-                return matches[0]
+                return os.path.abspath(matches[0])
         return None
 
     async def start_monitoring_workflow(self, workflow_id: str, iwd: str):
