@@ -1556,6 +1556,55 @@ class PegasusWorkflowManager:
             logger.error(f"Error getting workflow details: {e}")
             return []
 
+    def find_yaml_file(self, workflow_dir: str) -> Optional[str]:
+        """Find the main workflow YAML file"""
+        import yaml
+
+        # Try braindump first to get the workflow file
+        braindump_path = os.path.join(workflow_dir, 'braindump.yml')
+        if os.path.exists(braindump_path):
+            try:
+                with open(braindump_path, 'r') as f:
+                    braindump = yaml.safe_load(f)
+                    dax_path = braindump.get('dax')
+                    if dax_path and os.path.exists(dax_path):
+                        return dax_path
+            except:
+                pass
+
+        # Look for common workflow file names
+        yaml_files = glob.glob(os.path.join(workflow_dir, "*.yml")) + glob.glob(os.path.join(workflow_dir, "*.yaml"))
+
+        # Priority 1: workflow.yml or dax.yml
+        for f in yaml_files:
+            basename = os.path.basename(f).lower()
+            if basename in ['workflow.yml', 'workflow.yaml', 'dax.yml', 'dax.yaml']:
+                return f
+
+        # Priority 2: Any YAML except braindump
+        for f in yaml_files:
+            if 'braindump' not in os.path.basename(f).lower():
+                return f
+
+        return None
+
+    def load_workflow_yaml(self, yaml_path: str) -> Dict[str, Any]:
+        """Load workflow YAML and return raw content"""
+        import yaml
+
+        try:
+            with open(yaml_path, 'r') as f:
+                raw_content = yaml.safe_load(f)
+
+            return {
+                'raw_content': raw_content,
+                'path': yaml_path,
+                'filename': os.path.basename(yaml_path)
+            }
+        except Exception as e:
+            logger.error(f"Error loading YAML {yaml_path}: {e}")
+            return {}
+
     def collect_workflow_metadata(self, workflow_id: str, iwd: str) -> Dict[str, Any]:
         """
         Collect workflow metadata (PATHS ONLY - no content).
