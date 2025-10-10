@@ -1653,7 +1653,11 @@ class PegasusWorkflowManager:
 
                     # Check transformationCatalog.transformations
                     tc_section = raw_content.get('transformationCatalog', {})
+                    if not isinstance(tc_section, dict):
+                        tc_section = {}
                     transformations_list = tc_section.get('transformations', [])
+                    if not isinstance(transformations_list, list):
+                        transformations_list = []
 
                     for trans in transformations_list:
                         if not isinstance(trans, dict):
@@ -1690,7 +1694,11 @@ class PegasusWorkflowManager:
 
                     # Check pegasus.transformations
                     pegasus_section = raw_content.get('pegasus', {})
+                    if not isinstance(pegasus_section, dict):
+                        pegasus_section = {}
                     pegasus_transformations = pegasus_section.get('transformations', [])
+                    if not isinstance(pegasus_transformations, list):
+                        pegasus_transformations = []
 
                     for trans in pegasus_transformations:
                         if not isinstance(trans, dict):
@@ -1730,7 +1738,11 @@ class PegasusWorkflowManager:
 
                     # Check replicaCatalog.replicas
                     rc_section = raw_content.get('replicaCatalog', {})
+                    if not isinstance(rc_section, dict):
+                        rc_section = {}
                     replicas_list = rc_section.get('replicas', [])
+                    if not isinstance(replicas_list, list):
+                        replicas_list = []
 
                     for replica in replicas_list:
                         if not isinstance(replica, dict):
@@ -1754,6 +1766,8 @@ class PegasusWorkflowManager:
 
                     # Check pegasus.replicas
                     pegasus_replicas = pegasus_section.get('replicas', [])
+                    if not isinstance(pegasus_replicas, list):
+                        pegasus_replicas = []
                     for replica in pegasus_replicas:
                         if not isinstance(replica, dict):
                             continue
