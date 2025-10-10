@@ -1596,6 +1596,16 @@ class PegasusWorkflowManager:
             with open(yaml_path, 'r') as f:
                 raw_content = yaml.safe_load(f)
 
+            # Ensure raw_content is a dict
+            if not isinstance(raw_content, dict):
+                logger.warning(f"YAML file {yaml_path} does not contain a dict (got {type(raw_content)})")
+                return {
+                    'raw_content': {},
+                    'path': yaml_path,
+                    'filename': os.path.basename(yaml_path),
+                    'error': 'YAML content is not a dictionary'
+                }
+
             return {
                 'raw_content': raw_content,
                 'path': yaml_path,
@@ -1630,8 +1640,13 @@ class PegasusWorkflowManager:
                 # Load YAML to extract PFNs and detect catalog types
                 workflow_yaml_data = self.load_workflow_yaml(yaml_path)
 
-                if workflow_yaml_data:
+                if workflow_yaml_data and workflow_yaml_data.get('raw_content'):
                     raw_content = workflow_yaml_data.get('raw_content', {})
+
+                    # Ensure raw_content is a dict (additional safety check)
+                    if not isinstance(raw_content, dict):
+                        logger.warning(f"raw_content is not a dict for {workflow_id}, skipping PFN extraction")
+                        raw_content = {}
 
                     # Extract ALL transformation PFNs (scripts in /srv or elsewhere)
                     transformation_pfns = []
@@ -1641,10 +1656,15 @@ class PegasusWorkflowManager:
                     transformations_list = tc_section.get('transformations', [])
 
                     for trans in transformations_list:
+                        if not isinstance(trans, dict):
+                            continue  # Skip invalid entries
+
                         sites = trans.get('sites', [])
-                        if sites:
+                        if sites and isinstance(sites, list):
                             # Nested structure: sites[].pfn
                             for site in sites:
+                                if not isinstance(site, dict):
+                                    continue
                                 pfn = site.get('pfn')
                                 if pfn:
                                     transformation_pfns.append({
@@ -1673,9 +1693,14 @@ class PegasusWorkflowManager:
                     pegasus_transformations = pegasus_section.get('transformations', [])
 
                     for trans in pegasus_transformations:
+                        if not isinstance(trans, dict):
+                            continue  # Skip invalid entries
+
                         sites = trans.get('sites', [])
-                        if sites:
+                        if sites and isinstance(sites, list):
                             for site in sites:
+                                if not isinstance(site, dict):
+                                    continue
                                 pfn = site.get('pfn')
                                 if pfn:
                                     transformation_pfns.append({
@@ -1708,34 +1733,46 @@ class PegasusWorkflowManager:
                     replicas_list = rc_section.get('replicas', [])
 
                     for replica in replicas_list:
+                        if not isinstance(replica, dict):
+                            continue
+
                         lfn = replica.get('lfn', 'unknown')
                         pfns = replica.get('pfns', [])
 
-                        for pfn_entry in pfns:
-                            site = pfn_entry.get('site', '')
-                            pfn = pfn_entry.get('pfn', '')
-                            if pfn:
-                                replica_pfns.append({
-                                    "lfn": lfn,
-                                    "site": site,
-                                    "pfn": pfn
-                                })
+                        if isinstance(pfns, list):
+                            for pfn_entry in pfns:
+                                if not isinstance(pfn_entry, dict):
+                                    continue
+                                site = pfn_entry.get('site', '')
+                                pfn = pfn_entry.get('pfn', '')
+                                if pfn:
+                                    replica_pfns.append({
+                                        "lfn": lfn,
+                                        "site": site,
+                                        "pfn": pfn
+                                    })
 
                     # Check pegasus.replicas
                     pegasus_replicas = pegasus_section.get('replicas', [])
                     for replica in pegasus_replicas:
+                        if not isinstance(replica, dict):
+                            continue
+
                         lfn = replica.get('lfn', 'unknown')
                         pfns = replica.get('pfns', [])
 
-                        for pfn_entry in pfns:
-                            site = pfn_entry.get('site', '')
-                            pfn = pfn_entry.get('pfn', '')
-                            if pfn:
-                                replica_pfns.append({
-                                    "lfn": lfn,
-                                    "site": site,
-                                    "pfn": pfn
-                                })
+                        if isinstance(pfns, list):
+                            for pfn_entry in pfns:
+                                if not isinstance(pfn_entry, dict):
+                                    continue
+                                site = pfn_entry.get('site', '')
+                                pfn = pfn_entry.get('pfn', '')
+                                if pfn:
+                                    replica_pfns.append({
+                                        "lfn": lfn,
+                                        "site": site,
+                                        "pfn": pfn
+                                    })
 
                     metadata["replica_pfns"] = replica_pfns
 
