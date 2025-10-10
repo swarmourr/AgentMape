@@ -351,63 +351,42 @@ class PegasusWorkflowManager:
         request_id = str(uuid.uuid4())
         print(f"    {TerminalColor.GREEN.apply('✓')} Request ID: {request_id}")
 
-        # STEP 2: Discover catalogs
-        print(f"\n  {TerminalColor.CYAN.apply('→ Step 1.2:')} Discovering workflow catalogs...")
-        catalogs = self.discover_catalogs(workflow_dir)
+        # STEP 2: Retrieve stored metadata (paths only)
+        print(f"\n  {TerminalColor.CYAN.apply('→ Step 1.2:')} Retrieving workflow metadata...")
 
-        # Count actual catalog discoveries (not metadata fields)
-        catalog_types = ['replica_catalog', 'transformation_catalog', 'site_catalog']
-        catalog_count = sum(1 for k in catalog_types if catalogs.get(k) is not None)
+        # Try to get stored metadata first (critical if workflow dir deleted)
+        workflow_record = workflows_table.get(Query().workflow_id == workflow_id)
+        stored_metadata = workflow_record.get('metadata', {}) if workflow_record else {}
 
-        if catalog_count > 0:
-            print(f"    {TerminalColor.GREEN.apply('✓')} Found {catalog_count} catalog(s)")
-            for cat_type in catalog_types:
-                cat_info = catalogs.get(cat_type)
-                if cat_info and isinstance(cat_info, dict):
-                    print(f"      • {cat_type}: {cat_info.get('path', 'N/A')}")
+        if stored_metadata and stored_metadata.get('workflow_yaml_path'):
+            print(f"    {TerminalColor.GREEN.apply('✓')} Using pre-collected metadata paths")
+            print(f"      • Workflow YAML: {stored_metadata.get('workflow_yaml_path')}")
+            print(f"      • Collected at: {stored_metadata.get('collected_at', 'unknown')}")
+
+            # Show PFN counts
+            trans_count = len(stored_metadata.get('transformation_pfns', []))
+            replica_count = len(stored_metadata.get('replica_pfns', []))
+            print(f"      • Transformation PFNs: {trans_count} (/srv and other paths)")
+            print(f"      • Replica PFNs: {replica_count}")
+
+            catalog_count = len(stored_metadata.get('catalog_info', {}))
+            if catalog_count > 0:
+                print(f"      • Catalogs: {catalog_count} detected")
+                for cat_name, cat_info in stored_metadata.get('catalog_info', {}).items():
+                    cat_type = cat_info.get('type', 'unknown')
+                    cat_path = cat_info.get('path', 'embedded')
+                    print(f"        - {cat_name}: {cat_type}" + (f" ({cat_path})" if cat_path else ""))
+
+            print(f"    {TerminalColor.CYAN.apply('ℹ')} Analyzer will request file content on-demand")
         else:
-            print(f"    {TerminalColor.YELLOW.apply('⚠')} No catalogs discovered")
+            # Fallback: Try to collect metadata now (if workflow dir still exists)
+            print(f"    {TerminalColor.YELLOW.apply('⚠')} No stored metadata, collecting now...")
+            stored_metadata = self.collect_workflow_metadata(workflow_id, workflow_dir)
 
-        # STEP 2.5: Read workflow descriptor and generator files
-        print(f"\n  {TerminalColor.CYAN.apply('→ Step 1.2.5:')} Reading workflow files...")
-        workflow_files = self.read_workflow_files(workflow_dir)
+            if not stored_metadata or not stored_metadata.get('workflow_yaml_path'):
+                print(f"    {TerminalColor.RED.apply('✗')} Could not collect metadata - workflow dir may be deleted")
+                # Continue anyway - Analyzer can work with logs only
 
-        # Ensure workflow_files is always a dict
-        if not isinstance(workflow_files, dict):
-            workflow_files = {}
-
-        if workflow_files.get('workflow_yaml'):
-            wf_yaml = workflow_files['workflow_yaml']
-            print(f"    {TerminalColor.GREEN.apply('✓')} Workflow descriptor: {wf_yaml['filename']}")
-            print(f"      - Size: {wf_yaml['size']} bytes")
-
-            # Show parsed structure summary
-            parsed = wf_yaml.get('parsed_structure', {})
-            if parsed:
-                print(f"      - Parsed structure:")
-                if parsed.get('jobs'):
-                    print(f"        • Jobs: {len(parsed['jobs'])}")
-                if parsed.get('transformations'):
-                    print(f"        • Transformations: {len(parsed['transformations'])} (embedded)")
-                if parsed.get('replicas'):
-                    print(f"        • Replicas: {len(parsed['replicas'])} (embedded)")
-                if parsed.get('sites'):
-                    print(f"        • Sites: {len(parsed['sites'])} (embedded)")
-
-        if workflow_files.get('generator_script'):
-            print(f"    {TerminalColor.GREEN.apply('✓')} Generator script: {workflow_files['generator_script']['filename']}")
-            print(f"      - Size: {workflow_files['generator_script']['size']} bytes")
-
-        if workflow_files.get('braindump_metadata'):
-            metadata = workflow_files['braindump_metadata']
-            print(f"    {TerminalColor.GREEN.apply('✓')} Braindump metadata extracted:")
-            if metadata.get('submit_dir'):
-                print(f"      - Submit dir: {metadata['submit_dir']}")
-            if metadata.get('dax'):
-                print(f"      - DAX file: {metadata['dax']}")
-
-        if not workflow_files.get('workflow_yaml') and not workflow_files.get('generator_script'):
-            print(f"    {TerminalColor.YELLOW.apply('⚠')} No workflow files found")
 
         # STEP 2.6: Run pegasus-analyzer
         print(f"\n  {TerminalColor.CYAN.apply('→ Step 1.2.6:')} Running pegasus-analyzer...")
@@ -431,48 +410,24 @@ class PegasusWorkflowManager:
 
         try:
             async with ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
+                # NEW: Send only metadata (paths), not file content
                 request_data = {
                     "workflow_id": workflow_id,
                     "workflow_dir": workflow_dir,
                     "analysis_type": analysis_type,
                     "request_id": request_id,
                     "requester": "monitor_agent",
-                    "catalogs": catalogs,  # ENHANCED: Include catalog information
-                    "workflow_files": workflow_files,  # ENHANCED: Include workflow descriptor and generator
-                    "pegasus_analyzer": pegasus_analyzer_output  # ENHANCED: Include pegasus-analyzer output
+                    "metadata": stored_metadata,  # PATHS ONLY - no content
+                    "monitor_url": f"http://{HTTP_HOST}:{HTTP_PORT}",  # So Analyzer can request files
+                    "pegasus_analyzer": pegasus_analyzer_output  # Still include logs (needed for analysis)
                 }
 
                 # Print request payload
-                print(f"\n  {TerminalColor.BRIGHT_BLUE.apply('📤 REQUEST PAYLOAD TO ANALYZER:')}")
+                print(f"\n  {TerminalColor.BRIGHT_BLUE.apply('📤 REQUEST PAYLOAD TO ANALYZER (PULL MODEL):')}")
                 print(f"  {TerminalColor.BRIGHT_BLUE.apply('='*78)}")
 
-                # Create a summary version for display (full data still sent in request)
+                # Create a summary version for display
                 import json
-
-                # Build workflow_files summary safely
-                wf_summary = {}
-                if workflow_files and isinstance(workflow_files, dict):
-                    if workflow_files.get("workflow_yaml"):
-                        wf = workflow_files["workflow_yaml"]
-                        wf_summary["workflow_yaml"] = {
-                            "filename": wf.get("filename"),
-                            "size": wf.get("size"),
-                            "content_included": "YES" if wf.get("content") else "NO",  # Show content is included
-                            "content_preview": wf.get("content", "")[:200] + "..." if wf.get("content") else None,  # First 200 chars
-                            "parsed_structure_summary": {
-                                "jobs_count": len(wf.get("parsed_structure", {}).get("jobs", [])),
-                                "transformations_count": len(wf.get("parsed_structure", {}).get("transformations", [])),
-                                "replicas_count": len(wf.get("parsed_structure", {}).get("replicas", [])),
-                                "sites_count": len(wf.get("parsed_structure", {}).get("sites", []))
-                            }
-                        }
-                    if workflow_files.get("generator_script"):
-                        gs = workflow_files["generator_script"]
-                        wf_summary["generator_script"] = {
-                            "filename": gs.get("filename"),
-                            "size": gs.get("size"),
-                            "content_included": "YES" if gs.get("content") else "NO"
-                        }
 
                 summary_data = {
                     "workflow_id": request_data["workflow_id"],
@@ -480,19 +435,23 @@ class PegasusWorkflowManager:
                     "analysis_type": request_data["analysis_type"],
                     "request_id": request_data["request_id"],
                     "requester": request_data["requester"],
-                    "catalogs": {
-                        k: {"path": v.get("path"), "format": v.get("format"), "embedded": v.get("embedded")}
-                        for k, v in catalogs.items() if v and isinstance(v, dict)  # FIX: Only include dict values
+                    "monitor_url": request_data["monitor_url"],
+                    "metadata": {
+                        "workflow_yaml_path": stored_metadata.get("workflow_yaml_path"),
+                        "transformation_pfns_count": len(stored_metadata.get("transformation_pfns", [])),
+                        "replica_pfns_count": len(stored_metadata.get("replica_pfns", [])),
+                        "catalog_info": stored_metadata.get("catalog_info", {}),
+                        "file_paths": stored_metadata.get("file_paths", {}),
+                        "collected_at": stored_metadata.get("collected_at")
                     },
-                    "workflow_files": wf_summary if wf_summary else {},
                     "pegasus_analyzer": {
                         "ran": pegasus_analyzer_output.get("ran", False),
                         "exit_code": pegasus_analyzer_output.get("exit_code"),
-                        "output_included": "YES" if pegasus_analyzer_output.get("output") else "NO",  # Show output is included
-                        "output_preview": pegasus_analyzer_output.get("output", "")[:300] + "..." if pegasus_analyzer_output.get("output") else None,  # First 300 chars
+                        "output_size": len(pegasus_analyzer_output.get("output", "")),
                         "issues_found": len(pegasus_analyzer_output.get("parsed_issues", [])),
                         "error": pegasus_analyzer_output.get("error")
-                    }
+                    },
+                    "note": "Analyzer will request file content via /api/files/get-content"
                 }
 
                 print(f"  {json.dumps(summary_data, indent=2)}")
@@ -522,16 +481,17 @@ class PegasusWorkflowManager:
                         print(f"{'='*80}\n")
 
                         # Write to shared log
-                        catalog_summary = f"Catalogs: {sum(1 for k, v in catalogs.items() if isinstance(v, dict))}\n"
-                        catalog_summary += f"Workflow Files: {len(workflow_files)}\n"
-                        catalog_summary += f"Pegasus Analyzer: {'YES' if pegasus_analyzer_output.get('ran') else 'NO'}\n"
-                        catalog_summary += f"Request ID: {request_id}"
+                        metadata_summary = f"Workflow YAML: {stored_metadata.get('workflow_yaml_path', 'N/A')}\n"
+                        metadata_summary += f"Catalogs: {len(stored_metadata.get('catalog_info', {}))}\n"
+                        metadata_summary += f"Pegasus Analyzer: {'YES' if pegasus_analyzer_output.get('ran') else 'NO'}\n"
+                        metadata_summary += f"Pull Model: Analyzer requests files on-demand\n"
+                        metadata_summary += f"Request ID: {request_id}"
 
                         self.write_workflow_step(
                             workflow_id,
                             "MONITOR",
-                            "2. SENT TO ANALYZER",
-                            catalog_summary,
+                            "2. SENT TO ANALYZER (PULL MODEL)",
+                            metadata_summary,
                             "SUCCESS"
                         )
 
@@ -539,8 +499,8 @@ class PegasusWorkflowManager:
                             "success": True,
                             "request_id": request_id,
                             "analyzer_id": healthy_analyzer['agent_id'],
-                            "message": "Analysis request sent successfully with catalog context",
-                            "catalogs_discovered": bool(catalogs.get('replica_catalog') or catalogs.get('transformation_catalog') or catalogs.get('site_catalog'))
+                            "message": "Analysis request sent with metadata paths (pull model)",
+                            "metadata_provided": bool(stored_metadata.get('workflow_yaml_path'))
                         }
                     else:
                         print(f"    {TerminalColor.RED.apply('✗')} Analysis request failed: HTTP {resp.status}")
@@ -658,11 +618,25 @@ class PegasusWorkflowManager:
 
         self.known_failed_workflows.add(workflow_id)
 
+        # Retrieve stored metadata from database
+        workflow_record = workflows_table.get(Query().workflow_id == workflow_id)
+        metadata = workflow_record.get('metadata', {}) if workflow_record else {}
+
         # Print nice notification
         print(f"\n┌─ {TerminalColor.BRIGHT_RED.apply('❌ WORKFLOW FAILURE DETECTED')} {'─'*48}")
         print(f"│  {TerminalColor.CYAN.apply('Workflow:')} {workflow_id[:60]}")
         workflow_dir_display = workflow_dir if len(workflow_dir) <= 60 else '...' + workflow_dir[-57:]
         print(f"│  {TerminalColor.CYAN.apply('Directory:')} {workflow_dir_display}")
+
+        # Show metadata status (paths only)
+        has_yaml_path = bool(metadata.get('workflow_yaml_path'))
+        catalog_count = len(metadata.get('catalog_info', {}))
+        trans_pfn_count = len(metadata.get('transformation_pfns', []))
+        replica_pfn_count = len(metadata.get('replica_pfns', []))
+
+        print(f"│  {TerminalColor.CYAN.apply('Metadata:')} YAML={'✓' if has_yaml_path else '✗'}, Catalogs={catalog_count}")
+        print(f"│  {TerminalColor.CYAN.apply('PFNs:')} Transformations={trans_pfn_count}, Replicas={replica_pfn_count}")
+        print(f"│  {TerminalColor.CYAN.apply('ℹ')} Analyzer will request files on-demand from Monitor")
         print(f"│  {TerminalColor.YELLOW.apply('→ Scheduling analysis...')}")
         print(f"└{'─'*78}\n")
 
@@ -670,7 +644,8 @@ class PegasusWorkflowManager:
             "workflow_id": workflow_id,
             "workflow_dir": workflow_dir,
             "status": "failed",
-            "failure_context": failure_context or {}
+            "failure_context": failure_context or {},
+            "metadata": metadata  # Include pre-collected metadata
         }
 
         self.queue_notification("workflow_failed", notification_data)
@@ -1581,13 +1556,250 @@ class PegasusWorkflowManager:
             logger.error(f"Error getting workflow details: {e}")
             return []
 
+    def collect_workflow_metadata(self, workflow_id: str, iwd: str) -> Dict[str, Any]:
+        """
+        Collect workflow metadata (PATHS ONLY - no content).
+        Extracts ALL transformation and replica PFNs from workflow YAML.
+        """
+        metadata = {
+            "workflow_id": workflow_id,
+            "iwd": iwd,
+            "collected_at": datetime.now().isoformat(),
+            "workflow_yaml_path": None,
+            "catalog_info": {},
+            "file_paths": {},
+            "transformation_pfns": [],  # NEW: All transformation script paths
+            "replica_pfns": []  # NEW: All replica file paths
+        }
+
+        try:
+            # Find workflow YAML file path
+            yaml_path = self.find_yaml_file(iwd)
+            if yaml_path:
+                metadata["workflow_yaml_path"] = yaml_path
+
+                # Load YAML to extract PFNs and detect catalog types
+                workflow_yaml_data = self.load_workflow_yaml(yaml_path)
+
+                if workflow_yaml_data:
+                    raw_content = workflow_yaml_data.get('raw_content', {})
+
+                    # Extract ALL transformation PFNs (scripts in /srv or elsewhere)
+                    transformation_pfns = []
+
+                    # Check transformationCatalog.transformations
+                    tc_section = raw_content.get('transformationCatalog', {})
+                    transformations_list = tc_section.get('transformations', [])
+
+                    for trans in transformations_list:
+                        sites = trans.get('sites', [])
+                        if sites:
+                            # Nested structure: sites[].pfn
+                            for site in sites:
+                                pfn = site.get('pfn')
+                                if pfn:
+                                    transformation_pfns.append({
+                                        "name": trans.get('name', 'unknown'),
+                                        "namespace": trans.get('namespace', ''),
+                                        "version": trans.get('version', ''),
+                                        "site": site.get('name', ''),
+                                        "pfn": pfn,
+                                        "type": trans.get('type', 'STAGEABLE')
+                                    })
+                        else:
+                            # Direct pfn
+                            pfn = trans.get('pfn')
+                            if pfn:
+                                transformation_pfns.append({
+                                    "name": trans.get('name', 'unknown'),
+                                    "namespace": trans.get('namespace', ''),
+                                    "version": trans.get('version', ''),
+                                    "site": trans.get('site', ''),
+                                    "pfn": pfn,
+                                    "type": trans.get('type', 'STAGEABLE')
+                                })
+
+                    # Check pegasus.transformations
+                    pegasus_section = raw_content.get('pegasus', {})
+                    pegasus_transformations = pegasus_section.get('transformations', [])
+
+                    for trans in pegasus_transformations:
+                        sites = trans.get('sites', [])
+                        if sites:
+                            for site in sites:
+                                pfn = site.get('pfn')
+                                if pfn:
+                                    transformation_pfns.append({
+                                        "name": trans.get('name', 'unknown'),
+                                        "namespace": trans.get('namespace', ''),
+                                        "version": trans.get('version', ''),
+                                        "site": site.get('name', ''),
+                                        "pfn": pfn,
+                                        "type": trans.get('type', 'STAGEABLE')
+                                    })
+                        else:
+                            pfn = trans.get('pfn')
+                            if pfn:
+                                transformation_pfns.append({
+                                    "name": trans.get('name', 'unknown'),
+                                    "namespace": trans.get('namespace', ''),
+                                    "version": trans.get('version', ''),
+                                    "site": trans.get('site', ''),
+                                    "pfn": pfn,
+                                    "type": trans.get('type', 'STAGEABLE')
+                                })
+
+                    metadata["transformation_pfns"] = transformation_pfns
+
+                    # Extract ALL replica PFNs
+                    replica_pfns = []
+
+                    # Check replicaCatalog.replicas
+                    rc_section = raw_content.get('replicaCatalog', {})
+                    replicas_list = rc_section.get('replicas', [])
+
+                    for replica in replicas_list:
+                        lfn = replica.get('lfn', 'unknown')
+                        pfns = replica.get('pfns', [])
+
+                        for pfn_entry in pfns:
+                            site = pfn_entry.get('site', '')
+                            pfn = pfn_entry.get('pfn', '')
+                            if pfn:
+                                replica_pfns.append({
+                                    "lfn": lfn,
+                                    "site": site,
+                                    "pfn": pfn
+                                })
+
+                    # Check pegasus.replicas
+                    pegasus_replicas = pegasus_section.get('replicas', [])
+                    for replica in pegasus_replicas:
+                        lfn = replica.get('lfn', 'unknown')
+                        pfns = replica.get('pfns', [])
+
+                        for pfn_entry in pfns:
+                            site = pfn_entry.get('site', '')
+                            pfn = pfn_entry.get('pfn', '')
+                            if pfn:
+                                replica_pfns.append({
+                                    "lfn": lfn,
+                                    "site": site,
+                                    "pfn": pfn
+                                })
+
+                    metadata["replica_pfns"] = replica_pfns
+
+                    # Detect catalog types (embedded vs separate)
+                    catalog_info = {}
+
+                    # Replica catalog
+                    if 'replicaCatalog' in raw_content or 'pegasus' in raw_content and 'replicas' in raw_content.get('pegasus', {}):
+                        catalog_info['replica_catalog'] = {"type": "embedded", "path": None}
+                    else:
+                        replica_path = self.find_catalog_file(iwd, 'replica')
+                        catalog_info['replica_catalog'] = {"type": "separate", "path": replica_path}
+
+                    # Transformation catalog
+                    if 'transformationCatalog' in raw_content or 'pegasus' in raw_content and 'transformations' in raw_content.get('pegasus', {}):
+                        catalog_info['transformation_catalog'] = {"type": "embedded", "path": None}
+                    else:
+                        tc_path = self.find_catalog_file(iwd, 'transformation')
+                        catalog_info['transformation_catalog'] = {"type": "separate", "path": tc_path}
+
+                    # Site catalog
+                    if 'siteCatalog' in raw_content or 'pegasus' in raw_content and 'sites' in raw_content.get('pegasus', {}):
+                        catalog_info['site_catalog'] = {"type": "embedded", "path": None}
+                    else:
+                        site_path = self.find_catalog_file(iwd, 'site')
+                        catalog_info['site_catalog'] = {"type": "separate", "path": site_path}
+
+                    metadata["catalog_info"] = catalog_info
+
+            # Find other important file paths
+            braindump_path = os.path.join(iwd, 'braindump.txt')
+            if os.path.exists(braindump_path):
+                metadata["file_paths"]["braindump"] = braindump_path
+
+            logger.info(f"✓ Collected metadata for {workflow_id}: YAML={bool(yaml_path)}, Transformations={len(metadata['transformation_pfns'])}, Replicas={len(metadata['replica_pfns'])}")
+
+        except Exception as e:
+            logger.error(f"Error collecting metadata for {workflow_id}: {e}")
+
+        return metadata
+
+    def find_catalog_file(self, workflow_dir: str, catalog_type: str) -> str:
+        """Find separate catalog file"""
+        patterns = {
+            'replica': ['*replica*.yml', '*replica*.yaml', '*rc.yml'],
+            'transformation': ['*transformation*.yml', '*tc.yml', '*transformation*.yaml'],
+            'site': ['*site*.yml', '*sites*.yml', '*sc.yml']
+        }
+
+        for pattern in patterns.get(catalog_type, []):
+            matches = glob.glob(os.path.join(workflow_dir, pattern))
+            if matches:
+                return matches[0]
+        return None
+
     async def start_monitoring_workflow(self, workflow_id: str, iwd: str):
-        """Start monitoring a specific workflow"""
+        """Start monitoring a specific workflow and collect metadata immediately"""
         if workflow_id not in self.registered_workflows:
             self.registered_workflows[workflow_id] = iwd
+
+            # CRITICAL: Collect metadata NOW before workflow can be deleted
+            print(f"\n┌─ {TerminalColor.CYAN.apply('📦 COLLECTING WORKFLOW METADATA')} {'─'*48}")
+            print(f"│  {TerminalColor.CYAN.apply('Workflow:')} {workflow_id[:60]}")
+            print(f"│  {TerminalColor.CYAN.apply('Directory:')} {iwd[:60]}")
+
+            metadata = self.collect_workflow_metadata(workflow_id, iwd)
+
+            # Store metadata in database
+            workflows_table.upsert({
+                "workflow_id": workflow_id,
+                "iwd": iwd,
+                "state": "Running",
+                "metadata": metadata,
+                "metadata_collected": True,
+                "first_seen": datetime.now().isoformat()
+            }, Query().workflow_id == workflow_id)
+
+            # Display collected paths
+            if metadata.get('workflow_yaml_path'):
+                print(f"│  {TerminalColor.GREEN.apply('✓')} Workflow YAML: {os.path.basename(metadata['workflow_yaml_path'])}")
+
+            # Show transformation PFNs
+            trans_count = len(metadata.get('transformation_pfns', []))
+            if trans_count > 0:
+                print(f"│  {TerminalColor.GREEN.apply('✓')} Transformation PFNs: {trans_count} extracted")
+                for trans in metadata.get('transformation_pfns', [])[:3]:  # Show first 3
+                    print(f"│    • {trans['name']}: {trans['pfn']}")
+                if trans_count > 3:
+                    print(f"│    • ... and {trans_count - 3} more")
+
+            # Show replica PFNs
+            replica_count = len(metadata.get('replica_pfns', []))
+            if replica_count > 0:
+                print(f"│  {TerminalColor.GREEN.apply('✓')} Replica PFNs: {replica_count} extracted")
+                for replica in metadata.get('replica_pfns', [])[:3]:  # Show first 3
+                    print(f"│    • {replica['lfn']}: {replica['pfn'][:60]}")
+                if replica_count > 3:
+                    print(f"│    • ... and {replica_count - 3} more")
+
+            catalog_count = len(metadata.get('catalog_info', {}))
+            if catalog_count > 0:
+                print(f"│  {TerminalColor.GREEN.apply('✓')} Catalogs: {catalog_count} detected")
+                for cat_name, cat_info in metadata.get('catalog_info', {}).items():
+                    cat_type = cat_info.get('type', 'unknown')
+                    print(f"│    • {cat_name}: {cat_type}")
+
+            print(f"│  {TerminalColor.CYAN.apply('ℹ')} Storage: Paths only (files read on-demand)")
+            print(f"└{'─'*78}\n")
+
+            # Start monitoring thread
             watcher_thread = Thread(
-                target=self.watch_workflow_sync, 
-                args=(workflow_id, iwd), 
+                target=self.watch_workflow_sync,
+                args=(workflow_id, iwd),
                 daemon=True
             )
             self.watchers[workflow_id] = watcher_thread
@@ -1629,6 +1841,41 @@ class PegasusWorkflowManager:
                     for job in job.get("DAG_CONDOR_JOBS", [])
                     if job.get("JobStatusName", "") == "Held"
                 ]
+
+                # Check for failed jobs
+                failed_jobs = [
+                    job for job in data.get("condor_jobs", {}).values()
+                    for job in job.get("DAG_CONDOR_JOBS", [])
+                    if job.get("JobStatusName", "") in ["Failed", "Error", "Aborted"]
+                ]
+
+                # Check if workflow itself is in failed state
+                workflow_failed = state.lower() in ["failed", "failure"]
+
+                if failed_jobs or workflow_failed:
+                    workflow_logger.error(f"Workflow {workflow_id} has FAILED jobs or is in failed state!")
+
+                    failure_context = {
+                        "failed_jobs_count": len(failed_jobs),
+                        "workflow_state": state,
+                        "failed_jobs": [
+                            {
+                                "job_id": job.get("pegasus_wf_dag_job_id", "Unknown"),
+                                "exit_code": job.get("ExitCode", -1),
+                                "site": job.get("pegasus_site", "Unknown"),
+                                "cmd": job.get("Cmd")
+                            }
+                            for job in failed_jobs[:5]  # First 5 failed jobs
+                        ]
+                    }
+
+                    # Notify analyzer about failure
+                    self.notify_workflow_failed_sync(workflow_id, iwd, failure_context)
+
+                    # Stop monitoring this workflow
+                    workflows_table.update({"state": "failed"}, Query().workflow_id == workflow_id)
+                    self.remove_workflow(workflow_id)
+                    break
 
                 if held_jobs:
                     retries += 1

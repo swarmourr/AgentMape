@@ -2472,7 +2472,7 @@ class EnhancedAnalyzerAgent:
                     "error": "Missing required fields: workflow_id, workflow_dir"
                 }, status=400)
             
-            # Queue analysis request
+            # Queue analysis request (PULL MODEL)
             analysis_request = {
                 "request_id": request_id,
                 "workflow_id": workflow_id,
@@ -2481,9 +2481,9 @@ class EnhancedAnalyzerAgent:
                 "requester": requester,
                 "status": "queued",
                 "queued_at": datetime.now().isoformat(),
-                "workflow_files": data.get('workflow_files', {}),  # ENHANCED: Store workflow files
-                "catalogs": data.get('catalogs', {}),  # ENHANCED: Store catalogs from Monitor
-                "pegasus_analyzer": data.get('pegasus_analyzer', {})  # ENHANCED: Store pegasus-analyzer output
+                "metadata": data.get('metadata', {}),  # NEW: Metadata with paths only
+                "monitor_url": data.get('monitor_url'),  # NEW: Monitor URL to request files
+                "pegasus_analyzer": data.get('pegasus_analyzer', {})  # Still include logs
             }
             
             self.analysis_queue.append(analysis_request)
