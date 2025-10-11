@@ -2016,8 +2016,16 @@ class PegasusWorkflowManager:
 
             metadata = self.collect_workflow_metadata(workflow_id, iwd)
 
-            # Store metadata in database
-            workflows_table.upsert({
+            # Check if this workflow already exists (from previous run)
+            existing_workflow = workflows_table.get(Query().workflow_id == workflow_id)
+
+            # Remove old record if it exists to start fresh
+            if existing_workflow:
+                print(f"│  {TerminalColor.YELLOW.apply('⚠')} Found existing workflow record - clearing old data")
+                workflows_table.remove(Query().workflow_id == workflow_id)
+
+            # Store metadata in database with fresh state
+            workflows_table.insert({
                 "workflow_id": workflow_id,
                 "iwd": iwd,
                 "state": "Running",
@@ -2038,7 +2046,7 @@ class PegasusWorkflowManager:
                     "started_at": datetime.now().isoformat(),
                     "status": "in_progress"
                 }]
-            }, Query().workflow_id == workflow_id)
+            })
 
             # Display collected paths
             if metadata.get('workflow_yaml_path'):

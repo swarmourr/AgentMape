@@ -331,6 +331,29 @@
         }
 
         .agent-card {
+            perspective: 1000px;
+            height: 200px;
+            cursor: pointer;
+        }
+
+        .agent-card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+        }
+
+        .agent-card.flipped .agent-card-inner {
+            transform: rotateY(180deg);
+        }
+
+        .agent-card-front,
+        .agent-card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
             padding: 20px;
             background: var(--gray-50);
             border-radius: 10px;
@@ -338,9 +361,39 @@
             transition: all 0.2s;
         }
 
-        .agent-card:hover {
+        .agent-card:hover .agent-card-front,
+        .agent-card:hover .agent-card-back {
             border-color: var(--primary);
             box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
+        }
+
+        .agent-card-back {
+            transform: rotateY(180deg);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            overflow-y: auto;
+        }
+
+        .agent-card-back .agent-info-row {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 8px 0;
+        }
+
+        .agent-card-back .agent-info-row:last-child {
+            border-bottom: none;
+        }
+
+        .flip-indicator {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            font-size: 12px;
+            color: #94a3b8;
+            opacity: 0.7;
+        }
+
+        .agent-card:hover .flip-indicator {
+            opacity: 1;
         }
 
         .agent-header {
@@ -1456,29 +1509,82 @@
                 const agentsContainer = document.getElementById('agents-container');
 
                 agentsContainer.innerHTML = Object.entries(agents).map(([key, agent]) => `
-                    <div class="agent-card">
-                        <div class="agent-header">
-                            <div class="agent-name">
-                                ${getAgentIcon(agent.name)} ${agent.name}
-                            </div>
-                            <span class="agent-status ${agent.status}">${agent.status}</span>
-                        </div>
-                        <div class="agent-info">
-                            <div class="agent-info-row">
-                                <span>URL:</span>
-                                <span style="font-family: Monaco, monospace; font-size: 12px;">${agent.url}</span>
-                            </div>
-                            ${agent.response_time ? `
-                                <div class="agent-info-row">
-                                    <span>Response Time:</span>
-                                    <span>${(agent.response_time * 1000).toFixed(0)}ms</span>
+                    <div class="agent-card" onclick="this.classList.toggle('flipped')">
+                        <div class="agent-card-inner">
+                            <!-- Front Face -->
+                            <div class="agent-card-front">
+                                <div class="agent-header">
+                                    <div class="agent-name">
+                                        ${getAgentIcon(agent.name)} ${agent.name}
+                                    </div>
+                                    <span class="agent-status ${agent.status}">${agent.status}</span>
                                 </div>
-                            ` : ''}
-                            ${agent.error ? `
-                                <div style="color: var(--danger); font-size: 12px; margin-top: 8px;">
-                                    ⚠️ ${agent.error}
+                                <div class="agent-info">
+                                    <div class="agent-info-row">
+                                        <span>URL:</span>
+                                        <span style="font-family: Monaco, monospace; font-size: 12px;">${agent.url}</span>
+                                    </div>
+                                    ${agent.response_time ? `
+                                        <div class="agent-info-row">
+                                            <span>Response Time:</span>
+                                            <span>${(agent.response_time * 1000).toFixed(0)}ms</span>
+                                        </div>
+                                    ` : ''}
+                                    ${agent.error ? `
+                                        <div style="color: var(--danger); font-size: 12px; margin-top: 8px;">
+                                            ⚠️ ${agent.error}
+                                        </div>
+                                    ` : ''}
                                 </div>
-                            ` : ''}
+                                <div class="flip-indicator">🔄 Click to flip</div>
+                            </div>
+
+                            <!-- Back Face -->
+                            <div class="agent-card-back">
+                                <div class="agent-header" style="margin-bottom: 12px;">
+                                    <div class="agent-name" style="color: white;">
+                                        ${getAgentIcon(agent.name)} ${agent.name}
+                                    </div>
+                                    <span style="font-size: 12px; opacity: 0.9;">Details</span>
+                                </div>
+                                <div class="agent-info" style="font-size: 13px;">
+                                    <div class="agent-info-row">
+                                        <span style="opacity: 0.9;">Type:</span>
+                                        <span style="font-weight: 600;">${agent.type || key}</span>
+                                    </div>
+                                    <div class="agent-info-row">
+                                        <span style="opacity: 0.9;">Status:</span>
+                                        <span style="font-weight: 600; text-transform: uppercase;">${agent.status}</span>
+                                    </div>
+                                    <div class="agent-info-row">
+                                        <span style="opacity: 0.9;">Endpoint:</span>
+                                        <span style="font-family: Monaco, monospace; font-size: 11px; word-break: break-all;">${agent.url}</span>
+                                    </div>
+                                    ${agent.response_time ? `
+                                        <div class="agent-info-row">
+                                            <span style="opacity: 0.9;">Latency:</span>
+                                            <span style="font-weight: 600;">${(agent.response_time * 1000).toFixed(0)}ms</span>
+                                        </div>
+                                    ` : ''}
+                                    <div class="agent-info-row">
+                                        <span style="opacity: 0.9;">Port:</span>
+                                        <span style="font-weight: 600;">${new URL(agent.url).port || (new URL(agent.url).protocol === 'https:' ? '443' : '80')}</span>
+                                    </div>
+                                    <div class="agent-info-row">
+                                        <span style="opacity: 0.9;">Protocol:</span>
+                                        <span style="font-weight: 600;">${new URL(agent.url).protocol.replace(':', '').toUpperCase()}</span>
+                                    </div>
+                                    ${agent.capabilities ? `
+                                        <div class="agent-info-row" style="flex-direction: column; align-items: flex-start;">
+                                            <span style="opacity: 0.9; margin-bottom: 4px;">Capabilities:</span>
+                                            <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                                                ${agent.capabilities.map(cap => `<span style="background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 4px; font-size: 10px;">${cap}</span>`).join('')}
+                                            </div>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                                <div class="flip-indicator" style="color: rgba(255,255,255,0.8);">🔄 Click to flip back</div>
+                            </div>
                         </div>
                     </div>
                 `).join('');
@@ -1638,7 +1744,7 @@
                     <div class="detail-section">
                         <div class="detail-label">📊 Pipeline History</div>
                         <div style="display: flex; flex-direction: column; gap: 8px;">
-                            ${stepHistory.map((step, idx) => `
+                            ${stepHistory.filter(step => step.started_at && step.status && step.status !== 'pending').map((step, idx) => `
                                 <div style="display: flex; align-items: center; gap: 10px; padding: 10px; background: ${step.status === 'completed' ? '#f0fdf4' : '#fef9c3'}; border-radius: 6px; border-left: 3px solid ${step.status === 'completed' ? '#10b981' : '#f59e0b'};">
                                     <div style="font-size: 20px;">${idx + 1}</div>
                                     <div style="flex: 1;">
@@ -1878,29 +1984,74 @@
                 const container = document.getElementById('agents-grid-container');
 
                 container.innerHTML = Object.entries(agents).map(([key, agent]) => `
-                    <div class="agent-card">
-                        <div class="agent-header">
-                            <div class="agent-name">
-                                ${getAgentIcon(agent.name)} ${agent.name}
-                            </div>
-                            <span class="agent-status ${agent.status}">${agent.status}</span>
-                        </div>
-                        <div class="agent-info">
-                            <div class="agent-info-row">
-                                <span>URL:</span>
-                                <span style="font-family: Monaco, monospace; font-size: 12px;">${agent.url}</span>
-                            </div>
-                            ${agent.response_time ? `
-                                <div class="agent-info-row">
-                                    <span>Response Time:</span>
-                                    <span>${(agent.response_time * 1000).toFixed(0)}ms</span>
+                    <div class="agent-card" onclick="this.classList.toggle('flipped')">
+                        <div class="agent-card-inner">
+                            <!-- Front Face -->
+                            <div class="agent-card-front">
+                                <div class="agent-header">
+                                    <div class="agent-name">
+                                        ${getAgentIcon(agent.name)} ${agent.name}
+                                    </div>
+                                    <span class="agent-status ${agent.status}">${agent.status}</span>
                                 </div>
-                            ` : ''}
-                            ${agent.error ? `
-                                <div style="color: var(--danger); font-size: 12px; margin-top: 8px;">
-                                    ⚠️ ${agent.error}
+                                <div class="agent-info">
+                                    <div class="agent-info-row">
+                                        <span>URL:</span>
+                                        <span style="font-family: Monaco, monospace; font-size: 12px;">${agent.url}</span>
+                                    </div>
+                                    ${agent.response_time ? `
+                                        <div class="agent-info-row">
+                                            <span>Response Time:</span>
+                                            <span>${(agent.response_time * 1000).toFixed(0)}ms</span>
+                                        </div>
+                                    ` : ''}
+                                    ${agent.error ? `
+                                        <div style="color: var(--danger); font-size: 12px; margin-top: 8px;">
+                                            ⚠️ ${agent.error}
+                                        </div>
+                                    ` : ''}
                                 </div>
-                            ` : ''}
+                                <div class="flip-indicator">🔄 Click to flip</div>
+                            </div>
+
+                            <!-- Back Face -->
+                            <div class="agent-card-back">
+                                <div class="agent-header" style="margin-bottom: 12px;">
+                                    <div class="agent-name" style="color: white;">
+                                        ${getAgentIcon(agent.name)} ${agent.name}
+                                    </div>
+                                    <span style="font-size: 12px; opacity: 0.9;">Details</span>
+                                </div>
+                                <div class="agent-info" style="font-size: 13px;">
+                                    <div class="agent-info-row">
+                                        <span style="opacity: 0.9;">Type:</span>
+                                        <span style="font-weight: 600;">${agent.type || key}</span>
+                                    </div>
+                                    <div class="agent-info-row">
+                                        <span style="opacity: 0.9;">Status:</span>
+                                        <span style="font-weight: 600; text-transform: uppercase;">${agent.status}</span>
+                                    </div>
+                                    <div class="agent-info-row">
+                                        <span style="opacity: 0.9;">Endpoint:</span>
+                                        <span style="font-family: Monaco, monospace; font-size: 11px; word-break: break-all;">${agent.url}</span>
+                                    </div>
+                                    ${agent.response_time ? `
+                                        <div class="agent-info-row">
+                                            <span style="opacity: 0.9;">Latency:</span>
+                                            <span style="font-weight: 600;">${(agent.response_time * 1000).toFixed(0)}ms</span>
+                                        </div>
+                                    ` : ''}
+                                    <div class="agent-info-row">
+                                        <span style="opacity: 0.9;">Port:</span>
+                                        <span style="font-weight: 600;">${new URL(agent.url).port || (new URL(agent.url).protocol === 'https:' ? '443' : '80')}</span>
+                                    </div>
+                                    <div class="agent-info-row">
+                                        <span style="opacity: 0.9;">Protocol:</span>
+                                        <span style="font-weight: 600;">${new URL(agent.url).protocol.replace(':', '').toUpperCase()}</span>
+                                    </div>
+                                </div>
+                                <div class="flip-indicator" style="color: rgba(255,255,255,0.8);">🔄 Click to flip back</div>
+                            </div>
                         </div>
                     </div>
                 `).join('');
