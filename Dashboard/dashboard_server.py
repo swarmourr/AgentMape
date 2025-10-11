@@ -294,30 +294,32 @@ def get_workflows():
 def get_workflows_detailed():
     """API pour récupérer les workflows avec informations détaillées de monitoring"""
     try:
-        # Get all workflows from Monitor
-        response = requests.get(f"{MONITOR_URL}/api/workflows", timeout=3)
+        # Get all workflows from Monitor (including historical)
+        response = requests.get(f"{MONITOR_URL}/api/workflows/all", timeout=3)
 
         if response.status_code != 200:
             return jsonify({"error": "Could not fetch workflows from Monitor"}), 500
 
         monitor_data = response.json()
-        active_workflows = monitor_data.get("active_workflows", [])
-        monitored_workflows = monitor_data.get("monitored_workflows", [])
+        all_workflows = monitor_data.get("workflows", [])
 
         # Combine and enrich workflow data
         detailed_workflows = []
 
-        for wf in active_workflows + monitored_workflows:
+        for wf in all_workflows:
             workflow_id = wf.get("workflow_id", "Unknown")
 
             # Try to get detailed status
             workflow_info = {
                 "workflow_id": workflow_id,
-                "status": "monitoring",
+                "status": "completed" if wf.get("state") in ["Success", "Failure", "Failed"] else "monitoring",
                 "iwd": wf.get("iwd", "N/A"),
-                "monitoring_started": wf.get("monitoring_started", wf.get("started_at")),
-                "last_check": wf.get("last_check", wf.get("last_updated")),
-                "state": "active",
+                "first_seen": wf.get("first_seen"),
+                "last_checked": wf.get("last_checked"),
+                "state": wf.get("state", "unknown"),
+                "percent_done": wf.get("percent_done", 0),
+                "is_active": wf.get("is_active", False),
+                "metadata_collected": wf.get("metadata_collected", False),
                 "metadata": {}
             }
 

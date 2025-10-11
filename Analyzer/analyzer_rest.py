@@ -1630,7 +1630,11 @@ class EnhancedAnalyzerAgent:
                 "fallback_used": "fallback_mode" in analysis_result,
                 "ollama_status": self.ollama_manager.get_connection_status()
             }
-            self.analysis_table.insert(analysis_record)
+            # Use upsert to avoid duplicate records for same workflow
+            self.analysis_table.upsert(
+                analysis_record,
+                (Query().workflow_id == workflow_id) & (Query().analysis_type == "failed")
+            )
 
             # PRINT ANALYSIS OUTPUT TO CONSOLE
             print(f"\n╔{'═'*78}╗")
@@ -1768,7 +1772,11 @@ class EnhancedAnalyzerAgent:
                 "llm_available": "hold_analysis" in analysis_result and not analysis_result.get("fallback_mode", False),
                 "fallback_used": analysis_result.get("fallback_mode", False)
             }
-            self.analysis_table.insert(analysis_record)
+            # Use upsert to avoid duplicate records for same workflow
+            self.analysis_table.upsert(
+                analysis_record,
+                (Query().workflow_id == workflow_id) & (Query().analysis_type == "held")
+            )
 
             # PRINT HELD WORKFLOW ANALYSIS OUTPUT
             print(f"\n{'='*80}")

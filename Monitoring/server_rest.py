@@ -2261,6 +2261,7 @@ class EnhancedPegasusMCPServer:
         
         # API endpoints
         self.app.router.add_get('/api/workflows', self.handle_get_workflows)
+        self.app.router.add_get('/api/workflows/all', self.handle_get_all_workflows)
         self.app.router.add_get('/api/workflows/{workflow_id}/status', self.handle_get_workflow_status)
         self.app.router.add_post('/api/workflows/{workflow_id}/analyze', self.handle_request_analysis)
         
@@ -2316,12 +2317,43 @@ class EnhancedPegasusMCPServer:
         try:
             workflows = await self.workflow_manager.get_workflow_details()
             monitored = list(self.workflow_manager.registered_workflows.items())
-            
+
             return web.json_response({
                 "active_workflows": [{"workflow_id": wf_id, "iwd": iwd} for wf_id, iwd in workflows],
                 "monitored_workflows": [{"workflow_id": wf_id, "iwd": iwd} for wf_id, iwd in monitored],
                 "total_active": len(workflows),
                 "total_monitored": len(monitored),
+                "timestamp": datetime.now().isoformat()
+            })
+        except Exception as e:
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def handle_get_all_workflows(self, request):
+        """Get all workflows from database including completed ones"""
+        try:
+            # Get all workflows from database
+            all_workflows = workflows_table.all()
+
+            workflows_list = []
+            for wf in all_workflows:
+                workflow_info = {
+                    "workflow_id": wf.get("workflow_id"),
+                    "iwd": wf.get("iwd"),
+                    "state": wf.get("state", "unknown"),
+                    "percent_done": wf.get("percent_done", 0),
+                    "first_seen": wf.get("first_seen"),
+                    "last_checked": wf.get("last_checked"),
+                    "metadata_collected": wf.get("metadata_collected", False),
+                    "is_active": wf.get("workflow_id") in self.workflow_manager.registered_workflows
+                }
+                workflows_list.append(workflow_info)
+
+            # Sort by last_checked descending (most recent first)
+            workflows_list.sort(key=lambda x: x.get("last_checked", ""), reverse=True)
+
+            return web.json_response({
+                "workflows": workflows_list,
+                "total": len(workflows_list),
                 "timestamp": datetime.now().isoformat()
             })
         except Exception as e:

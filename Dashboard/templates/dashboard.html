@@ -1453,23 +1453,45 @@
                     <div class="workflow-card">
                         <div class="workflow-header">
                             <div class="workflow-name">${wf.workflow_id}</div>
-                            <span class="workflow-state ${wf.state}">${wf.state}</span>
+                            <div style="display: flex; gap: 6px; align-items: center;">
+                                ${wf.is_active ? '<span class="workflow-badge" style="background: #10b981; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px;">● Active</span>' : '<span class="workflow-badge" style="background: #94a3b8; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px;">Completed</span>'}
+                                <span class="workflow-state ${wf.state}">${wf.state}</span>
+                            </div>
                         </div>
+
+                        ${wf.percent_done > 0 ? `
+                            <div style="margin: 12px 0;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 12px; color: #64748b;">
+                                    <span>Progress</span>
+                                    <span>${wf.percent_done.toFixed(1)}%</span>
+                                </div>
+                                <div style="background: #e2e8f0; height: 6px; border-radius: 3px; overflow: hidden;">
+                                    <div style="background: linear-gradient(90deg, #6366f1, #8b5cf6); height: 100%; width: ${wf.percent_done}%; transition: width 0.3s;"></div>
+                                </div>
+                            </div>
+                        ` : ''}
+
                         <div class="workflow-info">
                             <div class="workflow-info-row">
                                 <span>Directory:</span>
                                 <span style="font-family: Monaco, monospace; font-size: 11px;">${truncatePath(wf.iwd, 30)}</span>
                             </div>
                             <div class="workflow-info-row">
-                                <span>Monitoring Started:</span>
-                                <span>${formatDate(wf.monitoring_started)}</span>
+                                <span>First Seen:</span>
+                                <span>${formatDate(wf.first_seen)}</span>
                             </div>
                             <div class="workflow-info-row">
-                                <span>Last Check:</span>
-                                <span>${formatDate(wf.last_check)}</span>
+                                <span>Last Checked:</span>
+                                <span>${formatDate(wf.last_checked)}</span>
                             </div>
                         </div>
                         <div class="workflow-badges">
+                            ${wf.metadata_collected ? `
+                                <span class="workflow-badge" style="background: #3b82f6;">
+                                    <span>📦</span>
+                                    <span>Metadata</span>
+                                </span>
+                            ` : ''}
                             ${wf.analysis_status !== 'no_analysis' ? `
                                 <span class="workflow-badge analyzed">
                                     <span>✓</span>
