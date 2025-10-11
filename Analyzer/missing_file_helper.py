@@ -15,6 +15,7 @@ class MissingFileHelper:
 
     def __init__(self, monitor_url: str = "http://localhost:8080"):
         self.monitor_url = monitor_url
+        self._processed_workflows = {}  # Cache: workflow_id -> set of processed files
 
     def detect_missing_file_errors(self, analysis_result: Dict, logs: str) -> List[Dict]:
         """
@@ -141,16 +142,34 @@ class MissingFileHelper:
             # No missing file errors detected - skip enhancement
             return analysis_result
 
-        print(f"🔍 Detected {len(missing_files)} missing file error(s)")
+        # Initialize workflow cache if needed
+        if workflow_id not in self._processed_workflows:
+            self._processed_workflows[workflow_id] = set()
+
+        # Filter out already processed files
+        new_missing_files = [
+            mf for mf in missing_files
+            if mf.get('file_path') not in self._processed_workflows[workflow_id]
+        ]
+
+        if not new_missing_files:
+            # All files already processed - skip to prevent loop
+            print(f"⏭️  All missing files already processed for {workflow_id}, skipping suggestions")
+            return analysis_result
+
+        print(f"🔍 Detected {len(new_missing_files)} NEW missing file error(s)")
 
         # Track suggestions
         suggestions_added = 0
 
         # Process each missing file
-        for missing_info in missing_files[:3]:  # Limit to first 3 to avoid too many requests
+        for missing_info in new_missing_files[:3]:  # Limit to first 3 to avoid too many requests
             file_path = missing_info.get('file_path', '')
             if not file_path or not os.path.isabs(file_path):
                 continue
+
+            # Mark as processed
+            self._processed_workflows[workflow_id].add(file_path)
 
             # Extract directory and filename
             directory = os.path.dirname(file_path)

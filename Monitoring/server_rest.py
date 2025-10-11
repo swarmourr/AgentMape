@@ -1513,25 +1513,51 @@ class PegasusWorkflowManager:
     async def get_workflow_status(self, workflow_id: str = None) -> Dict[str, Any]:
         """Get status of specific workflow or all workflows"""
         try:
-            cmd = ["pegasus-status", "-j"]
             if workflow_id:
+                # Get workflow record from database
                 workflow_record = workflows_table.get(Query().workflow_id == workflow_id)
-                if workflow_record:
-                    cmd.append(workflow_record['iwd'])
+                if not workflow_record:
+                    return {"error": f"Workflow {workflow_id} not found in database"}
 
-            result = await asyncio.get_event_loop().run_in_executor(
-                self.executor,
-                lambda: subprocess.run(cmd, capture_output=True, text=True, check=True)
-            )
-            data = json.loads(result.stdout)
-            
-            if workflow_id:
-                workflow_data = data.get("condor_jobs", {}).get(workflow_id)
-                if workflow_data:
-                    return {"workflow_id": workflow_id, "data": workflow_data}
-                return {"error": f"Workflow {workflow_id} not found"}
-            
-            return data
+                # Get metadata if available
+                metadata = workflow_record.get('metadata', {})
+
+                # Try to get live status from pegasus-status
+                cmd = ["pegasus-status", "-j", workflow_record['iwd']]
+
+                try:
+                    result = await asyncio.get_event_loop().run_in_executor(
+                        self.executor,
+                        lambda: subprocess.run(cmd, capture_output=True, text=True, check=True)
+                    )
+                    pegasus_data = json.loads(result.stdout)
+                    workflow_data = pegasus_data.get("condor_jobs", {}).get(workflow_id, {})
+
+                    return {
+                        "workflow_id": workflow_id,
+                        "state": workflow_record.get('state', 'unknown'),
+                        "workflow_dir": workflow_record.get('iwd'),
+                        "metadata": metadata,
+                        "pegasus_status": workflow_data
+                    }
+                except:
+                    # If pegasus-status fails, just return what we have
+                    return {
+                        "workflow_id": workflow_id,
+                        "state": workflow_record.get('state', 'unknown'),
+                        "workflow_dir": workflow_record.get('iwd'),
+                        "metadata": metadata
+                    }
+            else:
+                # Get all workflows
+                cmd = ["pegasus-status", "-j"]
+                result = await asyncio.get_event_loop().run_in_executor(
+                    self.executor,
+                    lambda: subprocess.run(cmd, capture_output=True, text=True, check=True)
+                )
+                data = json.loads(result.stdout)
+                return data
+
         except subprocess.CalledProcessError as e:
             return {"error": f"Pegasus status command failed: {e}"}
         except json.JSONDecodeError as e:
@@ -1569,29 +1595,54 @@ class PegasusWorkflowManager:
             try:
                 with open(braindump_path, 'r') as f:
                     braindump = yaml.safe_load(f)
-                    dax_path = braindump.get('dax')
+                    # Try both 'dax' and 'submit_dir' fields
+                    dax_path = braindump.get('dax') or braindump.get('dag')
                     if dax_path:
                         # Ensure absolute path
                         if not os.path.isabs(dax_path):
                             dax_path = os.path.join(workflow_dir, dax_path)
                         if os.path.exists(dax_path):
                             return os.path.abspath(dax_path)
-            except:
-                pass
 
-        # Look for common workflow file names
-        yaml_files = glob.glob(os.path.join(workflow_dir, "*.yml")) + glob.glob(os.path.join(workflow_dir, "*.yaml"))
+                    # Check submit_dir for YAML files
+                    submit_dir = braindump.get('submit_dir')
+                    if submit_dir:
+                        if not os.path.isabs(submit_dir):
+                            submit_dir = os.path.join(workflow_dir, submit_dir)
+                        if os.path.exists(submit_dir):
+                            submit_yamls = glob.glob(os.path.join(submit_dir, "*.yml")) + \
+                                          glob.glob(os.path.join(submit_dir, "*.yaml"))
+                            for f in submit_yamls:
+                                if 'braindump' not in os.path.basename(f).lower():
+                                    return os.path.abspath(f)
+            except Exception as e:
+                logger.debug(f"Error reading braindump: {e}")
 
-        # Priority 1: workflow.yml or dax.yml
+        # Look for YAML files in workflow directory
+        yaml_files = glob.glob(os.path.join(workflow_dir, "*.yml")) + \
+                     glob.glob(os.path.join(workflow_dir, "*.yaml"))
+
+        # Priority 1: Common workflow names (case-insensitive)
         for f in yaml_files:
             basename = os.path.basename(f).lower()
-            if basename in ['workflow.yml', 'workflow.yaml', 'dax.yml', 'dax.yaml']:
-                return os.path.abspath(f)
+            if any(name in basename for name in ['workflow', 'dax', 'pipeline', 'dag']):
+                if 'braindump' not in basename:
+                    return os.path.abspath(f)
 
         # Priority 2: Any YAML except braindump
         for f in yaml_files:
             if 'braindump' not in os.path.basename(f).lower():
                 return os.path.abspath(f)
+
+        # Priority 3: Look in common subdirectories
+        for subdir in ['submit', 'submit_dir', 'workflow', 'dags']:
+            subdir_path = os.path.join(workflow_dir, subdir)
+            if os.path.exists(subdir_path):
+                sub_yamls = glob.glob(os.path.join(subdir_path, "*.yml")) + \
+                           glob.glob(os.path.join(subdir_path, "*.yaml"))
+                for f in sub_yamls:
+                    if 'braindump' not in os.path.basename(f).lower():
+                        return os.path.abspath(f)
 
         return None
 
@@ -1940,13 +1991,26 @@ class PegasusWorkflowManager:
                 percent_done = totals.get("root", {}).get("percent_done", 0.0)
                 state = totals.get("root", {}).get("state", "unknown")
 
-                workflows_table.upsert({
+                # Preserve existing metadata when updating
+                existing_record = workflows_table.get(Query().workflow_id == workflow_id)
+                update_data = {
                     "workflow_id": workflow_id,
                     "iwd": iwd,
                     "state": state,
                     "percent_done": percent_done,
                     "last_checked": time.strftime("%Y-%m-%d %H:%M:%S")
-                }, Query().workflow_id == workflow_id)
+                }
+
+                # Keep metadata and metadata_collected if they exist
+                if existing_record:
+                    if "metadata" in existing_record:
+                        update_data["metadata"] = existing_record["metadata"]
+                    if "metadata_collected" in existing_record:
+                        update_data["metadata_collected"] = existing_record["metadata_collected"]
+                    if "first_seen" in existing_record:
+                        update_data["first_seen"] = existing_record["first_seen"]
+
+                workflows_table.upsert(update_data, Query().workflow_id == workflow_id)
 
                 # Check for held jobs
                 held_jobs = [
