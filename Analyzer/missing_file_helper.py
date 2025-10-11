@@ -182,6 +182,15 @@ class MissingFileHelper:
             files = self.request_directory_listing(directory, workflow_id)
 
             if not files:
+                # Directory listing failed or empty - report this
+                print(f"⚠️  Directory not accessible or empty: {directory}")
+                enhanced_solution = self._create_not_found_solution(
+                    missing_info, target_filename, directory, directory_accessible=False
+                )
+                problems = analysis_result.get('problems_and_solutions', [])
+                problems.append(enhanced_solution)
+                analysis_result['problems_and_solutions'] = problems
+                suggestions_added += 1
                 continue
 
             # Find similar filenames
@@ -190,7 +199,7 @@ class MissingFileHelper:
             if similar:
                 print(f"✨ Found {len(similar)} similar file(s)")
 
-                # Create enhanced problem/solution
+                # Create enhanced problem/solution with suggestions
                 enhanced_solution = self._create_enhanced_solution(
                     missing_info, target_filename, similar, directory
                 )
@@ -200,6 +209,17 @@ class MissingFileHelper:
                 problems.append(enhanced_solution)
                 analysis_result['problems_and_solutions'] = problems
 
+                suggestions_added += 1
+            else:
+                # No similar files found - report directory contents
+                print(f"❌ No similar files found in {directory}")
+                print(f"   Directory contains {len(files)} file(s), but none match '{target_filename}'")
+                enhanced_solution = self._create_not_found_solution(
+                    missing_info, target_filename, directory, directory_accessible=True, file_count=len(files)
+                )
+                problems = analysis_result.get('problems_and_solutions', [])
+                problems.append(enhanced_solution)
+                analysis_result['problems_and_solutions'] = problems
                 suggestions_added += 1
 
         # Add metadata
@@ -244,6 +264,64 @@ class MissingFileHelper:
                 {"name": f[0], "similarity": f[1], "path": f[2]}
                 for f in similar_files[:3]
             ]
+        }
+
+    def _create_not_found_solution(self, missing_info: Dict, target_filename: str,
+                                     directory: str, directory_accessible: bool, file_count: int = 0) -> Dict:
+        """Create a conclusive report when file not found and no similar alternatives exist"""
+
+        full_path = os.path.join(directory, target_filename)
+
+        if not directory_accessible:
+            # Directory doesn't exist or couldn't be accessed
+            description = (
+                f"The workflow expected to find '{target_filename}' at '{full_path}', "
+                f"but the directory '{directory}' could not be accessed or does not exist."
+            )
+            solution = (
+                f"The workflow could not find the file at the expected location.\n\n"
+                f"Possible causes:\n"
+                f"1. The directory path '{directory}' does not exist\n"
+                f"2. The workflow does not have permission to access this directory\n"
+                f"3. The path is incorrect in the workflow configuration\n\n"
+                f"Actions needed:\n"
+                f"• Verify the directory path exists on the execution node\n"
+                f"• Check file permissions and ownership\n"
+                f"• Update the workflow configuration with the correct path\n"
+                f"• Ensure input files are properly staged before workflow execution"
+            )
+        else:
+            # Directory exists but file not found and no similar matches
+            description = (
+                f"The workflow expected to find '{target_filename}' at '{full_path}', "
+                f"but the file does not exist. The directory was checked and contains {file_count} file(s), "
+                f"but none match the expected filename (no similar names found)."
+            )
+            solution = (
+                f"The file '{target_filename}' was not found in the directory.\n\n"
+                f"Directory checked: {directory}\n"
+                f"Files found in directory: {file_count}\n"
+                f"Similar matches: None (checked for typos and case variations)\n\n"
+                f"Actions needed:\n"
+                f"1. Verify the exact filename - it may have been misnamed\n"
+                f"2. Check if the file was supposed to be created by a previous workflow step\n"
+                f"3. Ensure the workflow configuration specifies the correct filename\n"
+                f"4. If this is a replica/input file, verify it was properly registered in the replica catalog\n"
+                f"5. Check if the file needs to be manually created or transferred to this location"
+            )
+
+        return {
+            "problem": f"Missing File: {target_filename}",
+            "description": description,
+            "solution": solution,
+            "priority": "high",
+            "category": "data_error",
+            "smart_suggestion": True,
+            "file_not_found": True,
+            "directory_checked": directory,
+            "directory_accessible": directory_accessible,
+            "files_in_directory": file_count,
+            "similar_files": []
         }
 
 
