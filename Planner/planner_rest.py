@@ -10,6 +10,7 @@ import asyncio
 import json
 import logging
 import os
+import glob
 import requests
 import uuid
 from typing import Dict, Any, List, Optional
@@ -321,7 +322,19 @@ IMPORTANT RULES:
         workflow_files = workflow_context.get('workflow_files', {})
         braindump_metadata = workflow_files.get('braindump_metadata', {})
         submit_dir = braindump_metadata.get('submit_dir', workflow_context.get('workflow_dir'))
-        dax_path = braindump_metadata.get('dax', 'workflow.yml')
+
+        # Get actual workflow YAML path from metadata (stored by Monitor)
+        # This is the REAL path, not a hardcoded fallback
+        dax_path = workflow_files.get('workflow_yaml_path') or braindump_metadata.get('dax', 'workflow.yml')
+
+        # If dax_path is still a placeholder or doesn't exist, try to find it
+        if dax_path == 'workflow.yml' and submit_dir:
+            # Try to find actual workflow YAML in submit directory
+            possible_yamls = glob.glob(os.path.join(submit_dir, '*.yml'))
+            if possible_yamls:
+                # Use the first YAML file found (usually the workflow descriptor)
+                dax_path = possible_yamls[0]
+                logger.info(f"Using discovered workflow YAML: {dax_path}")
 
         prompt = f"""
 Given the following workflow failure analysis, generate a detailed executable repair plan.
@@ -1286,6 +1299,7 @@ class LLMPlanner:
 
             for idx, file_info in enumerate(files_needed, 1):
                 file_path = file_info.get('path')
+                file_type = file_info.get('type', 'file')
                 reason = file_info.get('reason', 'Required for fix')
 
                 # Skip placeholder paths
@@ -1300,18 +1314,31 @@ class LLMPlanner:
                     if len(display_path) > 55:
                         display_path = '...' + display_path[-52:]
 
-                    print(f"│  {TerminalColor.BRIGHT_WHITE.apply(f'[{idx}/{len(files_needed)}]')} {TerminalColor.CYAN.apply('Fetching:')} {display_path}")
-
-                    file_data = await self.request_file_from_monitor(file_path, workflow_id)
+                    if file_type == 'directory_listing':
+                        print(f"│  {TerminalColor.BRIGHT_WHITE.apply(f'[{idx}/{len(files_needed)}]')} {TerminalColor.CYAN.apply('Listing Dir:')} {display_path}")
+                        file_data = await self.request_directory_listing_from_monitor(file_path, workflow_id)
+                    else:
+                        print(f"│  {TerminalColor.BRIGHT_WHITE.apply(f'[{idx}/{len(files_needed)}]')} {TerminalColor.CYAN.apply('Fetching:')} {display_path}")
+                        file_data = await self.request_file_from_monitor(file_path, workflow_id)
                 except Exception as e:
-                    logger.error(f"Error during file fetch: {e}")
+                    logger.error(f"Error during fetch: {e}")
                     print(f"│      {TerminalColor.RED.apply('✗ Error:')} {str(e)[:60]}")
                     continue
 
                 if file_data.get('success'):
-                    fetched_files[file_path] = file_data.get('content')
-                    size_kb = file_data.get('size_bytes', 0) / 1024
-                    print(f"│      {TerminalColor.GREEN.apply('✓ Success:')} Retrieved {size_kb:.1f} KB")
+                    if file_type == 'directory_listing':
+                        # Format directory listing nicely
+                        files_list = file_data.get('files', [])
+                        content = f"Directory listing of {file_path}:\n"
+                        content += f"Found {len(files_list)} file(s):\n"
+                        for f in files_list:
+                            content += f"  - {f}\n"
+                        fetched_files[file_path] = content
+                        print(f"│      {TerminalColor.GREEN.apply('✓ Success:')} Found {len(files_list)} file(s)")
+                    else:
+                        fetched_files[file_path] = file_data.get('content')
+                        size_kb = file_data.get('size_bytes', 0) / 1024
+                        print(f"│      {TerminalColor.GREEN.apply('✓ Success:')} Retrieved {size_kb:.1f} KB")
                 else:
                     error_msg = file_data.get('error', 'Unknown error')
                     print(f"│      {TerminalColor.RED.apply('✗ Failed:')} {error_msg[:50]}")
@@ -1446,21 +1473,30 @@ Transformations Available:
 {self._format_transformations(transformations)}
 
 YOUR TASK:
-Analyze this error and determine which files are needed to create a specific fix.
+Analyze this error and determine which files/directories are needed to create a specific fix.
 
 OUTPUT JSON FORMAT:
 {{
   "files_needed": [
     {{
-      "path": "/absolute/path/to/file",
-      "reason": "Why this file is needed"
+      "path": "/absolute/path/to/file_or_directory",
+      "type": "file" or "directory_listing",
+      "reason": "Why this is needed"
     }}
   ],
   "analysis": "Brief explanation of what needs to be fixed"
 }}
 
 RULES:
-1. For SyntaxError/script errors:
+1. For MISSING REPLICA/DATA FILE errors (File not found, data.json not found, etc.):
+   - DO NOT request the workflow YAML file
+   - INSTEAD: Request a directory listing of the parent directory
+   - Extract parent directory from the missing file path
+   - Example: If error says "/home/user/data/data1.json not found"
+     → Request: {{"path": "/home/user/data", "type": "directory_listing", "reason": "Check for typos or similar files to data1.json"}}
+   - The directory listing will help identify if the file has a typo or different name
+
+2. For SyntaxError/script errors:
    - Extract the transformation/script name from the error message (e.g., "FineTuneLLM")
    - Look in the Transformations list above for that name
    - Find the 'pfn' (Physical File Name) field - this is the REAL file path
@@ -1468,15 +1504,16 @@ RULES:
    - DO NOT use placeholder paths like "/absolute/path/to/..."
    - EXAMPLE: If Transformations shows {{"name": "FineTuneLLM", "pfn": "/srv/pegasus/bin/FineTuneLLM"}}, use "/srv/pegasus/bin/FineTuneLLM"
 
-2. For memory/resource errors: Usually no additional files needed (workflow YAML is already available)
+3. For memory/resource errors: Usually no additional files needed (workflow YAML is already available)
 
-3. For config errors: Request the specific config file mentioned in the error
-
-4. If error message mentions a specific file path, request that exact file
+4. For config errors: Request the specific config file mentioned in the error
 
 5. If no additional files needed, return empty files_needed array
 
-⚠️ CRITICAL: Use ACTUAL paths from the Transformations list, NOT placeholder examples!
+⚠️ CRITICAL:
+- For missing data files → Request DIRECTORY LISTING of parent directory
+- For script errors → Use ACTUAL paths from Transformations list
+- DO NOT request workflow.yml for missing replica errors!
 
 IMPORTANT: Keep your response concise. Only include the JSON object, no extra text.
 """
@@ -1569,8 +1606,69 @@ IMPORTANT: Keep your response concise. Only include the JSON object, no extra te
             logger.warning("No files could be fetched, generating fallback plan")
             return self.generate_fallback_plan(analysis_result, workflow_context)
 
+    async def request_directory_listing_from_monitor(self, directory_path: str, workflow_id: str = None) -> Dict[str, Any]:
+        """Request directory listing from Monitor to check for similar files"""
+
+        # Check if this directory has already failed - don't retry
+        if directory_path in self.failed_files_cache:
+            logger.warning(f"Skipping directory that previously failed: {directory_path}")
+            return {
+                "success": False,
+                "path": directory_path,
+                "error": f"Directory previously failed to list (cached failure)",
+                "method": "cached_failure"
+            }
+
+        try:
+            monitor_url = self.config.get("monitor_url", "http://localhost:8080")
+
+            request_data = {
+                "directory_path": directory_path,
+                "requester": "planner",
+                "workflow_id": workflow_id
+            }
+
+            logger.info(f"Requesting directory listing from Monitor: {directory_path}")
+
+            async with ClientSession() as session:
+                async with session.post(
+                    f"{monitor_url}/api/files/list-directory",
+                    json=request_data,
+                    timeout=aiohttp.ClientTimeout(total=10)
+                ) as resp:
+                    if resp.status == 200:
+                        result = await resp.json()
+                        logger.info(f"Received directory listing from Monitor: {directory_path} ({len(result.get('files', []))} files)")
+                        return result
+                    else:
+                        error_text = await resp.text()
+                        logger.error(f"Failed to get directory listing from Monitor: {resp.status} - {error_text}")
+                        # Add to failed cache to prevent retrying
+                        self.failed_files_cache.add(directory_path)
+                        logger.info(f"Added {directory_path} to failed files cache (won't retry)")
+                        return {"success": False, "error": error_text, "status": resp.status}
+
+        except asyncio.TimeoutError:
+            logger.error(f"Timeout requesting directory listing from Monitor: {directory_path}")
+            self.failed_files_cache.add(directory_path)
+            return {"success": False, "error": "Request timeout"}
+        except Exception as e:
+            logger.error(f"Error requesting directory listing from Monitor: {e}")
+            self.failed_files_cache.add(directory_path)
+            return {"success": False, "error": str(e)}
+
     async def request_file_from_monitor(self, file_path: str, workflow_id: str = None) -> Dict[str, Any]:
         """Request file content from Monitor (which has access to cluster filesystem)"""
+
+        # Check if this file has already failed - don't retry to prevent loops
+        if file_path in self.failed_files_cache:
+            logger.warning(f"Skipping file that previously failed: {file_path}")
+            return {
+                "success": False,
+                "file_path": file_path,
+                "error": f"File previously failed to fetch (cached failure)",
+                "method": "cached_failure"
+            }
 
         # Check if this looks like a cluster/remote path
         remote_prefixes = ['/srv/', '/home/', '/opt/', '/usr/local/', '/data/', '/scratch/']
@@ -1628,13 +1726,20 @@ IMPORTANT: Keep your response concise. Only include the JSON object, no extra te
                     else:
                         error_text = await resp.text()
                         logger.error(f"Failed to get file from Monitor: {resp.status} - {error_text}")
+                        # Add to failed cache to prevent retrying
+                        self.failed_files_cache.add(file_path)
+                        logger.info(f"Added {file_path} to failed files cache (won't retry)")
                         return {"success": False, "error": error_text, "status": resp.status}
 
         except asyncio.TimeoutError:
             logger.error(f"Timeout requesting file from Monitor: {file_path}")
+            # Add to failed cache to prevent retrying
+            self.failed_files_cache.add(file_path)
             return {"success": False, "error": "Request timeout"}
         except Exception as e:
             logger.error(f"Error requesting file from Monitor: {e}")
+            # Add to failed cache to prevent retrying
+            self.failed_files_cache.add(file_path)
             return {"success": False, "error": str(e)}
 
     def parse_llm_response(self, llm_response: Dict[str, Any]) -> Dict[str, Any]:
@@ -1857,6 +1962,7 @@ class PlannerHTTPServer:
         self.planner = planner
         self.config = config
         self.app = web.Application()
+        self.failed_files_cache = set()  # Track files that failed to fetch (prevent looping)
         self.setup_routes()
 
     def write_workflow_step(self, workflow_id: str, agent: str, step: str, message: str, status: str = "INFO"):
@@ -1995,6 +2101,10 @@ class PlannerHTTPServer:
             self.save_request_to_file("analysis_complete", data, "planner")
 
             workflow_id = data.get("workflow_id")
+
+            # Clear failed files cache for new workflow analysis (fresh start)
+            self.failed_files_cache.clear()
+            logger.info(f"Cleared failed files cache for new workflow: {workflow_id}")
 
             # Defensive extraction with None handling
             result = data.get("result") or {}
