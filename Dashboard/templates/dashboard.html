@@ -661,6 +661,104 @@
             display: block;
         }
 
+        /* Activity Feed */
+        .activity-feed {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .activity-item {
+            display: flex;
+            gap: 16px;
+            padding: 16px;
+            background: white;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        .activity-item:hover {
+            border-color: var(--primary);
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.1);
+        }
+
+        .activity-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .activity-icon.monitor { background: rgba(59, 130, 246, 0.1); }
+        .activity-icon.analyzer { background: rgba(139, 92, 246, 0.1); }
+        .activity-icon.planner { background: rgba(16, 185, 129, 0.1); }
+        .activity-icon.executor { background: rgba(245, 158, 11, 0.1); }
+
+        .activity-content {
+            flex: 1;
+        }
+
+        .activity-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 6px;
+        }
+
+        .activity-agent {
+            font-weight: 600;
+            color: var(--gray-900);
+            font-size: 14px;
+        }
+
+        .activity-time {
+            font-size: 12px;
+            color: var(--gray-500);
+        }
+
+        .activity-action {
+            font-size: 14px;
+            color: var(--gray-700);
+            margin-bottom: 4px;
+        }
+
+        .activity-details {
+            font-size: 12px;
+            color: var(--gray-500);
+        }
+
+        .activity-workflow-id {
+            font-family: 'Monaco', monospace;
+            font-size: 11px;
+            color: var(--gray-600);
+            background: var(--gray-100);
+            padding: 2px 6px;
+            border-radius: 3px;
+            display: inline-block;
+            margin-top: 4px;
+        }
+
+        .activity-status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .activity-status-badge.info { background: rgba(59, 130, 246, 0.1); color: var(--info); }
+        .activity-status-badge.success { background: rgba(16, 185, 129, 0.1); color: var(--success); }
+        .activity-status-badge.warning { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
+        .activity-status-badge.error { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+
         /* Workflow Card (similar to agent card) */
         .workflow-card {
             padding: 20px;
@@ -869,8 +967,24 @@
                 </div>
             </div>
 
-            <!-- Agents Section -->
+            <!-- Activity Feed Section -->
             <div class="section fade-in" style="animation-delay: 0.4s">
+                <div class="section-header">
+                    <h2 class="section-title">
+                        <span>📡</span>
+                        <span>Real-Time Activity Feed</span>
+                    </h2>
+                    <div class="section-actions">
+                        <button class="btn btn-secondary" onclick="refreshData()">Refresh</button>
+                    </div>
+                </div>
+                <div id="activity-feed-container">
+                    <div class="spinner"></div>
+                </div>
+            </div>
+
+            <!-- Agents Section -->
+            <div class="section fade-in" style="animation-delay: 0.5s">
                 <div class="section-header">
                     <h2 class="section-title">
                         <span>🤖</span>
@@ -1062,10 +1176,59 @@
         // Refresh all data (for dashboard)
         async function refreshData() {
             await Promise.all([
+                fetchActivityFeed(),
                 fetchAgentStatus(),
                 fetchWorkflows()
             ]);
             updateLastUpdateTime();
+        }
+
+        // Fetch activity feed
+        async function fetchActivityFeed() {
+            try {
+                const response = await fetch('/api/activities?limit=20');
+                const data = await response.json();
+
+                const activities = data.activities || [];
+                const container = document.getElementById('activity-feed-container');
+
+                if (activities.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📡</div>
+                            <div class="empty-state-text">No recent activities</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = `
+                    <div class="activity-feed">
+                        ${activities.map(activity => `
+                            <div class="activity-item">
+                                <div class="activity-icon ${activity.agent.toLowerCase()}">
+                                    ${getAgentIcon(activity.agent)}
+                                </div>
+                                <div class="activity-content">
+                                    <div class="activity-header">
+                                        <span class="activity-agent">${activity.agent}</span>
+                                        <span class="activity-time">${formatTimeSince(activity.timestamp)}</span>
+                                    </div>
+                                    <div class="activity-action">
+                                        ${activity.action}
+                                        <span class="activity-status-badge ${activity.status}">${activity.status}</span>
+                                    </div>
+                                    ${activity.details ? `<div class="activity-details">${activity.details}</div>` : ''}
+                                    ${activity.workflow_id ? `<div class="activity-workflow-id">${activity.workflow_id}</div>` : ''}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+
+            } catch (error) {
+                console.error('Error fetching activity feed:', error);
+            }
         }
 
         // Fetch agent status
@@ -1404,6 +1567,30 @@
             try {
                 const date = new Date(dateStr);
                 return date.toLocaleString();
+            } catch {
+                return dateStr;
+            }
+        }
+
+        // Helper: Format time since
+        function formatTimeSince(dateStr) {
+            if (!dateStr) return 'Unknown';
+            try {
+                const date = new Date(dateStr);
+                const now = new Date();
+                const seconds = Math.floor((now - date) / 1000);
+
+                if (seconds < 10) return 'Just now';
+                if (seconds < 60) return `${seconds}s ago`;
+
+                const minutes = Math.floor(seconds / 60);
+                if (minutes < 60) return `${minutes}m ago`;
+
+                const hours = Math.floor(minutes / 60);
+                if (hours < 24) return `${hours}h ago`;
+
+                const days = Math.floor(hours / 24);
+                return `${days}d ago`;
             } catch {
                 return dateStr;
             }

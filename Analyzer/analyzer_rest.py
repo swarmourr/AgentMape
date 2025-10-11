@@ -1150,6 +1150,9 @@ class EnhancedAnalyzerAgent:
         # Statistics endpoint for dashboard
         self.app.router.add_get('/api/stats', self.handle_get_stats)
 
+        # All analyses endpoint for dashboard
+        self.app.router.add_get('/api/analyses/all', self.handle_get_all_analyses)
+
     def send_logs_and_workflow_to_llm_enhanced(self, logs: str, workflow: Dict[str, Any], analysis_type: str = "failed", hold_reason: str = "") -> Optional[Dict[str, Any]]:
         """Enhanced LLM communication with better error handling and fallback"""
         
@@ -2436,6 +2439,29 @@ class EnhancedAnalyzerAgent:
                 "total_analyses": total_analyses,
                 "active_analyses": active_analyses,
                 "queue_size": len(self.analysis_queue),
+                "timestamp": datetime.now().isoformat()
+            })
+        except Exception as e:
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def handle_get_all_analyses(self, request):
+        """Get all workflow analyses for dashboard (for counting failed/held workflows)"""
+        try:
+            all_analyses = self.analysis_table.all()
+
+            # Return basic info for each analysis
+            analyses_summary = []
+            for analysis in all_analyses:
+                analyses_summary.append({
+                    "workflow_id": analysis.get("workflow_id"),
+                    "analysis_type": analysis.get("analysis_type"),  # "failed" or "held"
+                    "timestamp": analysis.get("timestamp"),
+                    "workflow_dir": analysis.get("workflow_dir")
+                })
+
+            return web.json_response({
+                "analyses": analyses_summary,
+                "total": len(analyses_summary),
                 "timestamp": datetime.now().isoformat()
             })
         except Exception as e:

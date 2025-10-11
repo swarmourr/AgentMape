@@ -4,7 +4,7 @@ Simple Real-Time MAPE-K Dashboard
 Monitors Monitor, Analyzer, Planner agents and displays status
 """
 
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request
 from flask_cors import CORS
 import requests
 import json
@@ -30,6 +30,9 @@ class DashboardMonitor:
             "workflows": [],
             "recent_events": []
         }
+        # Activity log storage (max 100 entries)
+        self.activity_log = []
+        self.max_activity_logs = 100
 
     def get_agent_status(self, agent_name: str, url: str) -> Dict[str, Any]:
         """Récupère le status d'un agent"""
@@ -101,8 +104,126 @@ class DashboardMonitor:
         except:
             return {"plans_generated": 0, "active_planning": 0}
 
+    def get_workflow_counts_from_analyzer(self) -> Dict:
+        """Get workflow counts by type from Analyzer's analysis database"""
+        try:
+            # Try to get all analyses from Analyzer
+            response = requests.get(f"{ANALYZER_URL}/api/analyses/all", timeout=2)
+            if response.status_code == 200:
+                data = response.json()
+                analyses = data.get("analyses", [])
+
+                # Count by analysis type
+                failed_count = len([a for a in analyses if a.get("analysis_type") == "failed"])
+                held_count = len([a for a in analyses if a.get("analysis_type") == "held"])
+
+                return {
+                    "failed": failed_count,
+                    "held": held_count,
+                    "success": 0  # Not tracked yet
+                }
+        except:
+            pass
+
+        # Fallback: return zeros
+        return {"failed": 0, "held": 0, "success": 0}
+
+    def add_activity_log(self, agent: str, action: str, workflow_id: str = None, status: str = "info", details: str = ""):
+        """Add an activity log entry"""
+        log_entry = {
+            "timestamp": datetime.now().isoformat(),
+            "agent": agent,
+            "action": action,
+            "workflow_id": workflow_id,
+            "status": status,  # info, success, warning, error
+            "details": details
+        }
+
+        self.activity_log.insert(0, log_entry)  # Add at beginning
+
+        # Keep only max_activity_logs entries
+        if len(self.activity_log) > self.max_activity_logs:
+            self.activity_log = self.activity_log[:self.max_activity_logs]
+
+    def get_recent_activities(self, limit: int = 50) -> List[Dict]:
+        """Get recent activity logs"""
+        return self.activity_log[:limit]
+
+    def poll_agent_activities(self):
+        """Poll agents for recent activities and update activity log"""
+        # This will be called periodically to fetch logs from agents
+
+        # Check Monitor for new workflows
+        try:
+            response = requests.get(f"{MONITOR_URL}/api/workflows", timeout=1)
+            if response.status_code == 200:
+                data = response.json()
+                active_workflows = data.get("active_workflows", [])
+
+                # Log new workflows being monitored (simple check)
+                for wf in active_workflows[:3]:  # Just the first 3
+                    workflow_id = wf.get("workflow_id")
+                    if workflow_id and not any(log.get("workflow_id") == workflow_id and log.get("action") == "Monitoring workflow" for log in self.activity_log[:10]):
+                        self.add_activity_log(
+                            agent="Monitor",
+                            action="Monitoring workflow",
+                            workflow_id=workflow_id,
+                            status="info",
+                            details=f"Started monitoring at {wf.get('monitoring_started', 'N/A')}"
+                        )
+        except:
+            pass
+
+        # Check Analyzer for recent analyses
+        try:
+            response = requests.get(f"{ANALYZER_URL}/api/analyses/all", timeout=1)
+            if response.status_code == 200:
+                data = response.json()
+                analyses = data.get("analyses", [])
+
+                # Log recent analyses (check if not already logged)
+                for analysis in analyses[:5]:  # Just the first 5
+                    workflow_id = analysis.get("workflow_id")
+                    analysis_type = analysis.get("analysis_type")
+
+                    if workflow_id and not any(log.get("workflow_id") == workflow_id and "Analysis" in log.get("action", "") for log in self.activity_log[:10]):
+                        self.add_activity_log(
+                            agent="Analyzer",
+                            action=f"Analysis completed ({analysis_type})",
+                            workflow_id=workflow_id,
+                            status="warning" if analysis_type == "failed" else "info",
+                            details=f"Analyzed workflow for {analysis_type} state"
+                        )
+        except:
+            pass
+
+        # Check Planner for plans
+        try:
+            response = requests.get(f"{PLANNER_URL}/api/plans", timeout=1)
+            if response.status_code == 200:
+                data = response.json()
+                plans = data.get("plans", [])
+
+                # Log recent plans
+                for plan in plans[:3]:
+                    workflow_id = plan.get("workflow_id")
+
+                    if workflow_id and not any(log.get("workflow_id") == workflow_id and "Repair plan" in log.get("action", "") for log in self.activity_log[:10]):
+                        self.add_activity_log(
+                            agent="Planner",
+                            action="Repair plan generated",
+                            workflow_id=workflow_id,
+                            status="success",
+                            details=f"Generated repair plan: {plan.get('description', 'N/A')}"
+                        )
+        except:
+            pass
+
     def collect_all_data(self) -> Dict[str, Any]:
         """Collecte toutes les données des agents"""
+
+        # Poll for new activities
+        self.poll_agent_activities()
 
         # Status des agents
         agents_status = {
@@ -118,15 +239,9 @@ class DashboardMonitor:
         analyzer_stats = self.get_analyzer_stats()
         planner_stats = self.get_planner_stats()
 
-        # Compter les workflows par statut
-        # Note: Le Monitor ne retourne pas les statuts détaillés pour l'instant
-        # On affiche juste le nombre de workflows actifs
-        workflow_counts = {
-            "running": len(workflows),
-            "failed": 0,  # Ces données viendraient de l'Analyzer
-            "held": 0,    # Ces données viendraient de l'Analyzer
-            "success": 0  # À implémenter
-        }
+        # Get detailed workflow counts from Analyzer database
+        workflow_counts = self.get_workflow_counts_from_analyzer()
+        workflow_counts["running"] = len(workflows)  # Add running count from Monitor
 
         return {
             "timestamp": datetime.now().isoformat(),
@@ -261,6 +376,21 @@ def get_workflows_detailed():
             "timestamp": datetime.now().isoformat()
         })
 
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/activities')
+def get_activities():
+    """API pour récupérer les activités récentes du système MAPE-K"""
+    try:
+        limit = request.args.get('limit', 50, type=int)
+        activities = dashboard.get_recent_activities(limit)
+
+        return jsonify({
+            "activities": activities,
+            "total": len(activities),
+            "timestamp": datetime.now().isoformat()
+        })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
