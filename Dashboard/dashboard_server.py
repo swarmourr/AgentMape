@@ -520,125 +520,332 @@ def get_network_topology():
         analyzer_status = dashboard.get_agent_status("Analyzer", ANALYZER_URL)
         planner_status = dashboard.get_agent_status("Planner", PLANNER_URL)
 
-        # Create nodes
+        # Get workflow counts
+        try:
+            workflows_response = requests.get(f"{MONITOR_URL}/api/workflows/all", timeout=2)
+            workflows_count = len(workflows_response.json().get("workflows", [])) if workflows_response.status_code == 200 else 0
+            active_count = len([w for w in workflows_response.json().get("workflows", []) if w.get("is_active")]) if workflows_response.status_code == 200 else 0
+        except:
+            workflows_count = 0
+            active_count = 0
+
+        # Get analysis counts and check for recent activity
+        analyses_count = 0
+        recent_analyses = 0
+        has_active_problems = False
+        try:
+            analyses_response = requests.get(f"{ANALYZER_URL}/api/analyses/all", timeout=2)
+            if analyses_response.status_code == 200:
+                analyses = analyses_response.json().get("analyses", [])
+                analyses_count = len(analyses)
+
+                # Check for recent analyses (last 5 minutes)
+                from datetime import datetime, timedelta
+                five_min_ago = (datetime.now() - timedelta(minutes=5)).isoformat()
+                recent_analyses = len([a for a in analyses if a.get("timestamp", "") > five_min_ago])
+                has_active_problems = recent_analyses > 0
+        except:
+            analyses_count = 0
+            recent_analyses = 0
+
+        # Get plan counts
+        try:
+            plans_response = requests.get(f"{PLANNER_URL}/api/plans", timeout=2)
+            plans_count = len(plans_response.json().get("plans", [])) if plans_response.status_code == 200 else 0
+        except:
+            plans_count = 0
+
+        # Check LLM connection (from Analyzer)
+        llm_status = "unknown"
+        llm_model = "N/A"
+        try:
+            # Try to get Analyzer config or health endpoint that includes LLM status
+            analyzer_health = requests.get(f"{ANALYZER_URL}/health", timeout=2)
+            if analyzer_health.status_code == 200:
+                llm_status = "connected"
+                llm_model = "llama3:latest"
+        except:
+            llm_status = "disconnected"
+
+        # Create AGENT nodes with detailed info
         nodes.append({
             "id": "monitor",
-            "label": "Monitor",
+            "label": "MONITOR",
             "group": "agent",
             "status": monitor_status.get("status", "unknown"),
             "type": "monitor",
-            "title": f"Monitor Agent\nStatus: {monitor_status.get('status', 'unknown')}\nResponse: {monitor_status.get('response_time', 0):.3f}s"
+            "level": 1,
+            "value": 30,
+            "icon": "fa-radar",
+            "title": f"<b>Monitor Agent</b><br/><br/><i class='fas fa-circle' style='color: {'#10b981' if monitor_status.get('status') == 'healthy' else '#ef4444'}'></i> Status: {monitor_status.get('status', 'unknown')}<br/><i class='fas fa-clock'></i> Response: {monitor_status.get('response_time', 0):.3f}s<br/><i class='fas fa-network-wired'></i> Port: 8080<br/><br/><i class='fas fa-chart-line'></i> Tracking: {workflows_count} workflows<br/><i class='fas fa-running'></i> Active: {active_count} workflows",
+            "metrics": {
+                "workflows": workflows_count,
+                "active": active_count,
+                "response_time": monitor_status.get('response_time', 0)
+            }
         })
+
+        # Determine analyzer operational state
+        analyzer_operational_state = "idle"
+        if analyzer_status.get("status") != "healthy":
+            analyzer_operational_state = "offline"
+        elif has_active_problems:
+            analyzer_operational_state = "analyzing"
 
         nodes.append({
             "id": "analyzer",
-            "label": "Analyzer",
+            "label": "ANALYZER",
             "group": "agent",
             "status": analyzer_status.get("status", "unknown"),
+            "operational_state": analyzer_operational_state,
             "type": "analyzer",
-            "title": f"Analyzer Agent\nStatus: {analyzer_status.get('status', 'unknown')}\nResponse: {analyzer_status.get('response_time', 0):.3f}s"
+            "level": 2,
+            "value": 30,
+            "icon": "fa-microscope",
+            "title": f"<b>Analyzer Agent</b><br/><br/><i class='fas fa-circle' style='color: {'#10b981' if analyzer_status.get('status') == 'healthy' else '#ef4444'}'></i> Status: {analyzer_status.get('status', 'unknown')}<br/><i class='fas fa-clock'></i> Response: {analyzer_status.get('response_time', 0):.3f}s<br/><i class='fas fa-network-wired'></i> Port: 8081<br/><br/><i class='fas fa-info-circle'></i> State: <b>{analyzer_operational_state.upper()}</b><br/><i class='fas fa-tasks'></i> Total Analyses: {analyses_count}<br/><i class='fas fa-fire'></i> Recent (5m): {recent_analyses}<br/><i class='fas fa-robot'></i> LLM: {llm_status}<br/><i class='fas fa-brain'></i> Model: {llm_model}",
+            "metrics": {
+                "analyses": analyses_count,
+                "recent_analyses": recent_analyses,
+                "has_active_problems": has_active_problems,
+                "response_time": analyzer_status.get('response_time', 0),
+                "llm_connected": llm_status == "connected"
+            }
         })
 
         nodes.append({
             "id": "planner",
-            "label": "Planner",
+            "label": "PLANNER",
             "group": "agent",
             "status": planner_status.get("status", "unknown"),
             "type": "planner",
-            "title": f"Planner Agent\nStatus: {planner_status.get('status', 'unknown')}\nResponse: {planner_status.get('response_time', 0):.3f}s"
+            "level": 3,
+            "value": 30,
+            "icon": "fa-project-diagram",
+            "title": f"<b>Planner Agent</b><br/><br/><i class='fas fa-circle' style='color: {'#10b981' if planner_status.get('status') == 'healthy' else '#ef4444'}'></i> Status: {planner_status.get('status', 'unknown')}<br/><i class='fas fa-clock'></i> Response: {planner_status.get('response_time', 0):.3f}s<br/><i class='fas fa-network-wired'></i> Port: 8082<br/><br/><i class='fas fa-clipboard-check'></i> Total Plans: {plans_count}",
+            "metrics": {
+                "plans": plans_count,
+                "response_time": planner_status.get('response_time', 0)
+            }
+        })
+
+        # SYSTEM nodes
+        nodes.append({
+            "id": "workflows",
+            "label": "PEGASUS\nWORKFLOWS",
+            "group": "system",
+            "status": "active" if active_count > 0 else "idle",
+            "type": "workflows",
+            "level": 0,
+            "value": 40,
+            "icon": "fa-cogs",
+            "title": f"<b>Pegasus Workflow System</b><br/><br/><i class='fas fa-tasks'></i> Total Workflows: {workflows_count}<br/><i class='fas fa-running'></i> Active: {active_count}<br/><i class='fas fa-check-circle'></i> Completed: {workflows_count - active_count}"
+        })
+
+        # DATABASE nodes
+        nodes.append({
+            "id": "monitor_db",
+            "label": "MONITOR\nDATABASE",
+            "group": "database",
+            "status": "healthy" if monitor_status.get("status") == "healthy" else "unknown",
+            "type": "database",
+            "level": 1,
+            "value": 20,
+            "icon": "fa-database",
+            "title": f"<b>Monitor Database</b><br/><br/><i class='fas fa-hdd'></i> Type: TinyDB (JSON)<br/><i class='fas fa-file-code'></i> File: workflows.json<br/><i class='fas fa-table'></i> Records: {workflows_count}"
         })
 
         nodes.append({
+            "id": "analyzer_db",
+            "label": "ANALYZER\nDATABASE",
+            "group": "database",
+            "status": "healthy" if analyzer_status.get("status") == "healthy" else "unknown",
+            "type": "database",
+            "level": 2,
+            "value": 20,
+            "icon": "fa-database",
+            "title": f"<b>Analyzer Database</b><br/><br/><i class='fas fa-hdd'></i> Type: TinyDB (JSON)<br/><i class='fas fa-file-code'></i> File: analysis.json<br/><i class='fas fa-table'></i> Records: {analyses_count}"
+        })
+
+        nodes.append({
+            "id": "planner_db",
+            "label": "PLANNER\nDATABASE",
+            "group": "database",
+            "status": "healthy" if planner_status.get("status") == "healthy" else "unknown",
+            "type": "database",
+            "level": 3,
+            "value": 20,
+            "icon": "fa-database",
+            "title": f"<b>Planner Database</b><br/><br/><i class='fas fa-hdd'></i> Type: TinyDB (JSON)<br/><i class='fas fa-file-code'></i> File: plans.json<br/><i class='fas fa-table'></i> Records: {plans_count}"
+        })
+
+        # LLM node
+        nodes.append({
+            "id": "llm",
+            "label": "OLLAMA\nLLM",
+            "group": "external",
+            "status": llm_status,
+            "type": "llm",
+            "level": 2,
+            "value": 35,
+            "icon": "fa-brain",
+            "title": f"<b>Large Language Model</b><br/><br/><i class='fas fa-server'></i> Service: Ollama<br/><i class='fas fa-brain'></i> Model: {llm_model}<br/><i class='fas fa-circle' style='color: {'#10b981' if llm_status == 'connected' else '#ef4444'}'></i> Status: {llm_status}<br/><br/><b>Capabilities:</b><br/>• Root cause analysis<br/>• Problem detection<br/>• Solution suggestions"
+        })
+
+        # DASHBOARD node
+        nodes.append({
             "id": "dashboard",
-            "label": "Dashboard",
+            "label": "DASHBOARD",
             "group": "ui",
             "status": "healthy",
             "type": "dashboard",
-            "title": "Dashboard\nVisualization & Monitoring"
+            "level": 2,
+            "value": 25,
+            "icon": "fa-chart-line",
+            "title": "<b>Dashboard Interface</b><br/><br/><i class='fas fa-network-wired'></i> Port: 8085<br/><i class='fas fa-th-large'></i> Views: Dashboard, Workflows, Agents, Analytics<br/><br/><b>Features:</b><br/>• Real-time monitoring<br/>• Network visualization<br/>• Analytics charts"
         })
 
-        nodes.append({
-            "id": "workflows",
-            "label": "Workflows",
-            "group": "system",
-            "status": "active",
-            "type": "workflows",
-            "title": "Pegasus Workflows\nExecution System"
-        })
-
-        # Create edges (connections)
+        # Create edges with detailed metadata
+        # Workflow System connections
         edges.append({
             "from": "workflows",
             "to": "monitor",
-            "label": "detects",
+            "label": f"DETECT • {active_count} active",
             "arrows": "to",
-            "color": {"color": "#10b981" if monitor_status.get("status") == "healthy" else "#ef4444"}
+            "width": 3,
+            "color": {"color": "#10b981" if monitor_status.get("status") == "healthy" else "#ef4444"},
+            "title": "<b>Workflow Detection</b><br/><br/><i class='fas fa-sync'></i> Monitor polls Pegasus workflows<br/><i class='fas fa-bell'></i> Detects state changes<br/><i class='fas fa-clock'></i> Interval: 30s"
         })
+
+        # Monitor connections
+        edges.append({
+            "from": "monitor",
+            "to": "monitor_db",
+            "label": "STORE",
+            "arrows": "to",
+            "width": 2,
+            "color": {"color": "#64748b"},
+            "title": "<b>Data Persistence</b><br/><br/><i class='fas fa-save'></i> Stores workflow metadata<br/><i class='fas fa-database'></i> State information<br/><i class='fas fa-history'></i> Historical tracking"
+        })
+
+        # Monitor to Analyzer edge - show state
+        trigger_label = f"TRIGGER • {analyses_count} total"
+        trigger_color = "#6366f1"
+        if has_active_problems:
+            trigger_label = f"ANALYZING • {recent_analyses} active"
+            trigger_color = "#f59e0b"
+        elif analyses_count == 0:
+            trigger_label = "MONITORING • No issues"
+            trigger_color = "#10b981"
 
         edges.append({
             "from": "monitor",
             "to": "analyzer",
-            "label": "triggers",
+            "label": trigger_label,
             "arrows": "to",
-            "color": {"color": "#6366f1"}
+            "width": 3 if has_active_problems else 2,
+            "color": {"color": trigger_color},
+            "title": f"<b>Analysis Request</b><br/><br/><i class='fas fa-info-circle'></i> State: {'ACTIVE ANALYSIS' if has_active_problems else 'IDLE MONITORING'}<br/><i class='fas fa-paper-plane'></i> Total requests: {analyses_count}<br/><i class='fas fa-fire'></i> Recent (5m): {recent_analyses}<br/><i class='fas fa-bolt'></i> Event-driven"
+        })
+
+        # Analyzer connections
+        edges.append({
+            "from": "analyzer",
+            "to": "monitor",
+            "label": "FILE REQUEST",
+            "arrows": "to",
+            "width": 2,
+            "dashes": True,
+            "color": {"color": "#94a3b8"},
+            "title": "<b>File Retrieval</b><br/><br/><i class='fas fa-download'></i> Pull-based architecture<br/><i class='fas fa-file-alt'></i> Requests logs & configs<br/><i class='fas fa-shield-alt'></i> On-demand access"
         })
 
         edges.append({
             "from": "analyzer",
-            "to": "monitor",
-            "label": "requests files",
+            "to": "llm",
+            "label": "AI QUERY",
             "arrows": "to",
-            "dashes": True,
-            "color": {"color": "#94a3b8"}
+            "width": 3,
+            "color": {"color": "#ec4899"},
+            "title": "<b>LLM Integration</b><br/><br/><i class='fas fa-brain'></i> Sends logs for AI analysis<br/><i class='fas fa-search'></i> Gets root cause insights<br/><i class='fas fa-lightbulb'></i> Solution suggestions"
         })
+
+        edges.append({
+            "from": "analyzer",
+            "to": "analyzer_db",
+            "label": "PERSIST",
+            "arrows": "to",
+            "width": 2,
+            "color": {"color": "#64748b"},
+            "title": "<b>Analysis Storage</b><br/><br/><i class='fas fa-save'></i> Stores analysis results<br/><i class='fas fa-bug'></i> Detected problems<br/><i class='fas fa-chart-bar'></i> Metrics & logs"
+        })
+
+        # Analyzer to Planner edge - show if problems exist
+        planner_label = f"REPORT • {analyses_count} issues" if analyses_count > 0 else "NO ISSUES"
+        planner_color = "#f59e0b" if analyses_count > 0 else "#94a3b8"
+        planner_width = 3 if has_active_problems else 1
+        planner_dashes = analyses_count == 0
 
         edges.append({
             "from": "analyzer",
             "to": "planner",
-            "label": "reports",
+            "label": planner_label,
             "arrows": "to",
-            "color": {"color": "#f59e0b"}
+            "width": planner_width,
+            "dashes": planner_dashes,
+            "color": {"color": planner_color},
+            "title": f"<b>Problem Report</b><br/><br/><i class='fas fa-info-circle'></i> Status: {'PROBLEMS DETECTED' if analyses_count > 0 else 'NO PROBLEMS'}<br/><i class='fas fa-clipboard-list'></i> Total reports: {analyses_count}<br/><i class='fas fa-fire'></i> Recent: {recent_analyses}<br/><i class='fas fa-tools'></i> {'Solutions provided' if analyses_count > 0 else 'System healthy'}"
+        })
+
+        # Planner connections
+        edges.append({
+            "from": "planner",
+            "to": "planner_db",
+            "label": "STORE PLANS",
+            "arrows": "to",
+            "width": 2,
+            "color": {"color": "#64748b"},
+            "title": "<b>Plan Storage</b><br/><br/><i class='fas fa-save'></i> Stores repair plans<br/><i class='fas fa-history'></i> Execution history<br/><i class='fas fa-check'></i> Approval tracking"
         })
 
         edges.append({
             "from": "planner",
             "to": "workflows",
-            "label": "repairs",
+            "label": "EXECUTE",
             "arrows": "to",
+            "width": 2,
             "dashes": True,
-            "color": {"color": "#8b5cf6"}
+            "color": {"color": "#8b5cf6"},
+            "title": "<b>Plan Execution</b><br/><br/><i class='fas fa-play-circle'></i> Executes repair plans<br/><i class='fas fa-wrench'></i> Auto-repair (future)<br/><i class='fas fa-redo'></i> Workflow remediation"
         })
 
-        edges.append({
-            "from": "dashboard",
-            "to": "monitor",
-            "label": "queries",
-            "arrows": "to",
-            "dashes": True,
-            "color": {"color": "#3b82f6"}
-        })
-
-        edges.append({
-            "from": "dashboard",
-            "to": "analyzer",
-            "label": "queries",
-            "arrows": "to",
-            "dashes": True,
-            "color": {"color": "#3b82f6"}
-        })
-
-        edges.append({
-            "from": "dashboard",
-            "to": "planner",
-            "label": "queries",
-            "arrows": "to",
-            "dashes": True,
-            "color": {"color": "#3b82f6"}
-        })
+        # Dashboard connections (queries)
+        for agent_id in ["monitor", "analyzer", "planner"]:
+            edges.append({
+                "from": "dashboard",
+                "to": agent_id,
+                "label": "HTTP/REST",
+                "arrows": "to",
+                "width": 1,
+                "dashes": True,
+                "color": {"color": "#3b82f6"},
+                "title": f"<b>Status Polling</b><br/><br/><i class='fas fa-sync-alt'></i> Polls {agent_id.upper()}<br/><i class='fas fa-clock'></i> Interval: 5s<br/><i class='fas fa-network-wired'></i> REST API"
+            })
 
         return jsonify({
             "nodes": nodes,
             "edges": edges,
+            "stats": {
+                "total_agents": 3,
+                "healthy_agents": sum(1 for s in [monitor_status, analyzer_status, planner_status] if s.get("status") == "healthy"),
+                "total_workflows": workflows_count,
+                "active_workflows": active_count,
+                "total_analyses": analyses_count,
+                "recent_analyses": recent_analyses,
+                "has_active_problems": has_active_problems,
+                "analyzer_state": analyzer_operational_state,
+                "total_plans": plans_count,
+                "llm_status": llm_status
+            },
             "timestamp": datetime.now().isoformat()
         })
 

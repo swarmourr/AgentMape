@@ -875,11 +875,122 @@
         /* Network Graph Styles */
         #network-container {
             width: 100%;
-            height: 600px;
+            height: 700px;
             border: 1px solid var(--gray-200);
             border-radius: 12px;
-            background: white;
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
             margin-bottom: 24px;
+            position: relative;
+        }
+
+        #network-container canvas {
+            border-radius: 12px;
+        }
+
+        #network-stats {
+            background: white;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 16px;
+        }
+
+        .network-stat {
+            text-align: center;
+            padding: 16px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            border: 1px solid var(--gray-200);
+            transition: all 0.3s ease;
+        }
+
+        .network-stat:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .network-stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--primary);
+            font-family: 'Inter', monospace;
+            letter-spacing: -0.5px;
+        }
+
+        .network-stat-value i {
+            font-size: 24px;
+            margin-right: 6px;
+        }
+
+        .network-stat-label {
+            font-size: 12px;
+            color: var(--gray-600);
+            margin-top: 6px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .network-legend {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: rgba(255, 255, 255, 0.98);
+            border: 1px solid var(--gray-300);
+            border-radius: 10px;
+            padding: 16px;
+            font-size: 11px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 10;
+            min-width: 180px;
+            backdrop-filter: blur(10px);
+        }
+
+        .legend-title {
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: var(--gray-800);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid var(--gray-200);
+            padding-bottom: 8px;
+        }
+
+        .legend-title i {
+            margin-right: 6px;
+            color: var(--primary);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            transition: all 0.2s ease;
+            padding: 4px;
+            border-radius: 4px;
+        }
+
+        .legend-item:hover {
+            background: var(--gray-100);
+        }
+
+        .legend-item i {
+            margin-right: 6px;
+            width: 16px;
+            text-align: center;
+        }
+
+        .legend-color {
+            width: 18px;
+            height: 18px;
+            border-radius: 4px;
+            margin-right: 10px;
+            border: 2px solid white;
+            box-shadow: 0 0 0 1px var(--gray-300);
         }
 
         /* Chart Styles */
@@ -909,6 +1020,9 @@
             height: 300px;
         }
     </style>
+
+    <!-- Font Awesome for professional icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <!-- Chart.js and vis-network CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -1104,8 +1218,35 @@
                         </div>
                     </div>
 
+                    <!-- Network Stats -->
+                    <div id="network-stats"></div>
+
                     <!-- Network Graph -->
-                    <div id="network-container"></div>
+                    <div id="network-container">
+                        <div class="network-legend">
+                            <div class="legend-title"><i class="fas fa-info-circle"></i> Status Legend</div>
+                            <div class="legend-item">
+                                <div class="legend-color" style="background: #10b981;"></div>
+                                <span><i class="fas fa-check-circle"></i> Healthy / Active</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color" style="background: #3b82f6;"></div>
+                                <span><i class="fas fa-eye"></i> Idle / Monitoring</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color" style="background: #f59e0b;"></div>
+                                <span><i class="fas fa-exclamation-circle"></i> Analyzing Issues</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color" style="background: #ef4444;"></div>
+                                <span><i class="fas fa-times-circle"></i> Offline / Error</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color" style="background: #94a3b8;"></div>
+                                <span><i class="fas fa-question-circle"></i> Unknown</span>
+                            </div>
+                        </div>
+                    </div>
 
                     <!-- Agent Cards -->
                     <div class="section-header" style="margin-top: 24px;">
@@ -1667,36 +1808,138 @@
                 const response = await fetch('/api/network/topology');
                 const data = await response.json();
 
+                // Render network stats
+                renderNetworkStats(data.stats);
+
                 const container = document.getElementById('network-container');
 
-                // Node styling based on status
-                const nodes = new vis.DataSet(data.nodes.map(node => ({
-                    ...node,
-                    shape: 'box',
-                    margin: 10,
-                    font: { size: 14, face: 'Inter', color: '#1e293b' },
-                    color: {
-                        background: node.status === 'healthy' ? '#10b981' :
-                                   node.status === 'unhealthy' ? '#ef4444' : '#94a3b8',
-                        border: node.status === 'healthy' ? '#059669' :
-                               node.status === 'unhealthy' ? '#dc2626' : '#64748b',
-                        highlight: { background: '#6366f1', border: '#4f46e5' }
-                    },
-                    borderWidth: 2,
-                    borderWidthSelected: 3
-                })));
+                // Get node color based on group and status
+                function getNodeColor(node) {
+                    // Special handling for Analyzer - show operational state
+                    if (node.id === 'analyzer') {
+                        if (node.operational_state === 'analyzing') {
+                            return { background: '#f59e0b', border: '#d97706' }; // Orange - actively analyzing
+                        } else if (node.operational_state === 'idle') {
+                            return { background: '#3b82f6', border: '#2563eb' }; // Blue - idle/monitoring
+                        } else if (node.operational_state === 'offline') {
+                            return { background: '#ef4444', border: '#dc2626' }; // Red - offline
+                        }
+                    }
 
-                const edges = new vis.DataSet(data.edges);
+                    // Status-based colors for other agents
+                    if (node.group === 'agent') {
+                        if (node.status === 'healthy') return { background: '#10b981', border: '#059669' };
+                        if (node.status === 'unhealthy') return { background: '#ef4444', border: '#dc2626' };
+                        return { background: '#94a3b8', border: '#64748b' };
+                    }
+
+                    // Group-based colors for others
+                    const colors = {
+                        'database': { background: '#3b82f6', border: '#2563eb' },
+                        'external': { background: '#ec4899', border: '#db2777' },
+                        'system': { background: '#f59e0b', border: '#d97706' },
+                        'ui': { background: '#8b5cf6', border: '#7c3aed' }
+                    };
+
+                    return colors[node.group] || { background: '#94a3b8', border: '#64748b' };
+                }
+
+                // Get node shape based on type
+                function getNodeShape(node) {
+                    const shapes = {
+                        'agent': 'box',
+                        'database': 'database',
+                        'llm': 'diamond',
+                        'workflows': 'hexagon',
+                        'dashboard': 'box'
+                    };
+                    return shapes[node.type] || 'box';
+                }
+
+                // Node styling based on group and status
+                const nodes = new vis.DataSet(data.nodes.map(node => {
+                    const colors = getNodeColor(node);
+                    const shape = getNodeShape(node);
+
+                    return {
+                        ...node,
+                        shape: shape,
+                        margin: 14,
+                        font: {
+                            size: 12,
+                            face: 'Inter, monospace',
+                            color: '#ffffff',
+                            bold: { size: 13, weight: '700' },
+                            multi: 'html'
+                        },
+                        color: {
+                            background: colors.background,
+                            border: colors.border,
+                            highlight: {
+                                background: '#6366f1',
+                                border: '#4f46e5'
+                            },
+                            hover: {
+                                background: colors.background,
+                                border: '#1e293b'
+                            }
+                        },
+                        borderWidth: 2,
+                        borderWidthSelected: 4,
+                        shadow: {
+                            enabled: true,
+                            color: 'rgba(0,0,0,0.2)',
+                            size: 5,
+                            x: 2,
+                            y: 2
+                        },
+                        // Add badge for metrics
+                        ...(node.metrics && {
+                            chosen: {
+                                node: function(values, id, selected, hovering) {
+                                    values.shadowSize = hovering ? 10 : 5;
+                                }
+                            }
+                        })
+                    };
+                }));
+
+                const edges = new vis.DataSet(data.edges.map(edge => ({
+                    ...edge,
+                    smooth: {
+                        enabled: true,
+                        type: 'cubicBezier',
+                        roundness: 0.5
+                    },
+                    font: {
+                        size: 9,
+                        align: 'horizontal',
+                        color: '#475569',
+                        background: 'rgba(255,255,255,0.95)',
+                        strokeWidth: 0,
+                        face: 'Inter, monospace',
+                        bold: { size: 9, weight: '600' }
+                    },
+                    chosen: {
+                        edge: function(values, id, selected, hovering) {
+                            if (hovering) {
+                                values.width = (edge.width || 2) * 1.5;
+                            }
+                        }
+                    }
+                })));
 
                 const graphData = { nodes, edges };
 
                 const options = {
                     layout: {
                         hierarchical: {
+                            enabled: true,
                             direction: 'UD',
                             sortMethod: 'directed',
-                            nodeSpacing: 200,
-                            levelSeparation: 150
+                            nodeSpacing: 180,
+                            levelSeparation: 200,
+                            treeSpacing: 200
                         }
                     },
                     physics: {
@@ -1704,27 +1947,110 @@
                     },
                     edges: {
                         smooth: {
+                            enabled: true,
                             type: 'cubicBezier',
                             forceDirection: 'vertical'
                         },
-                        width: 2,
-                        font: { size: 11, align: 'middle' }
+                        arrows: {
+                            to: {
+                                enabled: true,
+                                scaleFactor: 0.8
+                            }
+                        }
                     },
                     interaction: {
                         hover: true,
-                        tooltipDelay: 100
+                        tooltipDelay: 100,
+                        navigationButtons: true,
+                        keyboard: true
+                    },
+                    nodes: {
+                        chosen: true
                     }
                 };
 
                 if (!network) {
                     network = new vis.Network(container, graphData, options);
+
+                    // Add click event for nodes
+                    network.on("click", function (params) {
+                        if (params.nodes.length > 0) {
+                            const nodeId = params.nodes[0];
+                            const node = nodes.get(nodeId);
+                            console.log('Clicked node:', node);
+                        }
+                    });
+
+                    // Fit network after stabilization
+                    network.once('stabilizationIterationsDone', function() {
+                        network.fit({
+                            animation: {
+                                duration: 500,
+                                easingFunction: 'easeInOutQuad'
+                            }
+                        });
+                    });
                 } else {
                     network.setData(graphData);
+                    network.fit();
                 }
 
             } catch (error) {
                 console.error('Error initializing network graph:', error);
             }
+        }
+
+        function renderNetworkStats(stats) {
+            if (!stats) return;
+
+            const container = document.getElementById('network-stats');
+
+            const healthPercentage = stats.total_agents > 0 ?
+                Math.round((stats.healthy_agents / stats.total_agents) * 100) : 0;
+
+            const llmStatusIcon = stats.llm_status === 'connected' ?
+                '<i class="fas fa-check-circle"></i>' :
+                '<i class="fas fa-times-circle"></i>';
+            const llmStatusColor = stats.llm_status === 'connected' ? '#10b981' : '#ef4444';
+
+            container.innerHTML = `
+                <div class="network-stat">
+                    <div class="network-stat-value" style="color: ${healthPercentage >= 75 ? '#10b981' : healthPercentage >= 50 ? '#f59e0b' : '#ef4444'};">
+                        <i class="fas fa-heartbeat"></i> ${healthPercentage}%
+                    </div>
+                    <div class="network-stat-label">System Health</div>
+                </div>
+                <div class="network-stat">
+                    <div class="network-stat-value" style="color: #6366f1;">
+                        <i class="fas fa-microchip"></i> ${stats.healthy_agents}/${stats.total_agents}
+                    </div>
+                    <div class="network-stat-label">Agents Online</div>
+                </div>
+                <div class="network-stat">
+                    <div class="network-stat-value" style="color: #10b981;">
+                        <i class="fas fa-sync"></i> ${stats.active_workflows}
+                    </div>
+                    <div class="network-stat-label">Active Workflows</div>
+                </div>
+                <div class="network-stat">
+                    <div class="network-stat-value" style="color: #f59e0b;">
+                        <i class="fas fa-chart-bar"></i> ${stats.total_analyses}
+                    </div>
+                    <div class="network-stat-label">Total Analyses</div>
+                </div>
+                <div class="network-stat">
+                    <div class="network-stat-value" style="color: #8b5cf6;">
+                        <i class="fas fa-clipboard-list"></i> ${stats.total_plans}
+                    </div>
+                    <div class="network-stat-label">Repair Plans</div>
+                </div>
+                <div class="network-stat">
+                    <div class="network-stat-value" style="color: ${llmStatusColor};">
+                        ${llmStatusIcon}
+                    </div>
+                    <div class="network-stat-label">LLM Connection</div>
+                </div>
+            `;
         }
 
         // Chart instances
