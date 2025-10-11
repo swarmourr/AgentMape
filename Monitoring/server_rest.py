@@ -1678,6 +1678,9 @@ class PegasusWorkflowManager:
         Collect workflow metadata (PATHS ONLY - no content).
         Extracts ALL transformation and replica PFNs from workflow YAML.
         """
+        import socket
+        import yaml
+
         # Ensure iwd is absolute path
         iwd = os.path.abspath(iwd)
 
@@ -1689,8 +1692,28 @@ class PegasusWorkflowManager:
             "catalog_info": {},
             "file_paths": {},
             "transformation_pfns": [],  # NEW: All transformation script paths
-            "replica_pfns": []  # NEW: All replica file paths
+            "replica_pfns": [],  # NEW: All replica file paths
+            "execution_site": {
+                "monitor_hostname": socket.gethostname(),  # Where Monitor is running
+                "submit_hostname": None,  # Where workflow was submitted (from braindump)
+                "submit_user": None  # User who submitted (from braindump)
+            }
         }
+
+        # Try to extract execution site info from braindump.yml
+        try:
+            braindump_path = os.path.join(iwd, 'braindump.yml')
+            if os.path.exists(braindump_path):
+                with open(braindump_path, 'r') as f:
+                    braindump = yaml.safe_load(f)
+                    if isinstance(braindump, dict):
+                        metadata["execution_site"]["submit_hostname"] = braindump.get('submit_hostname') or braindump.get('host')
+                        metadata["execution_site"]["submit_user"] = braindump.get('user')
+                        metadata["execution_site"]["submit_dir"] = braindump.get('submit_dir')
+                        metadata["execution_site"]["planner"] = braindump.get('planner')
+                        metadata["execution_site"]["planner_version"] = braindump.get('planner_version')
+        except Exception as e:
+            logger.debug(f"Could not extract execution site info: {e}")
 
         try:
             # Find workflow YAML file path (returns absolute path)

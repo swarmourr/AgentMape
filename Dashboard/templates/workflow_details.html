@@ -511,6 +511,38 @@
                                 </div>
                             </div>
 
+                            ${metadata.execution_site ? `
+                                <div class="output-section">
+                                    <div class="output-title">🖥️  Execution Site Information</div>
+                                    <div class="key-value-list">
+                                        ${metadata.execution_site.submit_hostname ? `
+                                            <div class="key-value-item">
+                                                <span class="key-value-key">Submit Host:</span>
+                                                <span class="key-value-value">${metadata.execution_site.submit_hostname}</span>
+                                            </div>
+                                        ` : ''}
+                                        ${metadata.execution_site.submit_user ? `
+                                            <div class="key-value-item">
+                                                <span class="key-value-key">Submit User:</span>
+                                                <span class="key-value-value">${metadata.execution_site.submit_user}</span>
+                                            </div>
+                                        ` : ''}
+                                        ${metadata.execution_site.monitor_hostname ? `
+                                            <div class="key-value-item">
+                                                <span class="key-value-key">Monitor Host:</span>
+                                                <span class="key-value-value">${metadata.execution_site.monitor_hostname}</span>
+                                            </div>
+                                        ` : ''}
+                                        ${metadata.execution_site.planner ? `
+                                            <div class="key-value-item">
+                                                <span class="key-value-key">Planner:</span>
+                                                <span class="key-value-value">${metadata.execution_site.planner}${metadata.execution_site.planner_version ? ' v' + metadata.execution_site.planner_version : ''}</span>
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            ` : ''}
+
                             ${metadata.transformation_pfns && metadata.transformation_pfns.length > 0 ? `
                                 <div class="output-section">
                                     <div class="output-title">📄 Transformation Scripts (${metadata.transformation_pfns.length})</div>

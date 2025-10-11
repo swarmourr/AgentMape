@@ -871,7 +871,49 @@
         .fade-in {
             animation: fadeIn 0.5s ease-out;
         }
+
+        /* Network Graph Styles */
+        #network-container {
+            width: 100%;
+            height: 600px;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            background: white;
+            margin-bottom: 24px;
+        }
+
+        /* Chart Styles */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+
+        .chart-card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            border: 1px solid var(--gray-200);
+        }
+
+        .chart-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--gray-800);
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
     </style>
+
+    <!-- Chart.js and vis-network CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://unpkg.com/vis-network@9.1.6/standalone/umd/vis-network.min.js"></script>
+    <link href="https://unpkg.com/vis-network@9.1.6/styles/vis-network.min.css" rel="stylesheet" type="text/css" />
 </head>
 <body>
     <!-- Sidebar -->
@@ -1055,11 +1097,22 @@
                     <div class="section-header">
                         <h2 class="section-title">
                             <span>🤖</span>
-                            <span>MAPE-K Agents Status</span>
+                            <span>MAPE-K Agent Network</span>
                         </h2>
                         <div class="section-actions">
                             <button class="btn btn-secondary" onclick="refreshCurrentView()">Refresh</button>
                         </div>
+                    </div>
+
+                    <!-- Network Graph -->
+                    <div id="network-container"></div>
+
+                    <!-- Agent Cards -->
+                    <div class="section-header" style="margin-top: 24px;">
+                        <h2 class="section-title">
+                            <span>📊</span>
+                            <span>Agent Status Details</span>
+                        </h2>
                     </div>
                     <div class="agents-grid" id="agents-grid-container">
                         <div class="spinner"></div>
@@ -1077,9 +1130,28 @@
                             <span>Analytics & Insights</span>
                         </h2>
                     </div>
-                    <div class="empty-state">
-                        <div class="empty-state-icon">📊</div>
-                        <div class="empty-state-text">Analytics and charts coming soon</div>
+
+                    <div class="charts-grid">
+                        <div class="chart-card">
+                            <div class="chart-title">Workflow State Distribution</div>
+                            <div class="chart-container">
+                                <canvas id="workflowStatesChart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="chart-card">
+                            <div class="chart-title">Problem Type Distribution</div>
+                            <div class="chart-container">
+                                <canvas id="problemDistributionChart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="chart-card">
+                            <div class="chart-title">Agent Activity</div>
+                            <div class="chart-container">
+                                <canvas id="agentActivityChart"></canvas>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1169,6 +1241,8 @@
                 await fetchWorkflowsDetailed();
             } else if (currentView === 'agents') {
                 await fetchAgentsView();
+            } else if (currentView === 'analytics') {
+                await fetchAnalyticsView();
             }
             updateLastUpdateTime();
         }
@@ -1476,6 +1550,12 @@
                                 <span>Directory:</span>
                                 <span style="font-family: Monaco, monospace; font-size: 11px;">${truncatePath(wf.iwd, 30)}</span>
                             </div>
+                            ${wf.metadata && wf.metadata.execution_site && wf.metadata.execution_site.submit_hostname ? `
+                                <div class="workflow-info-row">
+                                    <span>🖥️ Running on:</span>
+                                    <span style="font-weight: 600; color: #6366f1;">${wf.metadata.execution_site.submit_hostname}</span>
+                                </div>
+                            ` : ''}
                             <div class="workflow-info-row">
                                 <span>First Seen:</span>
                                 <span>${formatDate(wf.first_seen)}</span>
@@ -1535,6 +1615,9 @@
         }
 
         // Fetch agents view (for Agents view)
+        // Network graph instance
+        let network = null;
+
         async function fetchAgentsView() {
             try {
                 const response = await fetch('/api/data');
@@ -1571,8 +1654,224 @@
                     </div>
                 `).join('');
 
+                // Initialize/update network graph
+                await initNetworkGraph();
+
             } catch (error) {
                 console.error('Error fetching agents:', error);
+            }
+        }
+
+        async function initNetworkGraph() {
+            try {
+                const response = await fetch('/api/network/topology');
+                const data = await response.json();
+
+                const container = document.getElementById('network-container');
+
+                // Node styling based on status
+                const nodes = new vis.DataSet(data.nodes.map(node => ({
+                    ...node,
+                    shape: 'box',
+                    margin: 10,
+                    font: { size: 14, face: 'Inter', color: '#1e293b' },
+                    color: {
+                        background: node.status === 'healthy' ? '#10b981' :
+                                   node.status === 'unhealthy' ? '#ef4444' : '#94a3b8',
+                        border: node.status === 'healthy' ? '#059669' :
+                               node.status === 'unhealthy' ? '#dc2626' : '#64748b',
+                        highlight: { background: '#6366f1', border: '#4f46e5' }
+                    },
+                    borderWidth: 2,
+                    borderWidthSelected: 3
+                })));
+
+                const edges = new vis.DataSet(data.edges);
+
+                const graphData = { nodes, edges };
+
+                const options = {
+                    layout: {
+                        hierarchical: {
+                            direction: 'UD',
+                            sortMethod: 'directed',
+                            nodeSpacing: 200,
+                            levelSeparation: 150
+                        }
+                    },
+                    physics: {
+                        enabled: false
+                    },
+                    edges: {
+                        smooth: {
+                            type: 'cubicBezier',
+                            forceDirection: 'vertical'
+                        },
+                        width: 2,
+                        font: { size: 11, align: 'middle' }
+                    },
+                    interaction: {
+                        hover: true,
+                        tooltipDelay: 100
+                    }
+                };
+
+                if (!network) {
+                    network = new vis.Network(container, graphData, options);
+                } else {
+                    network.setData(graphData);
+                }
+
+            } catch (error) {
+                console.error('Error initializing network graph:', error);
+            }
+        }
+
+        // Chart instances
+        let workflowStatesChart = null;
+        let problemDistributionChart = null;
+        let agentActivityChart = null;
+
+        async function fetchAnalyticsView() {
+            try {
+                // Fetch workflow states data
+                const statesResponse = await fetch('/api/charts/workflow-states');
+                const statesData = await statesResponse.json();
+
+                // Fetch problem distribution data
+                const problemsResponse = await fetch('/api/charts/problem-distribution');
+                const problemsData = await problemsResponse.json();
+
+                // Fetch agent activity data
+                const activityResponse = await fetch('/api/charts/agent-activity');
+                const activityData = await activityResponse.json();
+
+                // Initialize/update charts
+                updateWorkflowStatesChart(statesData);
+                updateProblemDistributionChart(problemsData);
+                updateAgentActivityChart(activityData);
+
+            } catch (error) {
+                console.error('Error fetching analytics:', error);
+            }
+        }
+
+        function updateWorkflowStatesChart(data) {
+            const ctx = document.getElementById('workflowStatesChart');
+            if (!ctx) return;
+
+            const colors = {
+                'Success': '#10b981',
+                'Running': '#3b82f6',
+                'Failed': '#ef4444',
+                'Failure': '#ef4444',
+                'Held': '#f59e0b',
+                'unknown': '#94a3b8'
+            };
+
+            const backgroundColors = data.labels.map(label => colors[label] || '#94a3b8');
+
+            if (workflowStatesChart) {
+                workflowStatesChart.data.labels = data.labels;
+                workflowStatesChart.data.datasets[0].data = data.data;
+                workflowStatesChart.data.datasets[0].backgroundColor = backgroundColors;
+                workflowStatesChart.update();
+            } else {
+                workflowStatesChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            data: data.data,
+                            backgroundColor: backgroundColors,
+                            borderWidth: 2,
+                            borderColor: '#ffffff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'bottom' },
+                            title: { display: false }
+                        }
+                    }
+                });
+            }
+        }
+
+        function updateProblemDistributionChart(data) {
+            const ctx = document.getElementById('problemDistributionChart');
+            if (!ctx) return;
+
+            if (problemDistributionChart) {
+                problemDistributionChart.data.labels = data.labels;
+                problemDistributionChart.data.datasets[0].data = data.data;
+                problemDistributionChart.update();
+            } else {
+                problemDistributionChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            label: 'Count',
+                            data: data.data,
+                            backgroundColor: '#f59e0b',
+                            borderColor: '#d97706',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: { precision: 0 }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        function updateAgentActivityChart(data) {
+            const ctx = document.getElementById('agentActivityChart');
+            if (!ctx) return;
+
+            if (agentActivityChart) {
+                agentActivityChart.data.labels = data.labels;
+                agentActivityChart.data.datasets[0].data = data.data;
+                agentActivityChart.update();
+            } else {
+                agentActivityChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            label: 'Activity Count',
+                            data: data.data,
+                            backgroundColor: ['#6366f1', '#8b5cf6', '#ec4899'],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: { precision: 0 }
+                            }
+                        }
+                    }
+                });
             }
         }
 

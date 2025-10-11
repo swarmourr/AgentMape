@@ -508,6 +508,228 @@ def get_workflow_analysis(workflow_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/network/topology')
+def get_network_topology():
+    """API to get agent network topology for visualization"""
+    try:
+        nodes = []
+        edges = []
+
+        # Check each agent status
+        monitor_status = dashboard.get_agent_status("Monitor", MONITOR_URL)
+        analyzer_status = dashboard.get_agent_status("Analyzer", ANALYZER_URL)
+        planner_status = dashboard.get_agent_status("Planner", PLANNER_URL)
+
+        # Create nodes
+        nodes.append({
+            "id": "monitor",
+            "label": "Monitor",
+            "group": "agent",
+            "status": monitor_status.get("status", "unknown"),
+            "type": "monitor",
+            "title": f"Monitor Agent\nStatus: {monitor_status.get('status', 'unknown')}\nResponse: {monitor_status.get('response_time', 0):.3f}s"
+        })
+
+        nodes.append({
+            "id": "analyzer",
+            "label": "Analyzer",
+            "group": "agent",
+            "status": analyzer_status.get("status", "unknown"),
+            "type": "analyzer",
+            "title": f"Analyzer Agent\nStatus: {analyzer_status.get('status', 'unknown')}\nResponse: {analyzer_status.get('response_time', 0):.3f}s"
+        })
+
+        nodes.append({
+            "id": "planner",
+            "label": "Planner",
+            "group": "agent",
+            "status": planner_status.get("status", "unknown"),
+            "type": "planner",
+            "title": f"Planner Agent\nStatus: {planner_status.get('status', 'unknown')}\nResponse: {planner_status.get('response_time', 0):.3f}s"
+        })
+
+        nodes.append({
+            "id": "dashboard",
+            "label": "Dashboard",
+            "group": "ui",
+            "status": "healthy",
+            "type": "dashboard",
+            "title": "Dashboard\nVisualization & Monitoring"
+        })
+
+        nodes.append({
+            "id": "workflows",
+            "label": "Workflows",
+            "group": "system",
+            "status": "active",
+            "type": "workflows",
+            "title": "Pegasus Workflows\nExecution System"
+        })
+
+        # Create edges (connections)
+        edges.append({
+            "from": "workflows",
+            "to": "monitor",
+            "label": "detects",
+            "arrows": "to",
+            "color": {"color": "#10b981" if monitor_status.get("status") == "healthy" else "#ef4444"}
+        })
+
+        edges.append({
+            "from": "monitor",
+            "to": "analyzer",
+            "label": "triggers",
+            "arrows": "to",
+            "color": {"color": "#6366f1"}
+        })
+
+        edges.append({
+            "from": "analyzer",
+            "to": "monitor",
+            "label": "requests files",
+            "arrows": "to",
+            "dashes": True,
+            "color": {"color": "#94a3b8"}
+        })
+
+        edges.append({
+            "from": "analyzer",
+            "to": "planner",
+            "label": "reports",
+            "arrows": "to",
+            "color": {"color": "#f59e0b"}
+        })
+
+        edges.append({
+            "from": "planner",
+            "to": "workflows",
+            "label": "repairs",
+            "arrows": "to",
+            "dashes": True,
+            "color": {"color": "#8b5cf6"}
+        })
+
+        edges.append({
+            "from": "dashboard",
+            "to": "monitor",
+            "label": "queries",
+            "arrows": "to",
+            "dashes": True,
+            "color": {"color": "#3b82f6"}
+        })
+
+        edges.append({
+            "from": "dashboard",
+            "to": "analyzer",
+            "label": "queries",
+            "arrows": "to",
+            "dashes": True,
+            "color": {"color": "#3b82f6"}
+        })
+
+        edges.append({
+            "from": "dashboard",
+            "to": "planner",
+            "label": "queries",
+            "arrows": "to",
+            "dashes": True,
+            "color": {"color": "#3b82f6"}
+        })
+
+        return jsonify({
+            "nodes": nodes,
+            "edges": edges,
+            "timestamp": datetime.now().isoformat()
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/charts/workflow-states')
+def get_workflow_states_chart():
+    """API to get workflow state distribution for pie chart"""
+    try:
+        # Get all workflows
+        response = requests.get(f"{MONITOR_URL}/api/workflows/all", timeout=3)
+        if response.status_code != 200:
+            return jsonify({"error": "Could not fetch workflows"}), 500
+
+        workflows = response.json().get("workflows", [])
+
+        # Count by state
+        state_counts = {}
+        for wf in workflows:
+            state = wf.get("state", "unknown")
+            state_counts[state] = state_counts.get(state, 0) + 1
+
+        # Format for chart
+        labels = list(state_counts.keys())
+        data = list(state_counts.values())
+
+        return jsonify({
+            "labels": labels,
+            "data": data,
+            "total": len(workflows),
+            "timestamp": datetime.now().isoformat()
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/charts/problem-distribution')
+def get_problem_distribution_chart():
+    """API to get problem category distribution for bar chart"""
+    try:
+        # Get all analyses from Analyzer
+        response = requests.get(f"{ANALYZER_URL}/api/analyses/all", timeout=3)
+        if response.status_code != 200:
+            return jsonify({"error": "Could not fetch analyses"}), 500
+
+        analyses = response.json().get("analyses", [])
+
+        # Count problem categories
+        category_counts = {}
+        for analysis in analyses:
+            analysis_type = analysis.get("analysis_type", "unknown")
+            category_counts[analysis_type] = category_counts.get(analysis_type, 0) + 1
+
+        # Format for chart
+        labels = list(category_counts.keys())
+        data = list(category_counts.values())
+
+        return jsonify({
+            "labels": labels,
+            "data": data,
+            "total": len(analyses),
+            "timestamp": datetime.now().isoformat()
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/charts/agent-activity')
+def get_agent_activity_chart():
+    """API to get recent agent activity for timeline chart"""
+    try:
+        activities = dashboard.get_recent_activities(50)
+
+        # Group by agent and count
+        agent_counts = {"Monitor": 0, "Analyzer": 0, "Planner": 0}
+        for activity in activities:
+            agent = activity.get("agent", "Unknown")
+            if agent in agent_counts:
+                agent_counts[agent] += 1
+
+        return jsonify({
+            "labels": list(agent_counts.keys()),
+            "data": list(agent_counts.values()),
+            "total_activities": len(activities),
+            "timestamp": datetime.now().isoformat()
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == '__main__':
     print(f"""
 ╔══════════════════════════════════════════════════════════════════════════════╗

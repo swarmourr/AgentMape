@@ -1,6 +1,6 @@
 {
-    "ollama_url": "http://yxtpa-176-159-66-109.a.free.pinggy.link/api/generate",
-    "ollama_api_base": "http://yxtpa-176-159-66-109.a.free.pinggy.link/",
+    "ollama_url": "http://tmnzc-176-159-66-109.a.free.pinggy.link/api/generate",
+    "ollama_api_base": "http://tmnzc-176-159-66-109.a.free.pinggy.link/",
     "ollama_model": "llama3.3:latest",
     "ollama_check_interval": 30,
     "monitor_url": "http://localhost:8080",
