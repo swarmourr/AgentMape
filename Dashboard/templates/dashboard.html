@@ -652,6 +652,112 @@
             }
         }
 
+        /* View Container */
+        .view-container {
+            display: none;
+        }
+
+        .view-container.active {
+            display: block;
+        }
+
+        /* Workflow Card (similar to agent card) */
+        .workflow-card {
+            padding: 20px;
+            background: var(--gray-50);
+            border-radius: 10px;
+            border: 1px solid var(--gray-200);
+            transition: all 0.2s;
+        }
+
+        .workflow-card:hover {
+            border-color: var(--primary);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
+        }
+
+        .workflow-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .workflow-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--gray-900);
+            font-family: 'Monaco', monospace;
+            word-break: break-all;
+        }
+
+        .workflow-state {
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .workflow-state.active {
+            background: rgba(59, 130, 246, 0.1);
+            color: var(--info);
+        }
+
+        .workflow-state.failed {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
+        }
+
+        .workflow-state.success {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+        }
+
+        .workflow-info {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--gray-600);
+            margin-bottom: 16px;
+        }
+
+        .workflow-info-row {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .workflow-badges {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .workflow-badge {
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .workflow-badge.analyzed {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+        }
+
+        .workflow-badge.problems {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
+        }
+
+        .workflow-badge.plans {
+            background: rgba(99, 102, 241, 0.1);
+            color: var(--primary);
+        }
+
         /* Animations */
         @keyframes fadeIn {
             from {
@@ -680,23 +786,23 @@
         </div>
 
         <nav class="sidebar-nav">
-            <div class="nav-item active">
+            <div class="nav-item active" data-view="dashboard" onclick="switchView('dashboard')">
                 <span class="nav-icon">📊</span>
                 <span>Dashboard</span>
             </div>
-            <div class="nav-item">
+            <div class="nav-item" data-view="workflows" onclick="switchView('workflows')">
                 <span class="nav-icon">🔄</span>
                 <span>Workflows</span>
             </div>
-            <div class="nav-item">
+            <div class="nav-item" data-view="agents" onclick="switchView('agents')">
                 <span class="nav-icon">🤖</span>
                 <span>Agents</span>
             </div>
-            <div class="nav-item">
+            <div class="nav-item" data-view="analytics" onclick="switchView('analytics')">
                 <span class="nav-icon">📈</span>
                 <span>Analytics</span>
             </div>
-            <div class="nav-item">
+            <div class="nav-item" data-view="settings" onclick="switchView('settings')">
                 <span class="nav-icon">⚙️</span>
                 <span>Settings</span>
             </div>
@@ -718,11 +824,11 @@
         <!-- Topbar -->
         <div class="topbar">
             <div class="topbar-left">
-                <h1>Dashboard Overview</h1>
-                <div class="topbar-subtitle">Real-time MAPE-K workflow monitoring</div>
+                <h1 id="view-title">Dashboard Overview</h1>
+                <div class="topbar-subtitle" id="view-subtitle">Real-time MAPE-K workflow monitoring</div>
             </div>
             <div class="topbar-right">
-                <button class="refresh-btn" onclick="refreshData()">
+                <button class="refresh-btn" onclick="refreshCurrentView()">
                     <span>🔄</span>
                     <span>Refresh</span>
                 </button>
@@ -734,6 +840,8 @@
 
         <!-- Content Area -->
         <div class="content-area">
+            <!-- Dashboard View -->
+            <div class="view-container active" id="view-dashboard">
             <!-- Stats Grid -->
             <div class="stats-grid" id="stats-grid">
                 <div class="stat-card fade-in">
@@ -805,6 +913,80 @@
                     </table>
                 </div>
             </div>
+            </div>
+            <!-- End Dashboard View -->
+
+            <!-- Workflows View -->
+            <div class="view-container" id="view-workflows">
+                <div class="section fade-in">
+                    <div class="section-header">
+                        <h2 class="section-title">
+                            <span>🔄</span>
+                            <span>Monitored Workflows</span>
+                        </h2>
+                        <div class="section-actions">
+                            <button class="btn btn-secondary" onclick="refreshCurrentView()">Refresh</button>
+                        </div>
+                    </div>
+                    <div class="agents-grid" id="workflows-grid-container">
+                        <div class="spinner"></div>
+                    </div>
+                </div>
+            </div>
+            <!-- End Workflows View -->
+
+            <!-- Agents View -->
+            <div class="view-container" id="view-agents">
+                <div class="section fade-in">
+                    <div class="section-header">
+                        <h2 class="section-title">
+                            <span>🤖</span>
+                            <span>MAPE-K Agents Status</span>
+                        </h2>
+                        <div class="section-actions">
+                            <button class="btn btn-secondary" onclick="refreshCurrentView()">Refresh</button>
+                        </div>
+                    </div>
+                    <div class="agents-grid" id="agents-grid-container">
+                        <div class="spinner"></div>
+                    </div>
+                </div>
+            </div>
+            <!-- End Agents View -->
+
+            <!-- Analytics View -->
+            <div class="view-container" id="view-analytics">
+                <div class="section fade-in">
+                    <div class="section-header">
+                        <h2 class="section-title">
+                            <span>📈</span>
+                            <span>Analytics & Insights</span>
+                        </h2>
+                    </div>
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📊</div>
+                        <div class="empty-state-text">Analytics and charts coming soon</div>
+                    </div>
+                </div>
+            </div>
+            <!-- End Analytics View -->
+
+            <!-- Settings View -->
+            <div class="view-container" id="view-settings">
+                <div class="section fade-in">
+                    <div class="section-header">
+                        <h2 class="section-title">
+                            <span>⚙️</span>
+                            <span>Settings</span>
+                        </h2>
+                    </div>
+                    <div class="empty-state">
+                        <div class="empty-state-icon">⚙️</div>
+                        <div class="empty-state-text">Settings panel coming soon</div>
+                    </div>
+                </div>
+            </div>
+            <!-- End Settings View -->
         </div>
     </div>
 
@@ -823,14 +1005,61 @@
 
     <script>
         let refreshInterval;
+        let currentView = 'dashboard';
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
-            refreshData();
-            refreshInterval = setInterval(refreshData, 5000); // Refresh every 5 seconds
+            switchView('dashboard');
+            refreshInterval = setInterval(() => refreshCurrentView(), 5000);
         });
 
-        // Refresh all data
+        // View switching
+        function switchView(viewName) {
+            currentView = viewName;
+
+            // Update nav items
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            document.querySelector(`.nav-item[data-view="${viewName}"]`).classList.add('active');
+
+            // Update view containers
+            document.querySelectorAll('.view-container').forEach(view => {
+                view.classList.remove('active');
+            });
+            document.getElementById(`view-${viewName}`).classList.add('active');
+
+            // Update topbar titles
+            const titles = {
+                'dashboard': { title: 'Dashboard Overview', subtitle: 'Real-time MAPE-K workflow monitoring' },
+                'workflows': { title: 'Monitored Workflows', subtitle: 'Active workflow monitoring and status' },
+                'agents': { title: 'MAPE-K Agents', subtitle: 'Agent health and connectivity status' },
+                'analytics': { title: 'Analytics & Insights', subtitle: 'Workflow performance and metrics' },
+                'settings': { title: 'Settings', subtitle: 'Dashboard configuration and preferences' }
+            };
+
+            if (titles[viewName]) {
+                document.getElementById('view-title').textContent = titles[viewName].title;
+                document.getElementById('view-subtitle').textContent = titles[viewName].subtitle;
+            }
+
+            // Load view data
+            refreshCurrentView();
+        }
+
+        // Refresh current view
+        async function refreshCurrentView() {
+            if (currentView === 'dashboard') {
+                await refreshData();
+            } else if (currentView === 'workflows') {
+                await fetchWorkflowsDetailed();
+            } else if (currentView === 'agents') {
+                await fetchAgentsView();
+            }
+            updateLastUpdateTime();
+        }
+
+        // Refresh all data (for dashboard)
         async function refreshData() {
             await Promise.all([
                 fetchAgentStatus(),
@@ -1036,6 +1265,148 @@
                 'Executor': '⚙️'
             };
             return icons[name] || '🤖';
+        }
+
+        // Fetch detailed workflows (for Workflows view)
+        async function fetchWorkflowsDetailed() {
+            try {
+                const response = await fetch('/api/workflows/detailed');
+                const data = await response.json();
+
+                const workflows = data.workflows || [];
+                const container = document.getElementById('workflows-grid-container');
+
+                if (workflows.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">🔄</div>
+                            <div class="empty-state-text">No workflows being monitored</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = workflows.map(wf => `
+                    <div class="workflow-card">
+                        <div class="workflow-header">
+                            <div class="workflow-name">${wf.workflow_id}</div>
+                            <span class="workflow-state ${wf.state}">${wf.state}</span>
+                        </div>
+                        <div class="workflow-info">
+                            <div class="workflow-info-row">
+                                <span>Directory:</span>
+                                <span style="font-family: Monaco, monospace; font-size: 11px;">${truncatePath(wf.iwd, 30)}</span>
+                            </div>
+                            <div class="workflow-info-row">
+                                <span>Monitoring Started:</span>
+                                <span>${formatDate(wf.monitoring_started)}</span>
+                            </div>
+                            <div class="workflow-info-row">
+                                <span>Last Check:</span>
+                                <span>${formatDate(wf.last_check)}</span>
+                            </div>
+                        </div>
+                        <div class="workflow-badges">
+                            ${wf.analysis_status !== 'no_analysis' ? `
+                                <span class="workflow-badge analyzed">
+                                    <span>✓</span>
+                                    <span>Analyzed</span>
+                                </span>
+                            ` : ''}
+                            ${wf.problems_count > 0 ? `
+                                <span class="workflow-badge problems">
+                                    <span>⚠️</span>
+                                    <span>${wf.problems_count} Problem${wf.problems_count > 1 ? 's' : ''}</span>
+                                </span>
+                            ` : ''}
+                            ${wf.plans_count > 0 ? `
+                                <span class="workflow-badge plans">
+                                    <span>📋</span>
+                                    <span>${wf.plans_count} Plan${wf.plans_count > 1 ? 's' : ''}</span>
+                                </span>
+                            ` : ''}
+                        </div>
+                        <div style="margin-top: 16px; display: flex; gap: 8px;">
+                            <button class="btn btn-secondary" onclick="showWorkflowDetails('${wf.workflow_id}')" style="flex: 1;">
+                                👁️ Quick View
+                            </button>
+                            <a href="/workflow/${wf.workflow_id}" class="btn btn-primary" target="_blank" style="flex: 1; text-align: center;">
+                                📊 Full Analysis
+                            </a>
+                        </div>
+                    </div>
+                `).join('');
+
+            } catch (error) {
+                console.error('Error fetching detailed workflows:', error);
+                const container = document.getElementById('workflows-grid-container');
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">❌</div>
+                        <div class="empty-state-text">Error loading workflows</div>
+                    </div>
+                `;
+            }
+        }
+
+        // Fetch agents view (for Agents view)
+        async function fetchAgentsView() {
+            try {
+                const response = await fetch('/api/data');
+                const data = await response.json();
+
+                const agents = data.agents_status || {};
+                const container = document.getElementById('agents-grid-container');
+
+                container.innerHTML = Object.entries(agents).map(([key, agent]) => `
+                    <div class="agent-card">
+                        <div class="agent-header">
+                            <div class="agent-name">
+                                ${getAgentIcon(agent.name)} ${agent.name}
+                            </div>
+                            <span class="agent-status ${agent.status}">${agent.status}</span>
+                        </div>
+                        <div class="agent-info">
+                            <div class="agent-info-row">
+                                <span>URL:</span>
+                                <span style="font-family: Monaco, monospace; font-size: 12px;">${agent.url}</span>
+                            </div>
+                            ${agent.response_time ? `
+                                <div class="agent-info-row">
+                                    <span>Response Time:</span>
+                                    <span>${(agent.response_time * 1000).toFixed(0)}ms</span>
+                                </div>
+                            ` : ''}
+                            ${agent.error ? `
+                                <div style="color: var(--danger); font-size: 12px; margin-top: 8px;">
+                                    ⚠️ ${agent.error}
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `).join('');
+
+            } catch (error) {
+                console.error('Error fetching agents:', error);
+            }
+        }
+
+        // Helper: Truncate path
+        function truncatePath(path, maxLength) {
+            if (!path) return 'N/A';
+            if (path.length <= maxLength) return path;
+            return '...' + path.substring(path.length - maxLength);
+        }
+
+        // Helper: Format date
+        function formatDate(dateStr) {
+            if (!dateStr) return 'N/A';
+            try {
+                const date = new Date(dateStr);
+                return date.toLocaleString();
+            } catch {
+                return dateStr;
+            }
         }
     </script>
 </body>

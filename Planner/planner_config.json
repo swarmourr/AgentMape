@@ -1,6 +1,6 @@
 {
-    "ollama_url": "https://emzwm-37-66-209-93.a.free.pinggy.link/api/generate",
-    "ollama_api_base": "https://emzwm-37-66-209-93.a.free.pinggy.link",
+    "ollama_url": "http://afhzu-2001-863-3a9-3a96-6012-53e7-e97b-4a42.a.free.pinggy.link//api/generate",
+    "ollama_api_base": "http://afhzu-2001-863-3a9-3a96-6012-53e7-e97b-4a42.a.free.pinggy.link/",
     "ollama_model": "llama3.3:latest",
     "ollama_check_interval": 30,
     "monitor_url": "http://localhost:8080",

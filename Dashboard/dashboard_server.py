@@ -175,6 +175,95 @@ def get_workflows():
         "counts": data["workflow_counts"]
     })
 
+@app.route('/api/workflows/detailed')
+def get_workflows_detailed():
+    """API pour récupérer les workflows avec informations détaillées de monitoring"""
+    try:
+        # Get all workflows from Monitor
+        response = requests.get(f"{MONITOR_URL}/api/workflows", timeout=3)
+
+        if response.status_code != 200:
+            return jsonify({"error": "Could not fetch workflows from Monitor"}), 500
+
+        monitor_data = response.json()
+        active_workflows = monitor_data.get("active_workflows", [])
+        monitored_workflows = monitor_data.get("monitored_workflows", [])
+
+        # Combine and enrich workflow data
+        detailed_workflows = []
+
+        for wf in active_workflows + monitored_workflows:
+            workflow_id = wf.get("workflow_id", "Unknown")
+
+            # Try to get detailed status
+            workflow_info = {
+                "workflow_id": workflow_id,
+                "status": "monitoring",
+                "iwd": wf.get("iwd", "N/A"),
+                "monitoring_started": wf.get("monitoring_started", wf.get("started_at")),
+                "last_check": wf.get("last_check", wf.get("last_updated")),
+                "state": "active",
+                "metadata": {}
+            }
+
+            # Try to get more details from Monitor
+            try:
+                detail_response = requests.get(
+                    f"{MONITOR_URL}/api/workflows/{workflow_id}/status",
+                    timeout=1
+                )
+                if detail_response.status_code == 200:
+                    detail_data = detail_response.json()
+                    workflow_info.update({
+                        "state": detail_data.get("state", "unknown"),
+                        "metadata": detail_data.get("metadata", {})
+                    })
+            except:
+                pass
+
+            # Try to get analysis status from Analyzer
+            try:
+                analysis_response = requests.get(
+                    f"{ANALYZER_URL}/api/analysis/{workflow_id}/results",
+                    timeout=1
+                )
+                if analysis_response.status_code == 200:
+                    analysis_data = analysis_response.json()
+                    workflow_info["analysis_status"] = analysis_data.get("status", "no_analysis")
+                    workflow_info["problems_count"] = len(
+                        analysis_data.get("analysis", {}).get("problems_and_solutions", [])
+                    )
+                else:
+                    workflow_info["analysis_status"] = "no_analysis"
+                    workflow_info["problems_count"] = 0
+            except:
+                workflow_info["analysis_status"] = "no_analysis"
+                workflow_info["problems_count"] = 0
+
+            # Try to get plans from Planner
+            try:
+                plans_response = requests.get(f"{PLANNER_URL}/api/plans", timeout=1)
+                if plans_response.status_code == 200:
+                    plans_data = plans_response.json()
+                    all_plans = plans_data.get("plans", [])
+                    workflow_plans = [p for p in all_plans if p.get("workflow_id") == workflow_id]
+                    workflow_info["plans_count"] = len(workflow_plans)
+                else:
+                    workflow_info["plans_count"] = 0
+            except:
+                workflow_info["plans_count"] = 0
+
+            detailed_workflows.append(workflow_info)
+
+        return jsonify({
+            "workflows": detailed_workflows,
+            "total": len(detailed_workflows),
+            "timestamp": datetime.now().isoformat()
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/api/workflow/<workflow_id>/details')
 def get_workflow_details(workflow_id):
     """API pour récupérer les détails d'un workflow spécifique (modal)"""
