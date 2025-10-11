@@ -2210,6 +2210,9 @@ class EnhancedPegasusMCPServer:
         # File content endpoint (for dynamic file reading by Analyzer/Planner)
         self.app.router.add_post('/api/files/get-content', self.handle_get_file_content)
 
+        # Directory listing endpoint (for missing file detection)
+        self.app.router.add_post('/api/files/list-directory', self.handle_list_directory)
+
     async def handle_health(self, request):
         """Health check endpoint"""
         try:
@@ -2392,6 +2395,64 @@ class EnhancedPegasusMCPServer:
 
         except Exception as e:
             logger.error(f"Error serving file content: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def handle_list_directory(self, request):
+        """List directory contents for missing file detection"""
+        try:
+            data = await request.json()
+            directory_path = data.get('directory_path')
+            workflow_id = data.get('workflow_id')  # Optional for logging
+            requester = data.get('requester', 'unknown')
+            pattern = data.get('pattern', '*')  # Optional glob pattern
+
+            if not directory_path:
+                return web.json_response({"error": "directory_path is required"}, status=400)
+
+            # Security: Only allow reading directories within workflow paths
+            if ".." in directory_path or directory_path.startswith("/etc") or directory_path.startswith("/root"):
+                logger.warning(f"Blocked potentially unsafe directory request: {directory_path} from {requester}")
+                return web.json_response({"error": "Access denied - unsafe path"}, status=403)
+
+            if not os.path.exists(directory_path):
+                return web.json_response({"error": f"Directory not found: {directory_path}"}, status=404)
+
+            if not os.path.isdir(directory_path):
+                return web.json_response({"error": f"Path is not a directory: {directory_path}"}, status=400)
+
+            # List directory contents
+            import glob
+            search_pattern = os.path.join(directory_path, pattern)
+            files = glob.glob(search_pattern)
+
+            # Get file info
+            file_list = []
+            for file_path in files:
+                try:
+                    stat_info = os.stat(file_path)
+                    file_list.append({
+                        "name": os.path.basename(file_path),
+                        "path": os.path.abspath(file_path),
+                        "size": stat_info.st_size,
+                        "is_dir": os.path.isdir(file_path),
+                        "modified": stat_info.st_mtime
+                    })
+                except Exception as e:
+                    logger.warning(f"Could not stat file {file_path}: {e}")
+                    continue
+
+            logger.info(f"Listed directory {directory_path} ({len(file_list)} items) for {requester}")
+
+            return web.json_response({
+                "success": True,
+                "directory_path": directory_path,
+                "pattern": pattern,
+                "files": file_list,
+                "count": len(file_list)
+            })
+
+        except Exception as e:
+            logger.error(f"Error listing directory: {e}")
             return web.json_response({"error": str(e)}, status=500)
 
     # FIXED: Add the missing analysis queue processor

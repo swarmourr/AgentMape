@@ -1,0 +1,254 @@
+"""
+Smart Missing File Detection and Suggestion Helper
+Detects missing file errors and suggests corrections using directory listings
+"""
+
+import os
+import re
+import requests
+from typing import Dict, List, Optional, Tuple
+from difflib import SequenceMatcher
+
+
+class MissingFileHelper:
+    """Helper to detect and suggest fixes for missing file errors"""
+
+    def __init__(self, monitor_url: str = "http://localhost:8080"):
+        self.monitor_url = monitor_url
+
+    def detect_missing_file_errors(self, analysis_result: Dict, logs: str) -> List[Dict]:
+        """
+        Detect missing file errors from analysis results and logs
+        Returns list of missing file information
+        """
+        missing_files = []
+
+        # Pattern 1: Direct "No such file or directory" errors
+        pattern1 = re.compile(r"(?:reading from file|cannot access|failed to open)\s+([^\s:]+):\s*\(errno \d+\)\s*No such file", re.IGNORECASE)
+        matches1 = pattern1.findall(logs)
+        for file_path in matches1:
+            missing_files.append({
+                "file_path": file_path,
+                "error_type": "no_such_file",
+                "source": "logs"
+            })
+
+        # Pattern 2: Replica not found errors
+        pattern2 = re.compile(r"replica.*not found|missing.*replica|(?:lfn|file).*(?:not|doesn't)\s+exist", re.IGNORECASE)
+        if pattern2.search(logs):
+            # Try to extract file paths from replica errors
+            path_pattern = re.compile(r"(?:lfn|file|path)[:\s]+([^\s,]+)", re.IGNORECASE)
+            for path in path_pattern.findall(logs):
+                if path and not path.startswith(('http', 'ftp')):
+                    missing_files.append({
+                        "file_path": path,
+                        "error_type": "replica_not_found",
+                        "source": "logs"
+                    })
+
+        # Pattern 3: Check analysis problems for data/file errors
+        problems = analysis_result.get('problems_and_solutions', [])
+        for problem in problems:
+            category = problem.get('category', '').lower()
+            description = problem.get('description', '').lower()
+
+            if 'data' in category or 'file' in description or 'missing' in description:
+                # Try to extract file paths from problem description
+                path_pattern = re.compile(r"['\"]([/\w\-\.]+)['\"]")
+                paths = path_pattern.findall(problem.get('description', ''))
+                for path in paths:
+                    if '/' in path:  # Looks like a file path
+                        missing_files.append({
+                            "file_path": path,
+                            "error_type": "data_problem",
+                            "source": "analysis",
+                            "problem": problem
+                        })
+
+        return missing_files
+
+    def request_directory_listing(self, directory_path: str, workflow_id: str = "") -> Optional[List[Dict]]:
+        """
+        Request directory listing from Monitor
+        Returns list of file info or None on error
+        """
+        try:
+            url = f"{self.monitor_url}/api/files/list-directory"
+            response = requests.post(url, json={
+                "directory_path": directory_path,
+                "workflow_id": workflow_id,
+                "requester": "analyzer_missing_file_helper",
+                "pattern": "*"  # Get all files
+            }, timeout=5)
+
+            if response.status_code == 200:
+                data = response.json()
+                return data.get('files', [])
+            else:
+                print(f"⚠️  Failed to list directory {directory_path}: {response.status_code}")
+                return None
+
+        except Exception as e:
+            print(f"⚠️  Error requesting directory listing: {e}")
+            return None
+
+    def find_similar_filenames(self, target_filename: str, available_files: List[Dict], threshold: float = 0.6) -> List[Tuple[str, float]]:
+        """
+        Find similar filenames using fuzzy matching
+        Returns list of (filename, similarity_score) sorted by score (highest first)
+        """
+        similarities = []
+        target_lower = target_filename.lower()
+
+        for file_info in available_files:
+            if file_info.get('is_dir', False):
+                continue  # Skip directories
+
+            filename = file_info.get('name', '')
+            filename_lower = filename.lower()
+
+            # Calculate similarity
+            similarity = SequenceMatcher(None, target_lower, filename_lower).ratio()
+
+            # Bonus for exact case-insensitive match
+            if target_lower == filename_lower:
+                similarity = 1.0
+
+            # Bonus for same extension
+            target_ext = os.path.splitext(target_filename)[1]
+            file_ext = os.path.splitext(filename)[1]
+            if target_ext and file_ext and target_ext.lower() == file_ext.lower():
+                similarity += 0.1
+
+            # Only include if above threshold
+            if similarity >= threshold:
+                similarities.append((filename, similarity, file_info.get('path')))
+
+        # Sort by similarity (highest first)
+        similarities.sort(key=lambda x: x[1], reverse=True)
+
+        return similarities
+
+    def enhance_analysis_with_suggestions(self, analysis_result: Dict, logs: str, workflow_id: str = "") -> Dict:
+        """
+        Main method: Detect missing files and enhance analysis with smart suggestions
+        Only runs when missing file errors are detected (not in a loop)
+        """
+        # Check if we should run this enhancement
+        missing_files = self.detect_missing_file_errors(analysis_result, logs)
+
+        if not missing_files:
+            # No missing file errors detected - skip enhancement
+            return analysis_result
+
+        print(f"🔍 Detected {len(missing_files)} missing file error(s)")
+
+        # Track suggestions
+        suggestions_added = 0
+
+        # Process each missing file
+        for missing_info in missing_files[:3]:  # Limit to first 3 to avoid too many requests
+            file_path = missing_info.get('file_path', '')
+            if not file_path or not os.path.isabs(file_path):
+                continue
+
+            # Extract directory and filename
+            directory = os.path.dirname(file_path)
+            target_filename = os.path.basename(file_path)
+
+            print(f"📂 Checking directory: {directory}")
+            print(f"🎯 Looking for: {target_filename}")
+
+            # Request directory listing
+            files = self.request_directory_listing(directory, workflow_id)
+
+            if not files:
+                continue
+
+            # Find similar filenames
+            similar = self.find_similar_filenames(target_filename, files, threshold=0.6)
+
+            if similar:
+                print(f"✨ Found {len(similar)} similar file(s)")
+
+                # Create enhanced problem/solution
+                enhanced_solution = self._create_enhanced_solution(
+                    missing_info, target_filename, similar, directory
+                )
+
+                # Add to analysis result
+                problems = analysis_result.get('problems_and_solutions', [])
+                problems.append(enhanced_solution)
+                analysis_result['problems_and_solutions'] = problems
+
+                suggestions_added += 1
+
+        # Add metadata
+        if suggestions_added > 0:
+            analysis_result['missing_file_suggestions'] = {
+                "detected": len(missing_files),
+                "suggestions_added": suggestions_added,
+                "helper_used": True
+            }
+            print(f"✅ Added {suggestions_added} smart suggestion(s)")
+
+        return analysis_result
+
+    def _create_enhanced_solution(self, missing_info: Dict, target_filename: str,
+                                   similar_files: List[Tuple], directory: str) -> Dict:
+        """Create an enhanced problem/solution with file suggestions"""
+
+        # Build suggestion text
+        suggestions_text = []
+        for filename, score, full_path in similar_files[:3]:  # Top 3 matches
+            score_pct = int(score * 100)
+            suggestions_text.append(f"  • {filename} (similarity: {score_pct}%)")
+
+        suggestions_str = "\n".join(suggestions_text)
+
+        # Determine likely issue
+        if similar_files[0][1] > 0.9:
+            issue_type = "The file name has a slight typo or case mismatch"
+        elif similar_files[0][1] > 0.7:
+            issue_type = "The file name is similar but not exact"
+        else:
+            issue_type = "There are potentially related files in the directory"
+
+        return {
+            "problem": f"Missing File: {target_filename}",
+            "description": f"The file '{target_filename}' was not found at the expected location '{directory}'. {issue_type}.",
+            "solution": f"Check the file name carefully. The following similar files were found in the same directory:\n\n{suggestions_str}\n\nYou may need to:\n1. Correct the file name in your workflow configuration\n2. Rename the actual file to match the expected name\n3. Check for case sensitivity issues (especially on Linux systems)",
+            "priority": "high",
+            "category": "data_error",
+            "smart_suggestion": True,
+            "similar_files": [
+                {"name": f[0], "similarity": f[1], "path": f[2]}
+                for f in similar_files[:3]
+            ]
+        }
+
+
+# Example usage
+if __name__ == "__main__":
+    # Test the helper
+    helper = MissingFileHelper()
+
+    # Mock analysis result with a missing file error
+    test_analysis = {
+        "problems_and_solutions": [
+            {
+                "problem": "File not found",
+                "description": "Cannot read file '/path/to/data.txt'",
+                "category": "data_error"
+            }
+        ]
+    }
+
+    test_logs = """
+    Error: reading from file /var/lib/condor/execute/dir_7822/falcon-7b.zip: (errno 2) No such file or directory
+    """
+
+    # Enhance analysis
+    enhanced = helper.enhance_analysis_with_suggestions(test_analysis, test_logs, "test-workflow")
+
+    print("Enhanced analysis:", enhanced)

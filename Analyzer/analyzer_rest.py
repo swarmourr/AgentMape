@@ -24,6 +24,7 @@ from enum import Enum
 import aiohttp
 from aiohttp import web, ClientSession
 import uuid
+from missing_file_helper import MissingFileHelper
 
 class TerminalColor(Enum):
     BLACK = '\033[30m'
@@ -681,7 +682,14 @@ class EnhancedAnalyzerAgent:
         
         # Prompt manager for LLM interactions
         self.prompt_manager = PromptManager()
-        
+
+        # Missing file helper for smart file detection
+        monitor_url = self.config.get("monitor_url", "http://localhost:8080")
+        # Convert ws:// to http:// if needed
+        if monitor_url.startswith("ws://"):
+            monitor_url = monitor_url.replace("ws://", "http://")
+        self.missing_file_helper = MissingFileHelper(monitor_url)
+
         # Agent registry
         self.agent_registry = AgentRegistry()
         
@@ -1597,7 +1605,15 @@ class EnhancedAnalyzerAgent:
             if not llm_response or not analysis_result or "error" in analysis_result:
                 self.logger.warning(f"Using fallback analysis for {workflow_id}")
                 analysis_result = self.generate_fallback_analysis(workflow_id, workflow_dir, logs, "failed")
-            
+
+            # ✨ Smart missing file detection - only runs when needed!
+            try:
+                analysis_result = self.missing_file_helper.enhance_analysis_with_suggestions(
+                    analysis_result, logs, workflow_id
+                )
+            except Exception as e:
+                self.logger.warning(f"Missing file helper error (non-critical): {e}")
+
             # Enhanced analysis record with more diagnostics
             analysis_record = {
                 "workflow_id": workflow_id,
@@ -1728,7 +1744,15 @@ class EnhancedAnalyzerAgent:
             if not analysis_result:
                 self.logger.warning(f"Using fallback hold analysis for {workflow_id}")
                 analysis_result = self.generate_fallback_analysis(workflow_id, workflow_dir, logs, "held")
-            
+
+            # ✨ Smart missing file detection - only runs when needed!
+            try:
+                analysis_result = self.missing_file_helper.enhance_analysis_with_suggestions(
+                    analysis_result, logs, workflow_id
+                )
+            except Exception as e:
+                self.logger.warning(f"Missing file helper error (non-critical): {e}")
+
             analysis_record = {
                 "workflow_id": workflow_id,
                 "workflow_dir": workflow_dir,

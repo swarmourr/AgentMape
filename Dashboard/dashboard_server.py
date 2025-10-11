@@ -149,6 +149,11 @@ def index():
     """Page principale du dashboard"""
     return render_template('dashboard.html')
 
+@app.route('/workflow/<workflow_id>')
+def workflow_analysis(workflow_id):
+    """Page d'analyse détaillée d'un workflow"""
+    return render_template('workflow_details.html')
+
 @app.route('/api/data')
 def get_data():
     """API pour récupérer toutes les données"""
@@ -172,7 +177,7 @@ def get_workflows():
 
 @app.route('/api/workflow/<workflow_id>/details')
 def get_workflow_details(workflow_id):
-    """API pour récupérer les détails d'un workflow spécifique"""
+    """API pour récupérer les détails d'un workflow spécifique (modal)"""
     try:
         details = {}
 
@@ -207,6 +212,77 @@ def get_workflow_details(workflow_id):
         details["timestamp"] = datetime.now().isoformat()
 
         return jsonify(details)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/workflow/<workflow_id>/analysis')
+def get_workflow_analysis(workflow_id):
+    """API complète pour la page d'analyse d'un workflow"""
+    try:
+        result = {
+            "workflow_id": workflow_id,
+            "monitor": {},
+            "analyzer": {},
+            "planner": {},
+            "timestamp": datetime.now().isoformat()
+        }
+
+        # Get Monitor data (metadata, status)
+        try:
+            # Try to get workflow metadata from Monitor
+            response = requests.get(f"{MONITOR_URL}/api/workflows/{workflow_id}/status", timeout=2)
+            if response.status_code == 200:
+                monitor_data = response.json()
+                result["monitor"] = {
+                    "status": "success",
+                    "metadata": monitor_data.get("metadata", {}),
+                    "state": monitor_data.get("state", "unknown"),
+                    "workflow_dir": monitor_data.get("workflow_dir", "N/A")
+                }
+            else:
+                result["monitor"] = {"error": "Monitor data not available"}
+        except Exception as e:
+            result["monitor"] = {"error": f"Could not connect to Monitor: {str(e)}"}
+
+        # Get Analyzer data (analysis results, problems)
+        try:
+            response = requests.get(f"{ANALYZER_URL}/api/analysis/{workflow_id}/results", timeout=2)
+            if response.status_code == 200:
+                analyzer_data = response.json()
+                analysis = analyzer_data.get("analysis", {})
+                result["analyzer"] = {
+                    "status": "success",
+                    "problems": analysis.get("problems_and_solutions", []),
+                    "analysis_status": analyzer_data.get("status", "completed"),
+                    "logs": analyzer_data.get("pegasus_analyzer_output", "")
+                }
+            else:
+                result["analyzer"] = {"error": "Analysis not found"}
+        except Exception as e:
+            result["analyzer"] = {"error": f"Could not connect to Analyzer: {str(e)}"}
+
+        # Get Planner data (repair plans)
+        try:
+            response = requests.get(f"{PLANNER_URL}/api/plans", timeout=2)
+            if response.status_code == 200:
+                planner_data = response.json()
+                all_plans = planner_data.get("plans", [])
+
+                # Filter plans for this workflow
+                workflow_plans = [p for p in all_plans if p.get("workflow_id") == workflow_id]
+
+                result["planner"] = {
+                    "status": "success",
+                    "plans": workflow_plans,
+                    "total_plans": len(workflow_plans)
+                }
+            else:
+                result["planner"] = {"error": "Plans not available"}
+        except Exception as e:
+            result["planner"] = {"error": f"Could not connect to Planner: {str(e)}"}
+
+        return jsonify(result)
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
