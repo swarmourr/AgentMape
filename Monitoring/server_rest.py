@@ -126,13 +126,18 @@ class AgentRegistry:
         return False
 
 class PegasusWorkflowManager:
-    def __init__(self, agent_registry: AgentRegistry, config: dict = None):
+    def __init__(self, agent_registry: AgentRegistry, config: dict = None, agent_identity: dict = None):
         self.registered_workflows = {}
         self.watchers = {}
         self.monitoring_active = False
         self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=10)
         self.agent_registry = agent_registry
         self.config = config or {}  # ENHANCED: Store config for auto-analysis
+        self.agent_identity = agent_identity or {
+            "id": "monitor_001",
+            "name": "Monitor",
+            "type": "monitor"
+        }
         self.create_logs_directory()
 
         # Enhanced notification system
@@ -495,6 +500,40 @@ class PegasusWorkflowManager:
                             "SUCCESS"
                         )
 
+                        # Update workflow step to analyzing
+                        workflow_record = workflows_table.get(Query().workflow_id == workflow_id)
+                        if workflow_record:
+                            # Get analyzer identity from config
+                            analyzer_identity = self.config.get("downstream_agents", {}).get("analyzer", {
+                                "id": healthy_analyzer['agent_id'],
+                                "name": "Analyzer",
+                                "type": "analyzer"
+                            })
+
+                            step_history = workflow_record.get('step_history', [])
+                            # Complete monitoring step
+                            if step_history and step_history[-1]['step'] == 'monitoring':
+                                step_history[-1]['completed_at'] = datetime.now().isoformat()
+                                step_history[-1]['status'] = 'completed'
+                            # Add analyzing step
+                            step_history.append({
+                                "step": "analyzing",
+                                "agent_id": analyzer_identity.get("id"),
+                                "agent_name": analyzer_identity.get("name"),
+                                "started_at": datetime.now().isoformat(),
+                                "status": "in_progress"
+                            })
+                            workflows_table.update({
+                                "pipeline_step": "analyzing",
+                                "current_agent": {
+                                    "id": analyzer_identity.get("id"),
+                                    "name": analyzer_identity.get("name"),
+                                    "type": analyzer_identity.get("type"),
+                                    "started_at": datetime.now().isoformat()
+                                },
+                                "step_history": step_history
+                            }, Query().workflow_id == workflow_id)
+
                         return {
                             "success": True,
                             "request_id": request_id,
@@ -553,13 +592,42 @@ class PegasusWorkflowManager:
                 print(f"    {TerminalColor.CYAN.apply('LLM Analysis:')} {'✓ Used' if llm_used else '✗ Not used (fallback)'}")
                 print(f"    {TerminalColor.CYAN.apply('Completed at:')} {analysis_data.get('completed_at', 'N/A')}")
 
-                # STEP 3: Update workflow record
+                # STEP 3: Update workflow record and step to planning
                 print(f"\n  {TerminalColor.CYAN.apply('→ Updating workflow record...')}")
-                workflows_table.update({
-                    "analysis_status": "completed",
-                    "analysis_completed_at": datetime.now().isoformat(),
-                    "analysis_summary": analysis_data.get("summary", {})
-                }, Query().workflow_id == workflow_id)
+                workflow_record = workflows_table.get(Query().workflow_id == workflow_id)
+                if workflow_record:
+                    step_history = workflow_record.get('step_history', [])
+                    # Complete analyzing step
+                    if step_history and step_history[-1]['step'] == 'analyzing':
+                        step_history[-1]['completed_at'] = datetime.now().isoformat()
+                        step_history[-1]['status'] = 'completed'
+                    # Add planning step
+                    step_history.append({
+                        "step": "planning",
+                        "agent_id": "planner_001",
+                        "agent_name": "Planner",
+                        "started_at": datetime.now().isoformat(),
+                        "status": "in_progress"
+                    })
+                    workflows_table.update({
+                        "analysis_status": "completed",
+                        "analysis_completed_at": datetime.now().isoformat(),
+                        "analysis_summary": analysis_data.get("summary", {}),
+                        "pipeline_step": "planning",
+                        "current_agent": {
+                            "id": "planner_001",
+                            "name": "Planner",
+                            "type": "planner",
+                            "started_at": datetime.now().isoformat()
+                        },
+                        "step_history": step_history
+                    }, Query().workflow_id == workflow_id)
+                else:
+                    workflows_table.update({
+                        "analysis_status": "completed",
+                        "analysis_completed_at": datetime.now().isoformat(),
+                        "analysis_summary": analysis_data.get("summary", {})
+                    }, Query().workflow_id == workflow_id)
                 print(f"    {TerminalColor.GREEN.apply('✓')} Workflow record updated")
 
                 print(f"\n{'='*80}")
@@ -1948,7 +2016,21 @@ class PegasusWorkflowManager:
                 "state": "Running",
                 "metadata": metadata,
                 "metadata_collected": True,
-                "first_seen": datetime.now().isoformat()
+                "first_seen": datetime.now().isoformat(),
+                "pipeline_step": "monitoring",
+                "current_agent": {
+                    "id": self.agent_identity.get("id"),
+                    "name": self.agent_identity.get("name"),
+                    "type": self.agent_identity.get("type"),
+                    "started_at": datetime.now().isoformat()
+                },
+                "step_history": [{
+                    "step": "monitoring",
+                    "agent_id": self.agent_identity.get("id"),
+                    "agent_name": self.agent_identity.get("name"),
+                    "started_at": datetime.now().isoformat(),
+                    "status": "in_progress"
+                }]
             }, Query().workflow_id == workflow_id)
 
             # Display collected paths
@@ -2191,8 +2273,16 @@ class EnhancedPegasusMCPServer:
         # Load configuration
         self.config = self.load_config(config_file)
 
+        # Load agent identity from config
+        self.agent_identity = self.config.get("agent_identity", {
+            "id": "monitor_001",
+            "name": "Monitor",
+            "type": "monitor",
+            "description": "Workflow monitoring and detection agent"
+        })
+
         self.agent_registry = AgentRegistry()
-        self.workflow_manager = PegasusWorkflowManager(self.agent_registry, self.config)
+        self.workflow_manager = PegasusWorkflowManager(self.agent_registry, self.config, self.agent_identity)
         self.auto_monitor_active = False
         self.auto_monitor_task = None
         self.monitor_interval = self.config.get("monitor_interval", 60)

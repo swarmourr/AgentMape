@@ -1,4 +1,27 @@
 {
+    "agent_identity": {
+        "id": "monitor_001",
+        "name": "Monitor",
+        "type": "monitor",
+        "description": "Workflow monitoring and detection agent"
+    },
+    "downstream_agents": {
+        "analyzer": {
+            "id": "analyzer_001",
+            "name": "Analyzer",
+            "type": "analyzer"
+        },
+        "planner": {
+            "id": "planner_001",
+            "name": "Planner",
+            "type": "planner"
+        },
+        "executor": {
+            "id": "executor_001",
+            "name": "Executor",
+            "type": "executor"
+        }
+    },
     "http_port": 8080,
     "mcp_port": 8765,
     "analyzer_url": "http://localhost:8081",

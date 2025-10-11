@@ -1,4 +1,10 @@
 {
+    "agent_identity": {
+        "id": "analyzer_001",
+        "name": "Analyzer",
+        "type": "analyzer",
+        "description": "Root cause analysis and problem detection agent"
+    },
     "ollama_url": "http://tmnzc-176-159-66-109.a.free.pinggy.link/api/generate",
     "ollama_api_base": "http://tmnzc-176-159-66-109.a.free.pinggy.link/",
     "ollama_model": "llama3:latest",

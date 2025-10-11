@@ -320,7 +320,14 @@ def get_workflows_detailed():
                 "percent_done": wf.get("percent_done", 0),
                 "is_active": wf.get("is_active", False),
                 "metadata_collected": wf.get("metadata_collected", False),
-                "metadata": {}
+                "metadata": {},
+                "pipeline_step": wf.get("pipeline_step", "monitoring"),
+                "current_agent": wf.get("current_agent", {
+                    "id": "monitor_001",
+                    "name": "Monitor",
+                    "type": "monitor"
+                }),
+                "step_history": wf.get("step_history", [])
             }
 
             # Try to get more details from Monitor

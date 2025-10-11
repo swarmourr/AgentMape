@@ -1,4 +1,10 @@
 {
+    "agent_identity": {
+        "id": "planner_001",
+        "name": "Planner",
+        "type": "planner",
+        "description": "Remediation plan generation and strategy agent"
+    },
     "ollama_url": "http://tmnzc-176-159-66-109.a.free.pinggy.link/api/generate",
     "ollama_api_base": "http://tmnzc-176-159-66-109.a.free.pinggy.link/",
     "ollama_model": "llama3.3:latest",

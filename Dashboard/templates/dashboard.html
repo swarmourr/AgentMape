@@ -1706,6 +1706,28 @@
                                 <span>${formatDate(wf.last_checked)}</span>
                             </div>
                         </div>
+
+                        ${wf.pipeline_step && wf.current_agent ? `
+                        <div style="margin: 12px 0; padding: 10px; background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); border-radius: 8px; border: 1px solid #6366f120;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <span style="font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Pipeline Step</span>
+                                <span style="padding: 2px 8px; background: ${wf.pipeline_step === 'monitoring' ? '#3b82f6' : wf.pipeline_step === 'analyzing' ? '#f59e0b' : wf.pipeline_step === 'planning' ? '#8b5cf6' : '#10b981'}; color: white; border-radius: 4px; font-size: 11px; font-weight: 600;">
+                                    ${wf.pipeline_step.toUpperCase()}
+                                </span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <div style="width: 32px; height: 32px; background: ${wf.current_agent.type === 'monitor' ? '#3b82f6' : wf.current_agent.type === 'analyzer' ? '#f59e0b' : wf.current_agent.type === 'planner' ? '#8b5cf6' : '#10b981'}; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-size: 16px;">
+                                    ${wf.current_agent.type === 'monitor' ? '📡' : wf.current_agent.type === 'analyzer' ? '🔬' : wf.current_agent.type === 'planner' ? '📋' : '⚙️'}
+                                </div>
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 600; color: #1e293b; font-size: 13px;">${wf.current_agent.name}</div>
+                                    <div style="font-size: 11px; color: #64748b; font-family: Monaco, monospace;">${wf.current_agent.id}</div>
+                                </div>
+                                <div style="width: 8px; height: 8px; background: #10b981; border-radius: 50%; animation: pulse 2s infinite;"></div>
+                            </div>
+                        </div>
+                        ` : ''}
+
                         <div class="workflow-badges">
                             ${wf.metadata_collected ? `
                                 <span class="workflow-badge" style="background: #3b82f6;">
