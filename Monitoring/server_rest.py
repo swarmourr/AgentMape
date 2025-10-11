@@ -596,6 +596,13 @@ class PegasusWorkflowManager:
                 print(f"\n  {TerminalColor.CYAN.apply('→ Updating workflow record...')}")
                 workflow_record = workflows_table.get(Query().workflow_id == workflow_id)
                 if workflow_record:
+                    # Get planner identity from config
+                    planner_identity = self.config.get("downstream_agents", {}).get("planner", {
+                        "id": "planner_001",
+                        "name": "Planner",
+                        "type": "planner"
+                    })
+
                     step_history = workflow_record.get('step_history', [])
                     # Complete analyzing step
                     if step_history and step_history[-1]['step'] == 'analyzing':
@@ -604,8 +611,8 @@ class PegasusWorkflowManager:
                     # Add planning step
                     step_history.append({
                         "step": "planning",
-                        "agent_id": "planner_001",
-                        "agent_name": "Planner",
+                        "agent_id": planner_identity.get("id"),
+                        "agent_name": planner_identity.get("name"),
                         "started_at": datetime.now().isoformat(),
                         "status": "in_progress"
                     })
@@ -615,9 +622,9 @@ class PegasusWorkflowManager:
                         "analysis_summary": analysis_data.get("summary", {}),
                         "pipeline_step": "planning",
                         "current_agent": {
-                            "id": "planner_001",
-                            "name": "Planner",
-                            "type": "planner",
+                            "id": planner_identity.get("id"),
+                            "name": planner_identity.get("name"),
+                            "type": planner_identity.get("type"),
                             "started_at": datetime.now().isoformat()
                         },
                         "step_history": step_history
