@@ -1572,43 +1572,131 @@
             modalBody.innerHTML = '<div class="spinner"></div>';
 
             try {
-                const response = await fetch(`/api/workflow/${workflowId}/details`);
-                const data = await response.json();
+                const response = await fetch(`/api/workflows/detailed`);
+                const allWorkflows = await response.json();
+                const workflow = allWorkflows.workflows.find(w => w.workflow_id === workflowId);
 
-                const monitorData = data.monitor_data || {};
-                const analysisData = data.analysis_data || {};
-                const plans = data.plans || [];
+                if (!workflow) {
+                    throw new Error('Workflow not found');
+                }
+
+                const currentAgent = workflow.current_agent || { name: 'Unknown', id: 'unknown', type: 'unknown' };
+                const pipelineStep = workflow.pipeline_step || 'unknown';
+                const stepHistory = workflow.step_history || [];
+
+                // Get step color
+                const stepColors = {
+                    'monitoring': '#3b82f6',
+                    'analyzing': '#f59e0b',
+                    'planning': '#8b5cf6',
+                    'executing': '#10b981'
+                };
+                const stepColor = stepColors[pipelineStep] || '#64748b';
+
+                // Get agent icon
+                const agentIcons = {
+                    'monitor': '📡',
+                    'analyzer': '🔬',
+                    'planner': '📋',
+                    'executor': '⚙️'
+                };
+                const agentIcon = agentIcons[currentAgent.type] || '🤖';
 
                 modalBody.innerHTML = `
                     <div class="detail-section">
                         <div class="detail-label">Workflow ID</div>
-                        <div class="detail-value">${workflowId}</div>
+                        <div class="detail-value" style="font-family: Monaco, monospace; font-size: 12px;">${workflowId}</div>
+                    </div>
+
+                    <div class="detail-section" style="background: linear-gradient(135deg, ${stepColor}15 0%, ${stepColor}05 100%); padding: 16px; border-radius: 8px; border: 2px solid ${stepColor};">
+                        <div class="detail-label" style="font-size: 14px; margin-bottom: 12px;">🔄 Current Pipeline Step</div>
+                        <div style="display: flex; align-items: center; gap: 12px; background: white; padding: 12px; border-radius: 6px;">
+                            <div style="width: 48px; height: 48px; background: ${stepColor}; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px;">
+                                ${agentIcon}
+                            </div>
+                            <div style="flex: 1;">
+                                <div style="font-size: 18px; font-weight: 700; color: #1e293b; margin-bottom: 4px;">
+                                    ${currentAgent.name}
+                                </div>
+                                <div style="font-size: 12px; color: #64748b; font-family: Monaco, monospace;">
+                                    ${currentAgent.id}
+                                </div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="padding: 6px 12px; background: ${stepColor}; color: white; border-radius: 6px; font-size: 13px; font-weight: 600; margin-bottom: 4px;">
+                                    ${pipelineStep.toUpperCase()}
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 4px; justify-content: flex-end;">
+                                    <div style="width: 8px; height: 8px; background: #10b981; border-radius: 50%; animation: pulse 2s infinite;"></div>
+                                    <span style="font-size: 11px; color: #10b981; font-weight: 600;">ACTIVE</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    ${stepHistory.length > 0 ? `
+                    <div class="detail-section">
+                        <div class="detail-label">📊 Pipeline History</div>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            ${stepHistory.map((step, idx) => `
+                                <div style="display: flex; align-items: center; gap: 10px; padding: 10px; background: ${step.status === 'completed' ? '#f0fdf4' : '#fef9c3'}; border-radius: 6px; border-left: 3px solid ${step.status === 'completed' ? '#10b981' : '#f59e0b'};">
+                                    <div style="font-size: 20px;">${idx + 1}</div>
+                                    <div style="flex: 1;">
+                                        <div style="font-weight: 600; color: #1e293b; font-size: 13px;">${step.agent_name} (${step.agent_id})</div>
+                                        <div style="font-size: 11px; color: #64748b;">Step: ${step.step} • Started: ${new Date(step.started_at).toLocaleString()}</div>
+                                        ${step.completed_at ? `<div style="font-size: 11px; color: #64748b;">Completed: ${new Date(step.completed_at).toLocaleString()}</div>` : ''}
+                                    </div>
+                                    <div style="padding: 4px 8px; background: ${step.status === 'completed' ? '#10b981' : step.status === 'in_progress' ? '#f59e0b' : '#64748b'}; color: white; border-radius: 4px; font-size: 11px; font-weight: 600;">
+                                        ${step.status === 'completed' ? '✓ DONE' : step.status === 'in_progress' ? '⟳ ACTIVE' : step.status}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    ` : ''}
+
+                    <div class="detail-section">
+                        <div class="detail-label">📍 Workflow State</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                            <div><strong>State:</strong> ${workflow.state || 'Unknown'}</div>
+                            <div><strong>Progress:</strong> ${(workflow.percent_done || 0).toFixed(1)}%</div>
+                            <div><strong>Active:</strong> ${workflow.is_active ? '✓ Yes' : '✗ No'}</div>
+                            <div><strong>Metadata:</strong> ${workflow.metadata_collected ? '✓ Collected' : '✗ Not collected'}</div>
+                        </div>
                     </div>
 
                     <div class="detail-section">
-                        <div class="detail-label">Monitor Status</div>
-                        <div class="detail-value">${JSON.stringify(monitorData, null, 2)}</div>
+                        <div class="detail-label">📂 Directory</div>
+                        <div class="detail-value" style="font-family: Monaco, monospace; font-size: 11px; word-break: break-all;">
+                            ${workflow.iwd || 'N/A'}
+                        </div>
                     </div>
 
-                    ${analysisData.analysis ? `
-                        <div class="detail-section">
-                            <div class="detail-label">Analysis Results</div>
-                            <div class="detail-value">${JSON.stringify(analysisData.analysis, null, 2)}</div>
+                    ${workflow.problems_count > 0 ? `
+                    <div class="detail-section">
+                        <div class="detail-label">⚠️ Problems Detected</div>
+                        <div class="detail-value" style="color: #ef4444; font-weight: 600; font-size: 18px;">
+                            ${workflow.problems_count} issue${workflow.problems_count > 1 ? 's' : ''} found
                         </div>
+                    </div>
                     ` : ''}
 
-                    ${plans.length > 0 ? `
-                        <div class="detail-section">
-                            <div class="detail-label">Repair Plans (${plans.length})</div>
-                            <div class="detail-value">${JSON.stringify(plans, null, 2)}</div>
+                    ${workflow.plans_count > 0 ? `
+                    <div class="detail-section">
+                        <div class="detail-label">📋 Repair Plans</div>
+                        <div class="detail-value" style="color: #8b5cf6; font-weight: 600; font-size: 18px;">
+                            ${workflow.plans_count} plan${workflow.plans_count > 1 ? 's' : ''} generated
                         </div>
+                    </div>
                     ` : ''}
                 `;
             } catch (error) {
+                console.error('Error loading workflow details:', error);
                 modalBody.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-state-icon">❌</div>
                         <div class="empty-state-text">Error loading workflow details</div>
+                        <div style="font-size: 12px; color: #64748b; margin-top: 8px;">${error.message}</div>
                     </div>
                 `;
             }
@@ -1674,6 +1762,27 @@
                             </div>
                         </div>
 
+                        ${wf.pipeline_step && wf.current_agent ? `
+                        <div style="margin: 12px 0; padding: 12px; background: linear-gradient(135deg, ${wf.pipeline_step === 'monitoring' ? '#3b82f615' : wf.pipeline_step === 'analyzing' ? '#f59e0b15' : wf.pipeline_step === 'planning' ? '#8b5cf615' : '#10b98115'} 0%, #ffffff 100%); border-radius: 8px; border: 1.5px solid ${wf.pipeline_step === 'monitoring' ? '#3b82f6' : wf.pipeline_step === 'analyzing' ? '#f59e0b' : wf.pipeline_step === 'planning' ? '#8b5cf6' : '#10b981'};">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <span style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.8px;">🔄 Current Step</span>
+                                <span style="padding: 3px 10px; background: ${wf.pipeline_step === 'monitoring' ? '#3b82f6' : wf.pipeline_step === 'analyzing' ? '#f59e0b' : wf.pipeline_step === 'planning' ? '#8b5cf6' : '#10b981'}; color: white; border-radius: 5px; font-size: 10px; font-weight: 700; letter-spacing: 0.5px;">
+                                    ${wf.pipeline_step.toUpperCase()}
+                                </span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px; background: white; padding: 8px; border-radius: 6px;">
+                                <div style="width: 36px; height: 36px; background: ${wf.current_agent.type === 'monitor' ? '#3b82f6' : wf.current_agent.type === 'analyzer' ? '#f59e0b' : wf.current_agent.type === 'planner' ? '#8b5cf6' : '#10b981'}; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-size: 18px; flex-shrink: 0;">
+                                    ${wf.current_agent.type === 'monitor' ? '📡' : wf.current_agent.type === 'analyzer' ? '🔬' : wf.current_agent.type === 'planner' ? '📋' : '⚙️'}
+                                </div>
+                                <div style="flex: 1; min-width: 0;">
+                                    <div style="font-weight: 700; color: #1e293b; font-size: 14px; margin-bottom: 2px;">${wf.current_agent.name}</div>
+                                    <div style="font-size: 10px; color: #64748b; font-family: Monaco, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${wf.current_agent.id}</div>
+                                </div>
+                                <div style="width: 10px; height: 10px; background: #10b981; border-radius: 50%; animation: pulse 2s infinite; flex-shrink: 0;"></div>
+                            </div>
+                        </div>
+                        ` : ''}
+
                         ${wf.percent_done > 0 ? `
                             <div style="margin: 12px 0;">
                                 <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 12px; color: #64748b;">
@@ -1706,27 +1815,6 @@
                                 <span>${formatDate(wf.last_checked)}</span>
                             </div>
                         </div>
-
-                        ${wf.pipeline_step && wf.current_agent ? `
-                        <div style="margin: 12px 0; padding: 10px; background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); border-radius: 8px; border: 1px solid #6366f120;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                <span style="font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Pipeline Step</span>
-                                <span style="padding: 2px 8px; background: ${wf.pipeline_step === 'monitoring' ? '#3b82f6' : wf.pipeline_step === 'analyzing' ? '#f59e0b' : wf.pipeline_step === 'planning' ? '#8b5cf6' : '#10b981'}; color: white; border-radius: 4px; font-size: 11px; font-weight: 600;">
-                                    ${wf.pipeline_step.toUpperCase()}
-                                </span>
-                            </div>
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <div style="width: 32px; height: 32px; background: ${wf.current_agent.type === 'monitor' ? '#3b82f6' : wf.current_agent.type === 'analyzer' ? '#f59e0b' : wf.current_agent.type === 'planner' ? '#8b5cf6' : '#10b981'}; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-size: 16px;">
-                                    ${wf.current_agent.type === 'monitor' ? '📡' : wf.current_agent.type === 'analyzer' ? '🔬' : wf.current_agent.type === 'planner' ? '📋' : '⚙️'}
-                                </div>
-                                <div style="flex: 1;">
-                                    <div style="font-weight: 600; color: #1e293b; font-size: 13px;">${wf.current_agent.name}</div>
-                                    <div style="font-size: 11px; color: #64748b; font-family: Monaco, monospace;">${wf.current_agent.id}</div>
-                                </div>
-                                <div style="width: 8px; height: 8px; background: #10b981; border-radius: 50%; animation: pulse 2s infinite;"></div>
-                            </div>
-                        </div>
-                        ` : ''}
 
                         <div class="workflow-badges">
                             ${wf.metadata_collected ? `
