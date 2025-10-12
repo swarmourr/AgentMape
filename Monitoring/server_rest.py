@@ -24,6 +24,7 @@ import concurrent.futures
 import aiohttp
 from aiohttp import web, ClientSession
 import uuid
+import aiohttp_cors
 
 # Import Pegasus command executor
 from pegasus_commands import PegasusCommandExecutor
@@ -2395,8 +2396,20 @@ class EnhancedPegasusMCPServer:
         
         # HTTP server components
         self.app = web.Application()
+
+        # Setup CORS to allow dashboard (port 5000) to access Monitor API (port 8080)
+        cors = aiohttp_cors.setup(self.app, defaults={
+            "*": aiohttp_cors.ResourceOptions(
+                allow_credentials=True,
+                expose_headers="*",
+                allow_headers="*",
+                allow_methods="*"
+            )
+        })
+        self.cors = cors
+
         self.setup_http_routes()
-        
+
         # Register default analyzer (if known)
         self.register_default_agents()
 
@@ -2415,16 +2428,16 @@ class EnhancedPegasusMCPServer:
         """Setup HTTP routes"""
         # Health endpoint
         self.app.router.add_get('/health', self.handle_health)
-        
+
         # API endpoints
         self.app.router.add_get('/api/workflows', self.handle_get_workflows)
         self.app.router.add_get('/api/workflows/all', self.handle_get_all_workflows)
         self.app.router.add_get('/api/workflows/{workflow_id}/status', self.handle_get_workflow_status)
         self.app.router.add_post('/api/workflows/{workflow_id}/analyze', self.handle_request_analysis)
-        
+
         # Webhook endpoints
         self.app.router.add_post('/webhooks/analysis-complete', self.handle_analysis_complete_webhook)
-        
+
         # Agent registry endpoints
         self.app.router.add_get('/api/agents/registry', self.handle_get_agents)
         self.app.router.add_post('/api/agents/register', self.handle_register_agent)
@@ -2440,6 +2453,10 @@ class EnhancedPegasusMCPServer:
         self.app.router.add_get('/api/workflows/{workflow_id}/pegasus/analyzer', self.handle_pegasus_analyzer)
         self.app.router.add_get('/api/workflows/{workflow_id}/pegasus/full', self.handle_pegasus_full_analysis)
         self.app.router.add_post('/api/files/list-directory', self.handle_list_directory)
+
+        # Apply CORS to all routes
+        for route in list(self.app.router.routes()):
+            self.cors.add(route)
 
     async def handle_health(self, request):
         """Health check endpoint"""
