@@ -2019,10 +2019,31 @@ class PegasusWorkflowManager:
             # Check if this workflow already exists (from previous run)
             existing_workflow = workflows_table.get(Query().workflow_id == workflow_id)
 
-            # Remove old record if it exists to start fresh
+            # If exists, preserve it as historical and mark as superseded
             if existing_workflow:
-                print(f"│  {TerminalColor.YELLOW.apply('⚠')} Found existing workflow record - clearing old data")
+                print(f"│  {TerminalColor.YELLOW.apply('⚠')} Found existing workflow record - preserving as historical")
+
+                # Create unique historical ID by adding timestamp
+                historical_id = f"{workflow_id}_historical_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
+                # Copy old record and mark as historical
+                historical_record = existing_workflow.copy()
+                historical_record['workflow_id'] = historical_id
+                historical_record['original_workflow_id'] = workflow_id
+                historical_record['is_historical'] = True
+                historical_record['superseded_at'] = datetime.now().isoformat()
+                historical_record['superseded_by'] = workflow_id
+
+                # Preserve analysis data if it exists
+                if 'analysis_status' in historical_record:
+                    print(f"│  {TerminalColor.CYAN.apply('ℹ')} Preserving analysis: {historical_record.get('analysis_status')}")
+
+                # Insert historical record
+                workflows_table.insert(historical_record)
+
+                # Remove current record to replace with new one
                 workflows_table.remove(Query().workflow_id == workflow_id)
+                print(f"│  {TerminalColor.GREEN.apply('✓')} Historical record saved as: {historical_id}")
 
             # Store metadata in database with fresh state
             workflows_table.insert({
@@ -2032,6 +2053,8 @@ class PegasusWorkflowManager:
                 "metadata": metadata,
                 "metadata_collected": True,
                 "first_seen": datetime.now().isoformat(),
+                "is_historical": False,
+                "run_number": existing_workflow.get('run_number', 0) + 1 if existing_workflow else 1,
                 "pipeline_step": "monitoring",
                 "current_agent": {
                     "id": self.agent_identity.get("id"),

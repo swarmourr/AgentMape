@@ -1778,6 +1778,21 @@
                         </div>
                     </div>
 
+                    ${workflow.analysis_status && workflow.analysis_status !== 'no_analysis' ? `
+                    <div class="detail-section" style="background: #fef9c3; border-left: 4px solid #f59e0b; padding: 12px;">
+                        <div class="detail-label">🔬 Analysis Status</div>
+                        <div style="margin-top: 8px;">
+                            <div style="font-weight: 600; color: #1e293b; margin-bottom: 4px;">Status: ${workflow.analysis_status}</div>
+                            ${workflow.analysis_completed_at ? `<div style="font-size: 12px; color: #64748b;">Completed: ${new Date(workflow.analysis_completed_at).toLocaleString()}</div>` : ''}
+                            ${workflow.analysis_summary && workflow.analysis_summary.summary_text ? `
+                                <div style="margin-top: 8px; padding: 8px; background: white; border-radius: 4px; font-size: 12px;">
+                                    ${workflow.analysis_summary.summary_text}
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                    ` : ''}
+
                     ${workflow.problems_count > 0 ? `
                     <div class="detail-section">
                         <div class="detail-label">⚠️ Problems Detected</div>
@@ -1792,6 +1807,17 @@
                         <div class="detail-label">📋 Repair Plans</div>
                         <div class="detail-value" style="color: #8b5cf6; font-weight: 600; font-size: 18px;">
                             ${workflow.plans_count} plan${workflow.plans_count > 1 ? 's' : ''} generated
+                        </div>
+                    </div>
+                    ` : ''}
+
+                    ${workflow.is_historical ? `
+                    <div class="detail-section" style="background: #f1f5f9; border-left: 4px solid #94a3b8;">
+                        <div class="detail-label">📜 Historical Record</div>
+                        <div style="font-size: 13px; color: #64748b; margin-top: 8px;">
+                            <div>This is a historical workflow record (superseded)</div>
+                            ${workflow.superseded_at ? `<div>Superseded at: ${new Date(workflow.superseded_at).toLocaleString()}</div>` : ''}
+                            ${workflow.original_workflow_id ? `<div>Original ID: ${workflow.original_workflow_id}</div>` : ''}
                         </div>
                     </div>
                     ` : ''}
@@ -1859,9 +1885,15 @@
                 }
 
                 container.innerHTML = workflows.map(wf => `
-                    <div class="workflow-card">
+                    <div class="workflow-card" style="${wf.is_historical ? 'opacity: 0.8; border: 1px dashed #94a3b8;' : ''}">
                         <div class="workflow-header">
-                            <div class="workflow-name">${wf.workflow_id}</div>
+                            <div style="display: flex; flex-direction: column; gap: 4px;">
+                                <div class="workflow-name">${wf.workflow_id}</div>
+                                <div style="display: flex; gap: 4px; align-items: center;">
+                                    ${wf.run_number ? `<span style="background: #6366f1; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: 600;">Run #${wf.run_number}</span>` : ''}
+                                    ${wf.is_historical ? '<span style="background: #94a3b8; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: 600;">📜 Historical</span>' : ''}
+                                </div>
+                            </div>
                             <div style="display: flex; gap: 6px; align-items: center;">
                                 ${wf.is_active ? '<span class="workflow-badge" style="background: #10b981; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px;">● Active</span>' : '<span class="workflow-badge" style="background: #94a3b8; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px;">Completed</span>'}
                                 <span class="workflow-state ${wf.state}">${wf.state}</span>

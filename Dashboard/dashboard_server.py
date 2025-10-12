@@ -294,6 +294,9 @@ def get_workflows():
 def get_workflows_detailed():
     """API pour récupérer les workflows avec informations détaillées de monitoring"""
     try:
+        # Check if we should include historical workflows
+        include_historical = request.args.get('include_historical', 'true').lower() == 'true'
+
         # Get all workflows from Monitor (including historical)
         response = requests.get(f"{MONITOR_URL}/api/workflows/all", timeout=3)
 
@@ -302,6 +305,10 @@ def get_workflows_detailed():
 
         monitor_data = response.json()
         all_workflows = monitor_data.get("workflows", [])
+
+        # Filter out historical workflows if requested
+        if not include_historical:
+            all_workflows = [wf for wf in all_workflows if not wf.get('is_historical', False)]
 
         # Combine and enrich workflow data
         detailed_workflows = []
@@ -327,7 +334,14 @@ def get_workflows_detailed():
                     "name": "Monitor",
                     "type": "monitor"
                 }),
-                "step_history": wf.get("step_history", [])
+                "step_history": wf.get("step_history", []),
+                "is_historical": wf.get("is_historical", False),
+                "run_number": wf.get("run_number", 1),
+                "original_workflow_id": wf.get("original_workflow_id"),
+                "superseded_at": wf.get("superseded_at"),
+                "analysis_status": wf.get("analysis_status", "no_analysis"),
+                "analysis_completed_at": wf.get("analysis_completed_at"),
+                "analysis_summary": wf.get("analysis_summary", {})
             }
 
             # Try to get more details from Monitor
