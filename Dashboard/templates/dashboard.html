@@ -369,18 +369,24 @@
 
         .agent-card-back {
             transform: rotateY(180deg);
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: white;
+            color: #1e293b;
             overflow-y: auto;
+            border: 2px solid var(--primary);
         }
 
         .agent-card-back .agent-info-row {
-            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            border-bottom: 1px solid #e2e8f0;
             padding: 8px 0;
         }
 
         .agent-card-back .agent-info-row:last-child {
             border-bottom: none;
+        }
+
+        .agent-card-back .agent-header {
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 8px;
         }
 
         .flip-indicator {
@@ -1542,48 +1548,48 @@
                             <!-- Back Face -->
                             <div class="agent-card-back">
                                 <div class="agent-header" style="margin-bottom: 12px;">
-                                    <div class="agent-name" style="color: white;">
+                                    <div class="agent-name">
                                         ${getAgentIcon(agent.name)} ${agent.name}
                                     </div>
-                                    <span style="font-size: 12px; opacity: 0.9;">Details</span>
+                                    <span style="font-size: 12px; color: #6366f1; font-weight: 600;">Details</span>
                                 </div>
                                 <div class="agent-info" style="font-size: 13px;">
                                     <div class="agent-info-row">
-                                        <span style="opacity: 0.9;">Type:</span>
-                                        <span style="font-weight: 600;">${agent.type || key}</span>
+                                        <span style="color: #64748b;">Type:</span>
+                                        <span style="font-weight: 600; color: #1e293b;">${agent.type || key}</span>
                                     </div>
                                     <div class="agent-info-row">
-                                        <span style="opacity: 0.9;">Status:</span>
-                                        <span style="font-weight: 600; text-transform: uppercase;">${agent.status}</span>
+                                        <span style="color: #64748b;">Status:</span>
+                                        <span style="font-weight: 600; text-transform: uppercase; color: ${agent.status === 'healthy' ? '#10b981' : '#ef4444'};">${agent.status}</span>
                                     </div>
                                     <div class="agent-info-row">
-                                        <span style="opacity: 0.9;">Endpoint:</span>
-                                        <span style="font-family: Monaco, monospace; font-size: 11px; word-break: break-all;">${agent.url}</span>
+                                        <span style="color: #64748b;">Endpoint:</span>
+                                        <span style="font-family: Monaco, monospace; font-size: 11px; word-break: break-all; color: #1e293b;">${agent.url}</span>
                                     </div>
                                     ${agent.response_time ? `
                                         <div class="agent-info-row">
-                                            <span style="opacity: 0.9;">Latency:</span>
-                                            <span style="font-weight: 600;">${(agent.response_time * 1000).toFixed(0)}ms</span>
+                                            <span style="color: #64748b;">Latency:</span>
+                                            <span style="font-weight: 600; color: #1e293b;">${(agent.response_time * 1000).toFixed(0)}ms</span>
                                         </div>
                                     ` : ''}
                                     <div class="agent-info-row">
-                                        <span style="opacity: 0.9;">Port:</span>
-                                        <span style="font-weight: 600;">${new URL(agent.url).port || (new URL(agent.url).protocol === 'https:' ? '443' : '80')}</span>
+                                        <span style="color: #64748b;">Port:</span>
+                                        <span style="font-weight: 600; color: #1e293b;">${new URL(agent.url).port || (new URL(agent.url).protocol === 'https:' ? '443' : '80')}</span>
                                     </div>
                                     <div class="agent-info-row">
-                                        <span style="opacity: 0.9;">Protocol:</span>
-                                        <span style="font-weight: 600;">${new URL(agent.url).protocol.replace(':', '').toUpperCase()}</span>
+                                        <span style="color: #64748b;">Protocol:</span>
+                                        <span style="font-weight: 600; color: #1e293b;">${new URL(agent.url).protocol.replace(':', '').toUpperCase()}</span>
                                     </div>
                                     ${agent.capabilities ? `
                                         <div class="agent-info-row" style="flex-direction: column; align-items: flex-start;">
-                                            <span style="opacity: 0.9; margin-bottom: 4px;">Capabilities:</span>
+                                            <span style="color: #64748b; margin-bottom: 4px;">Capabilities:</span>
                                             <div style="display: flex; flex-wrap: wrap; gap: 4px;">
-                                                ${agent.capabilities.map(cap => `<span style="background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 4px; font-size: 10px;">${cap}</span>`).join('')}
+                                                ${agent.capabilities.map(cap => `<span style="background: #e0e7ff; color: #4f46e5; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;">${cap}</span>`).join('')}
                                             </div>
                                         </div>
                                     ` : ''}
                                 </div>
-                                <div class="flip-indicator" style="color: rgba(255,255,255,0.8);">🔄 Click to flip back</div>
+                                <div class="flip-indicator" style="color: #94a3b8;">🔄 Click to flip back</div>
                             </div>
                         </div>
                     </div>
@@ -2049,40 +2055,40 @@
                             <!-- Back Face -->
                             <div class="agent-card-back">
                                 <div class="agent-header" style="margin-bottom: 12px;">
-                                    <div class="agent-name" style="color: white;">
+                                    <div class="agent-name">
                                         ${getAgentIcon(agent.name)} ${agent.name}
                                     </div>
-                                    <span style="font-size: 12px; opacity: 0.9;">Details</span>
+                                    <span style="font-size: 12px; color: #6366f1; font-weight: 600;">Details</span>
                                 </div>
                                 <div class="agent-info" style="font-size: 13px;">
                                     <div class="agent-info-row">
-                                        <span style="opacity: 0.9;">Type:</span>
-                                        <span style="font-weight: 600;">${agent.type || key}</span>
+                                        <span style="color: #64748b;">Type:</span>
+                                        <span style="font-weight: 600; color: #1e293b;">${agent.type || key}</span>
                                     </div>
                                     <div class="agent-info-row">
-                                        <span style="opacity: 0.9;">Status:</span>
-                                        <span style="font-weight: 600; text-transform: uppercase;">${agent.status}</span>
+                                        <span style="color: #64748b;">Status:</span>
+                                        <span style="font-weight: 600; text-transform: uppercase; color: ${agent.status === 'healthy' ? '#10b981' : '#ef4444'};">${agent.status}</span>
                                     </div>
                                     <div class="agent-info-row">
-                                        <span style="opacity: 0.9;">Endpoint:</span>
-                                        <span style="font-family: Monaco, monospace; font-size: 11px; word-break: break-all;">${agent.url}</span>
+                                        <span style="color: #64748b;">Endpoint:</span>
+                                        <span style="font-family: Monaco, monospace; font-size: 11px; word-break: break-all; color: #1e293b;">${agent.url}</span>
                                     </div>
                                     ${agent.response_time ? `
                                         <div class="agent-info-row">
-                                            <span style="opacity: 0.9;">Latency:</span>
-                                            <span style="font-weight: 600;">${(agent.response_time * 1000).toFixed(0)}ms</span>
+                                            <span style="color: #64748b;">Latency:</span>
+                                            <span style="font-weight: 600; color: #1e293b;">${(agent.response_time * 1000).toFixed(0)}ms</span>
                                         </div>
                                     ` : ''}
                                     <div class="agent-info-row">
-                                        <span style="opacity: 0.9;">Port:</span>
-                                        <span style="font-weight: 600;">${new URL(agent.url).port || (new URL(agent.url).protocol === 'https:' ? '443' : '80')}</span>
+                                        <span style="color: #64748b;">Port:</span>
+                                        <span style="font-weight: 600; color: #1e293b;">${new URL(agent.url).port || (new URL(agent.url).protocol === 'https:' ? '443' : '80')}</span>
                                     </div>
                                     <div class="agent-info-row">
-                                        <span style="opacity: 0.9;">Protocol:</span>
-                                        <span style="font-weight: 600;">${new URL(agent.url).protocol.replace(':', '').toUpperCase()}</span>
+                                        <span style="color: #64748b;">Protocol:</span>
+                                        <span style="font-weight: 600; color: #1e293b;">${new URL(agent.url).protocol.replace(':', '').toUpperCase()}</span>
                                     </div>
                                 </div>
-                                <div class="flip-indicator" style="color: rgba(255,255,255,0.8);">🔄 Click to flip back</div>
+                                <div class="flip-indicator" style="color: #94a3b8;">🔄 Click to flip back</div>
                             </div>
                         </div>
                     </div>

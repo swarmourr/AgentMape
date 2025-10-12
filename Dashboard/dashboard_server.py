@@ -359,24 +359,48 @@ def get_workflows_detailed():
             except:
                 pass
 
-            # Try to get analysis status from Analyzer
-            try:
-                analysis_response = requests.get(
-                    f"{ANALYZER_URL}/api/analysis/{workflow_id}/results",
-                    timeout=1
-                )
-                if analysis_response.status_code == 200:
-                    analysis_data = analysis_response.json()
-                    workflow_info["analysis_status"] = analysis_data.get("status", "no_analysis")
-                    workflow_info["problems_count"] = len(
-                        analysis_data.get("analysis", {}).get("problems_and_solutions", [])
-                    )
+            # Try to get analysis status - check database first, then Analyzer API
+            # Database analysis_summary might have problems_count
+            if workflow_info.get("analysis_status") and workflow_info["analysis_status"] != "no_analysis":
+                # Analysis data already in workflow record from Monitor DB
+                summary = workflow_info.get("analysis_summary", {})
+                if "problems_count" in summary:
+                    workflow_info["problems_count"] = summary.get("problems_count", 0)
+                elif "total_problems" in summary:
+                    workflow_info["problems_count"] = summary.get("total_problems", 0)
                 else:
+                    # Try to fetch from Analyzer API
+                    try:
+                        analysis_response = requests.get(
+                            f"{ANALYZER_URL}/api/analysis/{workflow_id}/results",
+                            timeout=1
+                        )
+                        if analysis_response.status_code == 200:
+                            analysis_data = analysis_response.json()
+                            problems = analysis_data.get("analysis", {}).get("problems_and_solutions", [])
+                            workflow_info["problems_count"] = len(problems)
+                        else:
+                            workflow_info["problems_count"] = 0
+                    except:
+                        workflow_info["problems_count"] = 0
+            else:
+                # No analysis in database, try Analyzer API
+                try:
+                    analysis_response = requests.get(
+                        f"{ANALYZER_URL}/api/analysis/{workflow_id}/results",
+                        timeout=1
+                    )
+                    if analysis_response.status_code == 200:
+                        analysis_data = analysis_response.json()
+                        workflow_info["analysis_status"] = analysis_data.get("status", "no_analysis")
+                        problems = analysis_data.get("analysis", {}).get("problems_and_solutions", [])
+                        workflow_info["problems_count"] = len(problems)
+                    else:
+                        workflow_info["analysis_status"] = "no_analysis"
+                        workflow_info["problems_count"] = 0
+                except:
                     workflow_info["analysis_status"] = "no_analysis"
                     workflow_info["problems_count"] = 0
-            except:
-                workflow_info["analysis_status"] = "no_analysis"
-                workflow_info["problems_count"] = 0
 
             # Try to get plans from Planner
             try:

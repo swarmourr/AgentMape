@@ -5,8 +5,8 @@
         "type": "planner",
         "description": "Remediation plan generation and strategy agent"
     },
-    "ollama_url": "http://bodpu-2a02-8428-f963-1801-70fa-4a2a-6a0-6391.a.free.pinggy.link/api/generate",
-    "ollama_api_base": "http://bodpu-2a02-8428-f963-1801-70fa-4a2a-6a0-6391.a.free.pinggy.link/",
+    "ollama_url": "http://tpvcz-2a02-8428-f963-1801-70fa-4a2a-6a0-6391.a.free.pinggy.link/api/generate",
+    "ollama_api_base": "http://tpvcz-2a02-8428-f963-1801-70fa-4a2a-6a0-6391.a.free.pinggy.link",
     "ollama_model": "llama3.3:latest",
     "ollama_check_interval": 30,
     "monitor_url": "http://localhost:8080",

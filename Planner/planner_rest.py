@@ -1097,6 +1097,9 @@ class LLMPlanner:
         self.plans_table = plans_table
         self.execution_requests_table = execution_requests_table
 
+        # Track files that failed to fetch (prevent looping)
+        self.failed_files_cache = set()
+
         # Check Ollama health
         self.ollama_manager.check_health()
 
@@ -1962,7 +1965,6 @@ class PlannerHTTPServer:
         self.planner = planner
         self.config = config
         self.app = web.Application()
-        self.failed_files_cache = set()  # Track files that failed to fetch (prevent looping)
         self.setup_routes()
 
     def write_workflow_step(self, workflow_id: str, agent: str, step: str, message: str, status: str = "INFO"):
@@ -2103,7 +2105,7 @@ class PlannerHTTPServer:
             workflow_id = data.get("workflow_id")
 
             # Clear failed files cache for new workflow analysis (fresh start)
-            self.failed_files_cache.clear()
+            self.planner.failed_files_cache.clear()
             logger.info(f"Cleared failed files cache for new workflow: {workflow_id}")
 
             # Defensive extraction with None handling
