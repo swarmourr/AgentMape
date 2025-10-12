@@ -439,7 +439,7 @@
                 // Fetch both dashboard analysis AND Pegasus real-time data in parallel
                 const [dashboardResponse, pegasusResponse] = await Promise.all([
                     fetch(`/api/workflow/${workflowId}/analysis`),
-                    fetch(`http://localhost:8080/api/workflows/${workflowId}/pegasus/full`)
+                    fetch(`http://localhost:8084/api/workflows/${workflowId}/full`)
                 ]);
 
                 const data = await dashboardResponse.json();
