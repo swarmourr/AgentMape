@@ -25,6 +25,9 @@ import aiohttp
 from aiohttp import web, ClientSession
 import uuid
 
+# Import Pegasus command executor
+from pegasus_commands import PegasusCommandExecutor
+
 # Configuration
 WS_HOST = os.getenv("WS_HOST", "localhost")
 WS_PORT = int(os.getenv("WS_PORT", "8765"))
@@ -2325,6 +2328,9 @@ class EnhancedPegasusMCPServer:
         self.auto_monitor_task = None
         self.monitor_interval = self.config.get("monitor_interval", 60)
 
+        # Initialize Pegasus command executor for real-time data
+        self.pegasus_executor = PegasusCommandExecutor(timeout=30)
+
         # Configuration settings
         self.http_port = self.config.get("http_port", 8080)
         self.mcp_port = self.config.get("mcp_port", 8765)
@@ -2427,6 +2433,12 @@ class EnhancedPegasusMCPServer:
         self.app.router.add_post('/api/files/get-content', self.handle_get_file_content)
 
         # Directory listing endpoint (for missing file detection)
+
+        # Pegasus command execution endpoints (real-time data)
+        self.app.router.add_get('/api/workflows/{workflow_id}/pegasus/status', self.handle_pegasus_status)
+        self.app.router.add_get('/api/workflows/{workflow_id}/pegasus/statistics', self.handle_pegasus_statistics)
+        self.app.router.add_get('/api/workflows/{workflow_id}/pegasus/analyzer', self.handle_pegasus_analyzer)
+        self.app.router.add_get('/api/workflows/{workflow_id}/pegasus/full', self.handle_pegasus_full_analysis)
         self.app.router.add_post('/api/files/list-directory', self.handle_list_directory)
 
     async def handle_health(self, request):
@@ -2480,7 +2492,7 @@ class EnhancedPegasusMCPServer:
             return web.json_response({"error": str(e)}, status=500)
 
     async def handle_get_all_workflows(self, request):
-        """Get all workflows from database including completed ones"""
+        """Get all workflows from database including completed ones and historical"""
         try:
             # Get all workflows from database
             all_workflows = workflows_table.all()
@@ -2495,11 +2507,37 @@ class EnhancedPegasusMCPServer:
                     "first_seen": wf.get("first_seen"),
                     "last_checked": wf.get("last_checked"),
                     "metadata_collected": wf.get("metadata_collected", False),
-                    "is_active": wf.get("workflow_id") in self.workflow_manager.registered_workflows
+                    "is_active": wf.get("workflow_id") in self.workflow_manager.registered_workflows,
+
+                    # Pipeline tracking fields
+                    "pipeline_step": wf.get("pipeline_step", "monitoring"),
+                    "current_agent": wf.get("current_agent", {}),
+                    "step_history": wf.get("step_history", []),
+
+                    # Historical workflow fields
+                    "is_historical": wf.get("is_historical", False),
+                    "run_number": wf.get("run_number", 1),
+                    "original_workflow_id": wf.get("original_workflow_id"),
+                    "superseded_at": wf.get("superseded_at"),
+                    "superseded_by": wf.get("superseded_by"),
+
+                    # Analysis fields
+                    "analysis_status": wf.get("analysis_status", "no_analysis"),
+                    "analysis_completed_at": wf.get("analysis_completed_at"),
+                    "analysis_summary": wf.get("analysis_summary", {}),
+
+                    # Plan fields
+                    "plan_status": wf.get("plan_status"),
+                    "plan_generated_at": wf.get("plan_generated_at"),
+
+                    # Execution fields
+                    "execution_status": wf.get("execution_status"),
+                    "execution_started_at": wf.get("execution_started_at")
                 }
                 workflows_list.append(workflow_info)
 
             # Sort by last_checked descending (most recent first)
+            # Historical workflows should appear with their original timing
             workflows_list.sort(key=lambda x: x.get("last_checked", ""), reverse=True)
 
             return web.json_response({
@@ -2700,6 +2738,135 @@ class EnhancedPegasusMCPServer:
 
         except Exception as e:
             logger.error(f"Error listing directory: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def handle_pegasus_status(self, request):
+        """Execute pegasus-status command for real-time workflow status"""
+        try:
+            workflow_id = request.match_info['workflow_id']
+            logger.info(f"Fetching real-time Pegasus status for {workflow_id}")
+
+            # Get workflow submit directory from database
+            workflow_record = workflows_table.get(Query().workflow_id == workflow_id)
+            if not workflow_record:
+                return web.json_response({"error": "Workflow not found"}, status=404)
+
+            submit_dir = workflow_record.get('iwd')
+            if not submit_dir:
+                return web.json_response({"error": "Submit directory not found"}, status=404)
+
+            # Execute pegasus-status
+            result = self.pegasus_executor.get_workflow_status(submit_dir)
+
+            return web.json_response(result)
+
+        except Exception as e:
+            logger.error(f"Error executing pegasus-status: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def handle_pegasus_statistics(self, request):
+        """Execute pegasus-statistics command for detailed workflow statistics"""
+        try:
+            workflow_id = request.match_info['workflow_id']
+            stat_type = request.query.get('type', 'summary')  # summary, all, workflow, jobs
+            logger.info(f"Fetching Pegasus statistics ({stat_type}) for {workflow_id}")
+
+            # Get workflow submit directory
+            workflow_record = workflows_table.get(Query().workflow_id == workflow_id)
+            if not workflow_record:
+                return web.json_response({"error": "Workflow not found"}, status=404)
+
+            submit_dir = workflow_record.get('iwd')
+            if not submit_dir:
+                return web.json_response({"error": "Submit directory not found"}, status=404)
+
+            # Execute pegasus-statistics
+            result = self.pegasus_executor.get_workflow_statistics(submit_dir, stat_type)
+
+            return web.json_response(result)
+
+        except Exception as e:
+            logger.error(f"Error executing pegasus-statistics: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def handle_pegasus_analyzer(self, request):
+        """Execute pegasus-analyzer command for ROOT CAUSE ANALYSIS"""
+        try:
+            workflow_id = request.match_info['workflow_id']
+            verbose = request.query.get('verbose', 'true').lower() == 'true'
+            logger.info(f"Fetching Pegasus analyzer output (root cause analysis) for {workflow_id}")
+
+            # Get workflow submit directory
+            workflow_record = workflows_table.get(Query().workflow_id == workflow_id)
+            if not workflow_record:
+                return web.json_response({"error": "Workflow not found"}, status=404)
+
+            submit_dir = workflow_record.get('iwd')
+            if not submit_dir:
+                return web.json_response({"error": "Submit directory not found"}, status=404)
+
+            # Execute pegasus-analyzer (THIS PROVIDES ROOT CAUSE vs CASCADE ERRORS!)
+            result = self.pegasus_executor.get_workflow_analyzer_output(submit_dir, verbose)
+
+            return web.json_response(result)
+
+        except Exception as e:
+            logger.error(f"Error executing pegasus-analyzer: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def handle_pegasus_full_analysis(self, request):
+        """Get comprehensive Pegasus analysis combining all commands"""
+        try:
+            workflow_id = request.match_info['workflow_id']
+            logger.info(f"Fetching full Pegasus analysis for {workflow_id}")
+
+            # Get workflow submit directory
+            workflow_record = workflows_table.get(Query().workflow_id == workflow_id)
+            if not workflow_record:
+                return web.json_response({"error": "Workflow not found"}, status=404)
+
+            submit_dir = workflow_record.get('iwd')
+            if not submit_dir:
+                return web.json_response({"error": "Submit directory not found"}, status=404)
+
+            # Execute all Pegasus commands in parallel
+            status_task = asyncio.create_task(asyncio.to_thread(
+                self.pegasus_executor.get_workflow_status, submit_dir
+            ))
+            analyzer_task = asyncio.create_task(asyncio.to_thread(
+                self.pegasus_executor.get_workflow_analyzer_output, submit_dir, True
+            ))
+            stats_task = asyncio.create_task(asyncio.to_thread(
+                self.pegasus_executor.get_workflow_statistics, submit_dir, "summary"
+            ))
+
+            # Wait for all to complete
+            status_result, analyzer_result, stats_result = await asyncio.gather(
+                status_task, analyzer_task, stats_task, return_exceptions=True
+            )
+
+            # Compile comprehensive result
+            full_analysis = {
+                "workflow_id": workflow_id,
+                "submit_dir": submit_dir,
+                "timestamp": datetime.now().isoformat(),
+                "status": status_result if not isinstance(status_result, Exception) else {"error": str(status_result)},
+                "analyzer": analyzer_result if not isinstance(analyzer_result, Exception) else {"error": str(analyzer_result)},
+                "statistics": stats_result if not isinstance(stats_result, Exception) else {"error": str(stats_result)},
+            }
+
+            # Extract key insights
+            if analyzer_result and analyzer_result.get('success'):
+                analysis = analyzer_result.get('analysis', {})
+                full_analysis['root_causes'] = analysis.get('root_causes', [])
+                full_analysis['has_failures'] = analysis.get('has_failures', False)
+                full_analysis['failed_jobs_count'] = len(analysis.get('failed_jobs', []))
+                full_analysis['held_jobs_count'] = len(analysis.get('held_jobs', []))
+
+            return web.json_response(full_analysis)
+
+        except Exception as e:
+            logger.error(f"Error executing full Pegasus analysis: {e}")
             return web.json_response({"error": str(e)}, status=500)
 
     # FIXED: Add the missing analysis queue processor

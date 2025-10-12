@@ -20,6 +20,9 @@ from enum import Enum
 from aiohttp import web, ClientSession
 import aiohttp
 
+# Import replica helper
+from replica_helper import ReplicaHelper
+
 # Configuration
 HTTP_PORT = int(os.getenv("HTTP_PORT", "8082"))
 MCP_PORT = int(os.getenv("MCP_PORT", "8767"))
@@ -195,12 +198,57 @@ TYPES OF REPAIRS:
    - Verify executable exists and is correct version
    - Check container/environment requirements
 
-4. WORKFLOW REGENERATION (when catalog changes aren't enough):
+4. REPLICA CATALOG ISSUES (missing input files, wrong paths):
+   ⚠️  CRITICAL - DO NOT EDIT braindump.yml (it's a GENERATED metadata file)
+   ✅ Instead, use these approaches:
+
+   a) HIGH CONFIDENCE - Typo detected (data1.json vs data.json):
+      - Update workflow GENERATOR script to fix the typo at source
+      - Regenerate workflow with corrected filename
+      - This ensures reproducibility and fixes it permanently
+
+   b) MEDIUM CONFIDENCE - File exists but different name:
+      - Use pegasus-rc-client to add/update replica catalog:
+        $ pegasus-rc-client insert --lfn <logical-name> --pfn file://<actual-path> --site local
+      - Or update replica catalog YAML/text file if separate
+      - DO NOT manually edit braindump.yml with yq/sed
+
+   c) LOW CONFIDENCE - Multiple candidates or unknown equivalence:
+      - Request approval before making changes
+      - Validate file size, format, and checksums match
+      - Check if files are scientifically equivalent
+      - Document assumptions clearly
+
+   d) NO SIMILAR FILES FOUND:
+      - Mark as manual_intervention required
+      - Cannot auto-fix if data truly missing
+      - Provide diagnostic steps to locate data
+
+   🔍 REPLICA INTELLIGENCE:
+   - You may receive replica analysis with similarity scores
+   - Use these scores to determine confidence level
+   - Similarity >90%: High confidence (likely typo)
+   - Similarity 70-90%: Medium (validation needed)
+   - Similarity <70%: Low (manual review required)
+
+   FILES TO NEVER MODIFY:
+   - braindump.yml (Pegasus-generated metadata)
+   - braindump.txt (execution metadata)
+   - Any files in .pegasus/ directory (internal state)
+   - Temporary execution scripts in /srv/./ paths
+
+   PROPER TARGETS FOR REPLICA FIXES:
+   - Workflow generator script (Python file that creates workflow)
+   - Separate replica catalog file (replicas.yml, rc.txt)
+   - Site catalog for path corrections
+   - Use Pegasus tools (pegasus-rc-client) when possible
+
+5. WORKFLOW REGENERATION (when catalog changes aren't enough):
    - Modify workflow generator Python script
    - Re-run: pegasus-plan workflow.yml
    - This creates fresh workflow with updated settings
 
-5. UNKNOWN/COMPLEX ERRORS (when error doesn't match common patterns):
+6. UNKNOWN/COMPLEX ERRORS (when error doesn't match common patterns):
    - Provide diagnostic commands to investigate the issue
    - Commands: pegasus-analyzer -v, condor_q -analyze, condor_q -better-analyze
    - Check job logs: cat <submit-dir>/*/jobstate.log
@@ -1093,6 +1141,10 @@ class LLMPlanner:
         self.prompt_builder = PromptBuilder()
         self.validator = PlanValidator()
 
+        # Initialize replica helper for intelligent replica handling
+        monitor_url = self.config.get("monitor_url", "http://localhost:8080")
+        self.replica_helper = ReplicaHelper(monitor_url=monitor_url)
+
         # Database
         self.plans_table = plans_table
         self.execution_requests_table = execution_requests_table
@@ -1659,6 +1711,100 @@ IMPORTANT: Keep your response concise. Only include the JSON object, no extra te
             logger.error(f"Error requesting directory listing from Monitor: {e}")
             self.failed_files_cache.add(directory_path)
             return {"success": False, "error": str(e)}
+
+    async def analyze_replica_with_intelligence(
+        self,
+        missing_file_path: str,
+        directory_listing: Dict[str, Any],
+        workflow_context: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Use ReplicaHelper to intelligently analyze missing replica and suggest fixes
+        This provides smart recommendations before sending to LLM
+        """
+        logger.info(f"Analyzing replica with intelligence: {missing_file_path}")
+
+        files = directory_listing.get('files', [])
+
+        if not files:
+            logger.warning("No files in directory listing")
+            return {
+                "success": False,
+                "reason": "Directory is empty or inaccessible"
+            }
+
+        # Use ReplicaHelper to create comprehensive repair plan
+        repair_plan = self.replica_helper.create_repair_plan(
+            missing_file_path=missing_file_path,
+            directory_listing=files,
+            workflow_context=workflow_context
+        )
+
+        logger.info(f"Replica analysis complete:")
+        logger.info(f"  Strategy: {repair_plan['strategy']}")
+        logger.info(f"  Risk Level: {repair_plan['risk_level']}")
+        logger.info(f"  Confidence: {repair_plan['confidence']}")
+        logger.info(f"  Similar files found: {repair_plan['similar_files_count']}")
+
+        # Print summary to console
+        print(f"\n{'='*80}")
+        print(f"{TerminalColor.BRIGHT_CYAN.apply('🔍 REPLICA INTELLIGENCE ANALYSIS')}")
+        print(f"{'='*80}")
+        print(f"{TerminalColor.CYAN.apply('Missing File:')} {missing_file_path}")
+        print(f"{TerminalColor.CYAN.apply('Directory:')} {repair_plan['directory_checked']}")
+        print(f"{TerminalColor.CYAN.apply('Files Found:')} {repair_plan['files_found']}")
+        print(f"{TerminalColor.CYAN.apply('Similar Files:')} {repair_plan['similar_files_count']}")
+        print(f"\n{TerminalColor.BRIGHT_WHITE.apply('Strategy:')} {repair_plan['strategy']}")
+        print(f"{TerminalColor.BRIGHT_WHITE.apply('Risk Level:')} {self._color_risk_level(repair_plan['risk_level'])}")
+        print(f"{TerminalColor.BRIGHT_WHITE.apply('Confidence:')} {repair_plan['confidence']:.0%}")
+        print(f"{TerminalColor.BRIGHT_WHITE.apply('Requires Approval:')} {repair_plan['requires_approval']}")
+
+        # Show similar files if any
+        if repair_plan['similar_files']:
+            print(f"\n{TerminalColor.BRIGHT_GREEN.apply('Similar Files Detected:')}")
+            for idx, similar in enumerate(repair_plan['similar_files'][:3], 1):
+                sim_score = similar['similarity']['score']
+                confidence = similar['similarity']['confidence']
+                print(f"  {idx}. {similar['filename']}")
+                print(f"     Similarity: {sim_score:.0%} ({confidence})")
+                print(f"     Size: {similar['size']} bytes")
+                print(f"     Reason: {similar['similarity']['reason']}")
+
+        # Show recommended actions
+        if repair_plan['recommended_actions']:
+            print(f"\n{TerminalColor.BRIGHT_YELLOW.apply('Recommended Actions:')}")
+            for idx, action in enumerate(repair_plan['recommended_actions'], 1):
+                print(f"  {idx}. {action}")
+
+        # Show commands if available
+        if repair_plan.get('commands'):
+            print(f"\n{TerminalColor.BRIGHT_MAGENTA.apply('Suggested Commands:')}")
+            for cmd in repair_plan['commands']:
+                print(f"  $ {cmd}")
+
+        # Show what to avoid
+        if repair_plan.get('avoid_actions'):
+            print(f"\n{TerminalColor.BRIGHT_RED.apply('⚠️  DO NOT:')}")
+            for avoid in repair_plan['avoid_actions']:
+                print(f"  ✗ {avoid}")
+
+        print(f"{'='*80}\n")
+
+        return {
+            "success": True,
+            "repair_plan": repair_plan
+        }
+
+    def _color_risk_level(self, risk_level: str) -> str:
+        """Color code risk levels"""
+        colors = {
+            "low": TerminalColor.GREEN,
+            "medium": TerminalColor.YELLOW,
+            "high": TerminalColor.BRIGHT_RED,
+            "critical": TerminalColor.BRIGHT_RED
+        }
+        color = colors.get(risk_level.lower(), TerminalColor.WHITE)
+        return color.apply(risk_level.upper())
 
     async def request_file_from_monitor(self, file_path: str, workflow_id: str = None) -> Dict[str, Any]:
         """Request file content from Monitor (which has access to cluster filesystem)"""
