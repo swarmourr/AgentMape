@@ -51,29 +51,26 @@ class PegasusProviderService:
 
         # 2️⃣ Add the CORS middleware here
         @web.middleware
-        async def custom_cors_middleware(request, handler):
-            # Handle preflight OPTIONS requests
+        async def cors_middleware(request, handler):
+            # Handle preflight OPTIONS request
             if request.method == "OPTIONS":
                 resp = web.Response(status=200)
             else:
                 resp = await handler(request)
 
-            origin = request.headers.get("Origin")
-            if origin:
-                resp.headers["Access-Control-Allow-Origin"] = origin
-                resp.headers["Access-Control-Allow-Credentials"] = "true"
-                resp.headers["Access-Control-Allow-Headers"] = "*"
-                resp.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+            # Add CORS headers
+            origin = request.headers.get("Origin", "*")
+            resp.headers["Access-Control-Allow-Origin"] = origin
+            resp.headers["Access-Control-Allow-Credentials"] = "true"
+            resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
+            resp.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
             return resp
 
-        self.app.middlewares.append(custom_cors_middleware)
+        self.app.middlewares.append(cors_middleware)
 
-        # Catch-all OPTIONS handler for preflight requests
-        async def handle_options(request):
-            return web.Response(status=200)
-        self.app.router.add_route('OPTIONS', '/{tail:.*}', handle_options)
+        # No need for separate catch-all OPTIONS route — middleware handles it
 
-        # 3️⃣ Then continue setting up routes, etc.
+        # 3️⃣ Continue setting up routes
         self.setup_routes()
 
         # Service metadata, logging, etc...
