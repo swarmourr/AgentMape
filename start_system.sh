@@ -85,7 +85,7 @@ sleep 2
 echo ""
 echo "📊 Starting Dashboard (port 5000)..."
 cd Dashboard
-python dashboard_app.py > ../logs/dashboard.log 2>&1 &
+python dashboard_server.py > ../logs/dashboard.log 2>&1 &
 DASHBOARD_PID=$!
 echo "   Dashboard PID: $DASHBOARD_PID"
 cd ..

@@ -414,6 +414,21 @@
 
     <!-- Main Container -->
     <div class="container">
+        <!-- Workflow DAG Visualization -->
+        <div style="background: white; padding: 24px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 24px;" id="workflow-dag-section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0; font-size: 20px; color: var(--gray-900);">📊 Workflow Structure</h2>
+                <button onclick="toggleDAGView()" style="padding: 8px 16px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                    Toggle View
+                </button>
+            </div>
+            <div id="workflow-dag-content">
+                <div style="text-align: center; padding: 40px; color: var(--gray-400);">
+                    Loading workflow structure...
+                </div>
+            </div>
+        </div>
+
         <div class="pipeline-steps" id="pipeline-steps">
             <div class="loading">
                 <div class="spinner"></div>
@@ -428,37 +443,203 @@
 
         // Load data on page load
         loadWorkflowData();
+        loadWorkflowDAG();
 
         // Auto-refresh every 15 seconds
-        setInterval(loadWorkflowData, 15000);
+        setInterval(() => {
+            loadWorkflowData();
+            loadWorkflowDAG();
+        }, 15000);
 
         async function loadWorkflowData() {
             try {
                 document.getElementById('workflow-id-display').textContent = workflowId;
 
+                console.log('🔍 Loading workflow data for:', workflowId);
+
                 // Fetch both dashboard analysis AND Pegasus real-time data in parallel
+                console.log('📡 Fetching dashboard analysis...');
+                console.log('📡 Fetching Pegasus data...');
+
                 const [dashboardResponse, pegasusResponse] = await Promise.all([
                     fetch(`/api/workflow/${workflowId}/analysis`),
                     fetch(`http://localhost:8084/api/workflows/${workflowId}/full`)
                 ]);
 
+                console.log('✅ Dashboard response status:', dashboardResponse.status);
+                console.log('✅ Pegasus response status:', pegasusResponse.status);
+
                 const data = await dashboardResponse.json();
+                console.log('📊 Dashboard data:', data);
+
                 let pegasusData = null;
 
                 if (pegasusResponse.ok) {
                     pegasusData = await pegasusResponse.json();
                     console.log('📊 Pegasus real-time data loaded:', pegasusData);
+                } else {
+                    console.warn('⚠️ Pegasus Provider not available or workflow not found');
+                    const pegasusError = await pegasusResponse.text();
+                    console.warn('Pegasus error:', pegasusError);
                 }
 
+                console.log('🎨 Rendering pipeline...');
                 renderPipeline(data, pegasusData);
+                console.log('✅ Pipeline rendered successfully');
 
             } catch (error) {
-                console.error('Error loading workflow data:', error);
+                console.error('❌ Error loading workflow data:', error);
+                console.error('Error details:', error.message);
+                console.error('Stack trace:', error.stack);
+
                 document.getElementById('pipeline-steps').innerHTML = `
                     <div style="text-align: center; padding: 40px; color: var(--danger);">
-                        <p>Error loading workflow data</p>
+                        <h3>Error loading workflow data</h3>
+                        <p style="margin: 20px 0;">Check browser console (F12) for details</p>
+                        <details style="text-align: left; max-width: 600px; margin: 20px auto; background: #f5f5f5; padding: 15px; border-radius: 8px;">
+                            <summary style="cursor: pointer; font-weight: bold;">Error Details</summary>
+                            <pre style="margin-top: 10px; white-space: pre-wrap;">${error.message}\n\n${error.stack}</pre>
+                        </details>
+                        <button onclick="location.reload()" style="margin-top: 20px; padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer;">
+                            Retry
+                        </button>
                     </div>
                 `;
+            }
+        }
+
+        // Load and render workflow DAG
+        async function loadWorkflowDAG() {
+            try {
+                const response = await fetch(`http://localhost:8084/api/workflows/${workflowId}/jobs`);
+                if (!response.ok) {
+                    console.warn('Could not load workflow jobs');
+                    document.getElementById('workflow-dag-content').innerHTML = `
+                        <div style="text-align: center; padding: 20px; color: var(--gray-400);">
+                            Workflow structure not available
+                        </div>
+                    `;
+                    return;
+                }
+
+                const data = await response.json();
+                if (data.success && data.jobs) {
+                    renderWorkflowDAG(data.jobs);
+                } else {
+                    document.getElementById('workflow-dag-content').innerHTML = `
+                        <div style="text-align: center; padding: 20px; color: var(--gray-400);">
+                            No job data available
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading workflow DAG:', error);
+                document.getElementById('workflow-dag-content').innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: var(--gray-400);">
+                        Error loading workflow structure
+                    </div>
+                `;
+            }
+        }
+
+        function renderWorkflowDAG(jobs) {
+            // Group jobs by state
+            const jobsByState = {
+                'success': [],
+                'running': [],
+                'failed': [],
+                'held': [],
+                'queued': [],
+                'ready': [],
+                'unsubmitted': [],
+                'other': []
+            };
+
+            jobs.forEach(job => {
+                const state = job.state || 'other';
+                if (jobsByState[state]) {
+                    jobsByState[state].push(job);
+                } else {
+                    jobsByState['other'].push(job);
+                }
+            });
+
+            // Color mapping
+            const stateColors = {
+                'success': '#10b981',
+                'running': '#3b82f6',
+                'failed': '#ef4444',
+                'held': '#f59e0b',
+                'queued': '#8b5cf6',
+                'ready': '#06b6d4',
+                'unsubmitted': '#6b7280',
+                'other': '#9ca3af'
+            };
+
+            const stateIcons = {
+                'success': '✅',
+                'running': '⚙️',
+                'failed': '❌',
+                'held': '⏸️',
+                'queued': '📋',
+                'ready': '🟢',
+                'unsubmitted': '⚪',
+                'other': '❓'
+            };
+
+            let html = `
+                <div style="margin-bottom: 20px;">
+                    <div style="display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 24px;">
+                        ${Object.keys(jobsByState).filter(state => jobsByState[state].length > 0).map(state => `
+                            <div style="display: flex; align-items: center; gap: 8px; padding: 8px 16px; background: ${stateColors[state]}15; border-left: 4px solid ${stateColors[state]}; border-radius: 6px;">
+                                <span style="font-size: 20px;">${stateIcons[state]}</span>
+                                <div>
+                                    <div style="font-weight: 600; color: ${stateColors[state]}; text-transform: capitalize;">${state}</div>
+                                    <div style="font-size: 24px; font-weight: 700; color: var(--gray-900);">${jobsByState[state].length}</div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <div style="border-top: 1px solid #e5e7eb; padding-top: 20px;">
+                    <h3 style="font-size: 16px; margin-bottom: 16px; color: var(--gray-700);">Job Details</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; max-height: 400px; overflow-y: auto;">
+                        ${jobs.map(job => `
+                            <div style="padding: 12px; border: 1px solid #e5e7eb; border-left: 4px solid ${stateColors[job.state] || stateColors['other']}; border-radius: 6px; background: white;">
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                    <span style="font-size: 16px;">${stateIcons[job.state] || stateIcons['other']}</span>
+                                    <div style="font-weight: 600; font-size: 13px; color: var(--gray-900); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${job.job_name}">
+                                        ${job.job_name}
+                                    </div>
+                                </div>
+                                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                    <span style="font-size: 11px; padding: 2px 8px; background: ${stateColors[job.state] || stateColors['other']}15; color: ${stateColors[job.state] || stateColors['other']}; border-radius: 4px; font-weight: 500;">
+                                        ${job.state}
+                                    </span>
+                                    ${job.job_type !== 'compute' ? `
+                                        <span style="font-size: 11px; padding: 2px 8px; background: #f3f4f6; color: #6b7280; border-radius: 4px;">
+                                            ${job.job_type}
+                                        </span>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('workflow-dag-content').innerHTML = html;
+        }
+
+        let dagViewMode = 'summary';
+        function toggleDAGView() {
+            // Can be extended to toggle between summary and detailed views
+            const content = document.getElementById('workflow-dag-content');
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+            } else {
+                content.style.display = 'none';
             }
         }
 

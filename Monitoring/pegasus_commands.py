@@ -440,6 +440,90 @@ class PegasusCommandExecutor:
                 "error": str(e)
             }
 
+    def get_workflow_jobs(self, submit_dir: str) -> Dict[str, Any]:
+        """
+        Get workflow jobs structure using pegasus-status --long
+
+        Returns job list with states, dependencies, and execution info
+        """
+        cache_key = f"{submit_dir}_jobs"
+
+        command = ['pegasus-status', '--long', '--noqueue', submit_dir]
+        result = self.execute_command(command, cache_key=cache_key)
+
+        if not result['success']:
+            return {
+                "success": False,
+                "error": result['error'],
+                "raw_output": result['output']
+            }
+
+        # Parse job information
+        output = result['output']
+        parsed = self._parse_pegasus_jobs(output)
+
+        return {
+            "success": True,
+            "jobs": parsed,
+            "raw_output": output,
+            "timestamp": result['timestamp']
+        }
+
+    def _parse_pegasus_jobs(self, output: str) -> List[Dict[str, Any]]:
+        """Parse pegasus-status --long output to extract job information"""
+        jobs = []
+
+        # Look for job listing section
+        # Example format:
+        # UNRDY  preprocess_ID0000001
+        # RUN    process_ID0000002
+        # POST   merge_ID0000003
+        # DONE   finalize_ID0000004
+
+        job_pattern = re.compile(r'^\s*(UNRDY|READY|PRE|SUBMIT|RUN|POST|DONE|FAIL|ERR|HELD)\s+([^\s]+)', re.MULTILINE)
+
+        for match in job_pattern.finditer(output):
+            state = match.group(1).strip()
+            job_name = match.group(2).strip()
+
+            # Map Pegasus states to standard states
+            state_map = {
+                'UNRDY': 'unsubmitted',
+                'READY': 'ready',
+                'PRE': 'pre_script',
+                'SUBMIT': 'queued',
+                'RUN': 'running',
+                'POST': 'post_script',
+                'DONE': 'success',
+                'FAIL': 'failed',
+                'ERR': 'failed',
+                'HELD': 'held'
+            }
+
+            jobs.append({
+                "job_name": job_name,
+                "state": state_map.get(state, state.lower()),
+                "raw_state": state,
+                "job_type": self._infer_job_type(job_name)
+            })
+
+        return jobs
+
+    def _infer_job_type(self, job_name: str) -> str:
+        """Infer job type from job name"""
+        name_lower = job_name.lower()
+
+        if 'stage_in' in name_lower or 'stagein' in name_lower:
+            return 'stage_in'
+        elif 'stage_out' in name_lower or 'stageout' in name_lower:
+            return 'stage_out'
+        elif 'register' in name_lower:
+            return 'register'
+        elif 'cleanup' in name_lower:
+            return 'cleanup'
+        else:
+            return 'compute'
+
     def clear_cache(self):
         """Clear command result cache"""
         self._command_cache.clear()

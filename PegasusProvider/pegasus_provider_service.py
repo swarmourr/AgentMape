@@ -86,6 +86,7 @@ class PegasusProviderService:
         self.app.router.add_get('/api/workflows/{workflow_id}/status', self.handle_status)
         self.app.router.add_get('/api/workflows/{workflow_id}/analyzer', self.handle_analyzer)
         self.app.router.add_get('/api/workflows/{workflow_id}/statistics', self.handle_statistics)
+        self.app.router.add_get('/api/workflows/{workflow_id}/jobs', self.handle_jobs)
         self.app.router.add_get('/api/workflows/{workflow_id}/full', self.handle_full_analysis)
 
         # Batch query endpoint
@@ -214,6 +215,34 @@ class PegasusProviderService:
 
         except Exception as e:
             logger.error(f"Error in handle_statistics: {e}")
+            return web.json_response({
+                "success": False,
+                "error": str(e)
+            }, status=500)
+
+    async def handle_jobs(self, request):
+        """Get workflow jobs and DAG structure"""
+        try:
+            workflow_id = request.match_info['workflow_id']
+            logger.info(f"Jobs request for workflow: {workflow_id}")
+
+            # Get submit directory from Monitor
+            submit_dir = await self.get_workflow_submit_dir(workflow_id)
+            if not submit_dir:
+                return web.json_response({
+                    "success": False,
+                    "error": "Workflow not found or submit directory unknown"
+                }, status=404)
+
+            # Execute pegasus-status --long to get jobs
+            result = await asyncio.to_thread(
+                self.executor.get_workflow_jobs, submit_dir
+            )
+
+            return web.json_response(result)
+
+        except Exception as e:
+            logger.error(f"Error in handle_jobs: {e}")
             return web.json_response({
                 "success": False,
                 "error": str(e)
