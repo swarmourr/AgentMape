@@ -24,6 +24,7 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime
 from aiohttp import web
 import aiohttp_cors
+from flask_cors import CORS
 
 # Add parent directory to path to import pegasus_commands
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'Monitoring'))
@@ -49,12 +50,13 @@ class PegasusProviderService:
         self.app = web.Application()
 
         # Setup CORS
+        # Setup CORS (for frontend at localhost:3000)
         self.cors = aiohttp_cors.setup(self.app, defaults={
-            "*": aiohttp_cors.ResourceOptions(
+            "http://localhost:8084": aiohttp_cors.ResourceOptions(
                 allow_credentials=True,
                 expose_headers="*",
-                allow_headers="*",
-                allow_methods="*"
+                allow_headers=["*"],
+                allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"]
             )
         })
 
