@@ -112,8 +112,8 @@ class PegasusProviderService:
         self.app.router.add_get('/api/cache/stats', self.handle_cache_stats)
 
         # Apply CORS to all routes
-        for route in list(self.app.router.routes()):
-            self.cors.add(route)
+        #for route in list(self.app.router.routes()):
+        #    self.cors.add(route)
 
     async def handle_health(self, request):
         """Health check endpoint"""
