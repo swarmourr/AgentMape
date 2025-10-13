@@ -67,14 +67,14 @@ class PegasusProviderService:
     def setup_routes(self):
         """Setup HTTP routes"""
         
-        # Configuration CORS corrigée
+        # Configuration CORS plus permissive
         cors = aiohttp_cors.setup(self.app, defaults={
             "*": aiohttp_cors.ResourceOptions(
-                allow_credentials=True,
-                expose_headers="*",
-                allow_headers="*",
-                allow_methods="*",
-                max_age=3600
+                    allow_credentials=True,
+                    expose_headers="*",
+                    allow_headers="*",
+                    allow_methods="*",
+                    max_age=3600
             )
         })
 
@@ -86,6 +86,7 @@ class PegasusProviderService:
             ('GET', '/api/workflows/{workflow_id}/analyzer', self.handle_analyzer),
             ('GET', '/api/workflows/{workflow_id}/statistics', self.handle_statistics), 
             ('GET', '/api/workflows/{workflow_id}/full', self.handle_full_analysis),
+            ('GET', '/api/workflows/{workflow_id}/jobs', self.handle_jobs),  # Ajout de la route jobs
             ('POST', '/api/workflows/batch', self.handle_batch_query),
             ('DELETE', '/api/cache', self.handle_clear_cache),
             ('GET', '/api/cache/stats', self.handle_cache_stats)
@@ -97,13 +98,17 @@ class PegasusProviderService:
             cors.add(route)
 
     def get_cors_headers(self):
-        """Headers CORS par défaut"""
+        """Headers CORS optimisés pour Pinggy avec passpreflight"""
         return {
             "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "*",
-            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, Accept, Origin",
             "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Max-Age": "3600"
+            "Access-Control-Max-Age": "3600",
+            "Access-Control-Expose-Headers": "*",
+            "Cross-Origin-Resource-Policy": "cross-origin",
+            "Cross-Origin-Embedder-Policy": "require-corp",
+            "Cross-Origin-Opener-Policy": "same-origin"
         }
 
     async def handle_health(self, request):
