@@ -50,25 +50,28 @@ class PegasusProviderService:
         self.app = web.Application()
 
         # 2️⃣ Add the CORS middleware here
-        async def custom_cors_factory(app, handler):
-            async def middleware(request):
-                # Handle preflight OPTIONS requests
-                if request.method == "OPTIONS":
-                    resp = web.Response(status=200)
-                else:
-                    resp = await handler(request)
+        @web.middleware
+        async def custom_cors_middleware(request, handler):
+            # Handle preflight OPTIONS requests
+            if request.method == "OPTIONS":
+                resp = web.Response(status=200)
+            else:
+                resp = await handler(request)
 
-                origin = request.headers.get("Origin")
-                if origin:
-                    resp.headers["Access-Control-Allow-Origin"] = origin
-                    resp.headers["Access-Control-Allow-Credentials"] = "true"
-                    resp.headers["Access-Control-Allow-Headers"] = "*"
-                    resp.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-                return resp
+            origin = request.headers.get("Origin")
+            if origin:
+                resp.headers["Access-Control-Allow-Origin"] = origin
+                resp.headers["Access-Control-Allow-Credentials"] = "true"
+                resp.headers["Access-Control-Allow-Headers"] = "*"
+                resp.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+            return resp
 
-            return middleware
+        self.app.middlewares.append(custom_cors_middleware)
 
-        self.app.middlewares.append(custom_cors_factory)
+        # Catch-all OPTIONS handler for preflight requests
+        async def handle_options(request):
+            return web.Response(status=200)
+        self.app.router.add_route('OPTIONS', '/{tail:.*}', handle_options)
 
         # 3️⃣ Then continue setting up routes, etc.
         self.setup_routes()
@@ -87,6 +90,7 @@ class PegasusProviderService:
                 "caching"
             ]
         }
+
 
 
     def setup_routes(self):
