@@ -67,14 +67,13 @@ class PegasusProviderService:
     def setup_routes(self):
         """Setup HTTP routes"""
         
-        # Configuration CORS plus permissive
+        # Configuration CORS corrigée
         cors = aiohttp_cors.setup(self.app, defaults={
             "*": aiohttp_cors.ResourceOptions(
                 allow_credentials=True,
                 expose_headers="*",
-                allow_headers="*",  # Autoriser tous les en-têtes
-                allow_methods="*",  # Autoriser toutes les méthodes
-                allow_origin="*",   # Autoriser toutes les origines
+                allow_headers="*",
+                allow_methods="*",
                 max_age=3600
             )
         })
@@ -85,7 +84,7 @@ class PegasusProviderService:
             ('GET', '/api/info', self.handle_service_info),
             ('GET', '/api/workflows/{workflow_id}/status', self.handle_status),
             ('GET', '/api/workflows/{workflow_id}/analyzer', self.handle_analyzer),
-            ('GET', '/api/workflows/{workflow_id}/statistics', self.handle_statistics),
+            ('GET', '/api/workflows/{workflow_id}/statistics', self.handle_statistics), 
             ('GET', '/api/workflows/{workflow_id}/full', self.handle_full_analysis),
             ('POST', '/api/workflows/batch', self.handle_batch_query),
             ('DELETE', '/api/cache', self.handle_clear_cache),
