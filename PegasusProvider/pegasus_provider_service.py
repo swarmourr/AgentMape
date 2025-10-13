@@ -49,10 +49,10 @@ class PegasusProviderService:
         self.executor = PegasusCommandExecutor(timeout=30)
         self.app = web.Application()
 
-        # ---- Custom CORS Middleware (allow all origins safely in dev) ----
+        # 2️⃣ Add the CORS middleware here
         async def custom_cors_factory(app, handler):
             async def middleware(request):
-                # Handle preflight (OPTIONS) requests
+                # Handle preflight OPTIONS requests
                 if request.method == "OPTIONS":
                     resp = web.Response(status=200)
                 else:
@@ -68,10 +68,9 @@ class PegasusProviderService:
 
             return middleware
 
-        # Add the middleware
         self.app.middlewares.append(custom_cors_factory)
 
-        # ---- Continue with normal setup ----
+        # 3️⃣ Then continue setting up routes, etc.
         self.setup_routes()
 
         # Service metadata, logging, etc...
