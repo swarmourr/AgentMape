@@ -67,13 +67,14 @@ class PegasusProviderService:
     def setup_routes(self):
         """Setup HTTP routes"""
         
-        # Configuration CORS unique
+        # Configuration CORS plus permissive
         cors = aiohttp_cors.setup(self.app, defaults={
             "*": aiohttp_cors.ResourceOptions(
                 allow_credentials=True,
                 expose_headers="*",
-                allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
-                allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+                allow_headers="*",  # Autoriser tous les en-têtes
+                allow_methods="*",  # Autoriser toutes les méthodes
+                allow_origin="*",   # Autoriser toutes les origines
                 max_age=3600
             )
         })
@@ -100,8 +101,10 @@ class PegasusProviderService:
         """Headers CORS par défaut"""
         return {
             "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, POST, OPTIONS, DELETE",
-            "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With"
+            "Access-Control-Allow-Methods": "*",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Max-Age": "3600"
         }
 
     async def handle_health(self, request):
@@ -243,14 +246,13 @@ class PegasusProviderService:
                 self.executor.get_workflow_jobs, submit_dir
             )
 
-            return web.json_response(result)
+            return web.json_response(result, headers=self.get_cors_headers())
 
         except Exception as e:
-            logger.error(f"Error in handle_jobs: {e}")
             return web.json_response({
                 "success": False,
                 "error": str(e)
-            }, status=500)
+            }, status=500, headers=self.get_cors_headers())
 
     async def handle_full_analysis(self, request):
         """Execute all Pegasus commands and combine results"""
@@ -300,14 +302,13 @@ class PegasusProviderService:
                 full_analysis['failed_jobs_count'] = len(analysis.get('failed_jobs', []))
                 full_analysis['held_jobs_count'] = len(analysis.get('held_jobs', []))
 
-            return web.json_response(full_analysis)
+            return web.json_response(full_analysis, headers=self.get_cors_headers())
 
         except Exception as e:
-            logger.error(f"Error in handle_full_analysis: {e}")
             return web.json_response({
                 "success": False,
                 "error": str(e)
-            }, status=500)
+            }, status=500, headers=self.get_cors_headers())
 
     async def handle_batch_query(self, request):
         """
