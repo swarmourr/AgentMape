@@ -1886,7 +1886,7 @@
                             // Only fetch for failed/held workflows
                             if (wf.state === 'Failure' || wf.state === 'Failed' || wf.problems_count > 0) {
                                 const analyzerResponse = await fetch(
-                                    `https://mffmy-149-165-153-107.a.free.pinggy.link/api/workflows/${wf.workflow_id}/analyzer?verbose=false`,
+                                    `http://localhost:8084/api/workflows/${wf.workflow_id}/analyzer?verbose=false`,
                                     { timeout: 2000 }
                                 );
                                 if (analyzerResponse.ok) {

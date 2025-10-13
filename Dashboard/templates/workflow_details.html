@@ -463,7 +463,7 @@
 
                 const [dashboardResponse, pegasusResponse] = await Promise.all([
                     fetch(`/api/workflow/${workflowId}/analysis`),
-                    fetch(`https://mffmy-149-165-153-107.a.free.pinggy.link/api/workflows/${workflowId}/full`)
+                    fetch(`http://localhost:8084/api/workflows/${workflowId}/full`)
                 ]);
 
                 console.log('✅ Dashboard response status:', dashboardResponse.status);
@@ -511,7 +511,7 @@
         // Load and render workflow DAG
         async function loadWorkflowDAG() {
             try {
-                const response = await fetch(`https://mffmy-149-165-153-107.a.free.pinggy.link/api/workflows/${workflowId}/jobs`);
+                const response = await fetch(`http://localhost:8084/api/workflows/${workflowId}/jobs`);
                 if (!response.ok) {
                     console.warn('Could not load workflow jobs');
                     document.getElementById('workflow-dag-content').innerHTML = `

@@ -24,7 +24,6 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime
 from aiohttp import web
 import aiohttp_cors
-from flask_cors import CORS
 
 # Add parent directory to path to import pegasus_commands
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'Monitoring'))
@@ -48,32 +47,7 @@ class PegasusProviderService:
     def __init__(self):
         self.executor = PegasusCommandExecutor(timeout=30)
         self.app = web.Application()
-
-        # 2️⃣ Add the CORS middleware here
-        @web.middleware
-        async def cors_middleware(request, handler):
-            # Handle preflight OPTIONS request
-            if request.method == "OPTIONS":
-                resp = web.Response(status=200)
-            else:
-                resp = await handler(request)
-
-            # Add CORS headers
-            origin = request.headers.get("Origin", "*")
-            resp.headers["Access-Control-Allow-Origin"] = origin
-            resp.headers["Access-Control-Allow-Credentials"] = "true"
-            resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
-            resp.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-            return resp
-
-        self.app.middlewares.append(cors_middleware)
-
-        # No need for separate catch-all OPTIONS route — middleware handles it
-
-        # 3️⃣ Continue setting up routes
         self.setup_routes()
-
-        # Service metadata, logging, etc...
         self.service_info = {
             "name": "Pegasus Data Provider",
             "version": "1.0.0",
@@ -92,36 +66,51 @@ class PegasusProviderService:
 
     def setup_routes(self):
         """Setup HTTP routes"""
+        
+        # Configuration CORS unique
+        cors = aiohttp_cors.setup(self.app, defaults={
+            "*": aiohttp_cors.ResourceOptions(
+                allow_credentials=True,
+                expose_headers="*",
+                allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
+                allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+                max_age=3600
+            )
+        })
 
-        # Health check
-        self.app.router.add_get('/health', self.handle_health)
-        self.app.router.add_get('/api/info', self.handle_service_info)
+        # Routes avec CORS
+        routes = [
+            ('GET', '/health', self.handle_health),
+            ('GET', '/api/info', self.handle_service_info),
+            ('GET', '/api/workflows/{workflow_id}/status', self.handle_status),
+            ('GET', '/api/workflows/{workflow_id}/analyzer', self.handle_analyzer),
+            ('GET', '/api/workflows/{workflow_id}/statistics', self.handle_statistics),
+            ('GET', '/api/workflows/{workflow_id}/full', self.handle_full_analysis),
+            ('POST', '/api/workflows/batch', self.handle_batch_query),
+            ('DELETE', '/api/cache', self.handle_clear_cache),
+            ('GET', '/api/cache/stats', self.handle_cache_stats)
+        ]
 
-        # Individual workflow queries
-        self.app.router.add_get('/api/workflows/{workflow_id}/status', self.handle_status)
-        self.app.router.add_get('/api/workflows/{workflow_id}/analyzer', self.handle_analyzer)
-        self.app.router.add_get('/api/workflows/{workflow_id}/statistics', self.handle_statistics)
-        self.app.router.add_get('/api/workflows/{workflow_id}/jobs', self.handle_jobs)
-        self.app.router.add_get('/api/workflows/{workflow_id}/full', self.handle_full_analysis)
+        # Application des routes avec CORS
+        for method, path, handler in routes:
+            route = self.app.router.add_route(method, path, handler)
+            cors.add(route)
 
-        # Batch query endpoint
-        self.app.router.add_post('/api/workflows/batch', self.handle_batch_query)
-
-        # Cache management
-        self.app.router.add_delete('/api/cache', self.handle_clear_cache)
-        self.app.router.add_get('/api/cache/stats', self.handle_cache_stats)
-
-        # Apply CORS to all routes
-        #for route in list(self.app.router.routes()):
-        #    self.cors.add(route)
+    def get_cors_headers(self):
+        """Headers CORS par défaut"""
+        return {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, OPTIONS, DELETE",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With"
+        }
 
     async def handle_health(self, request):
-        """Health check endpoint"""
+        """Health check endpoint avec CORS"""
         return web.json_response({
             "status": "healthy",
             "service": "pegasus_data_provider",
             "timestamp": datetime.now().isoformat()
-        })
+        }, headers=self.get_cors_headers())
 
     async def handle_service_info(self, request):
         """Return service information"""
