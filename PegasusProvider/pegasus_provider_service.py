@@ -49,20 +49,32 @@ class PegasusProviderService:
         self.executor = PegasusCommandExecutor(timeout=30)
         self.app = web.Application()
 
-        # Setup CORS
-        # Setup CORS (for frontend at localhost:3000)
-        self.cors = aiohttp_cors.setup(self.app, defaults={
-            "http://localhost:8084": aiohttp_cors.ResourceOptions(
-                allow_credentials=True,
-                expose_headers="*",
-                allow_headers=["*"],
-                allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"]
-            )
-        })
+        # ---- Custom CORS Middleware (allow all origins safely in dev) ----
+        async def custom_cors_factory(app, handler):
+            async def middleware(request):
+                # Handle preflight (OPTIONS) requests
+                if request.method == "OPTIONS":
+                    resp = web.Response(status=200)
+                else:
+                    resp = await handler(request)
 
+                origin = request.headers.get("Origin")
+                if origin:
+                    resp.headers["Access-Control-Allow-Origin"] = origin
+                    resp.headers["Access-Control-Allow-Credentials"] = "true"
+                    resp.headers["Access-Control-Allow-Headers"] = "*"
+                    resp.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+                return resp
+
+            return middleware
+
+        # Add the middleware
+        self.app.middlewares.append(custom_cors_factory)
+
+        # ---- Continue with normal setup ----
         self.setup_routes()
 
-        # Service metadata
+        # Service metadata, logging, etc...
         self.service_info = {
             "name": "Pegasus Data Provider",
             "version": "1.0.0",
@@ -76,6 +88,7 @@ class PegasusProviderService:
                 "caching"
             ]
         }
+
 
     def setup_routes(self):
         """Setup HTTP routes"""
