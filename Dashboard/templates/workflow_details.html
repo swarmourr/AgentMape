@@ -486,11 +486,12 @@
                 console.log('📊 Dashboard data:', data);
 
                 let pegasusData = null;
+                let pegasusText = null;
 
                 if (pegasusResponse.ok) {
                     try {
                         // First get the raw text to see what we're receiving
-                        const pegasusText = await pegasusResponse.text();
+                        pegasusText = await pegasusResponse.text();
                         console.log('📄 Raw Pegasus response (first 1000 chars):', pegasusText.substring(0, 1000));
                         console.log('📄 Response length:', pegasusText.length);
 
@@ -500,7 +501,7 @@
                     } catch (parseError) {
                         console.error('❌ Failed to parse Pegasus response as JSON:', parseError);
                         console.error('📄 Full response text:', pegasusText);
-                        console.error('📄 Response starts with:', pegasusText.substring(0, 200));
+                        console.error('📄 Response starts with:', pegasusText ? pegasusText.substring(0, 200) : 'null');
                     }
                 } else {
                     console.warn('⚠️ Pegasus Provider not available or workflow not found');
