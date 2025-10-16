@@ -2,9 +2,9 @@
 // Update these URLs based on your deployment
 
 const CONFIG = {
-    // Default: Local development
-    PEGASUS_PROVIDER_URL: 'http://localhost:8084',
-    MONITOR_URL: 'http://localhost:8080',
+    // Tunnel configuration for Pegasus Provider
+    PEGASUS_PROVIDER_URL: 'https://fyjak-149-165-153-107.a.free.pinggy.link',
+    MONITOR_URL: 'http://localhost:8080',  // Monitor accessed via Dashboard backend
 
     // For ngrok/pinggy: Update with your tunnel URLs, e.g.:
     // PEGASUS_PROVIDER_URL: 'https://your-pegasus-tunnel.ngrok.io',

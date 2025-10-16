@@ -48,7 +48,7 @@ class PegasusProviderService:
 
     def __init__(self):
         self.executor = PegasusCommandExecutor(timeout=30)
-        self.app = web.Application()
+        self.app = web.Application(middlewares=[self.cors_middleware])
         self.setup_routes()
         self.service_info = {
             "name": "Pegasus Data Provider",
@@ -66,7 +66,27 @@ class PegasusProviderService:
             ]
         }
 
+    @web.middleware
+    async def cors_middleware(self, request, handler):
+        """Middleware to add CORS headers to all responses (for Pinggy/Ngrok tunnels)"""
+        # Handle preflight OPTIONS request
+        if request.method == 'OPTIONS':
+            response = web.Response()
+        else:
+            try:
+                response = await handler(request)
+            except Exception as e:
+                # Create error response
+                response = web.json_response({"error": str(e)}, status=500)
 
+        # Add CORS headers to response
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = '*'
+        response.headers['Access-Control-Expose-Headers'] = '*'
+        response.headers['Access-Control-Max-Age'] = '3600'
+
+        return response
 
     def setup_routes(self):
         """Setup HTTP routes with proper CORS for ngrok/pinggy"""
