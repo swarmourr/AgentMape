@@ -11,6 +11,8 @@ API Endpoints:
   GET /api/workflows/{workflow_id}/analyzer
   GET /api/workflows/{workflow_id}/statistics
   GET /api/workflows/{workflow_id}/full
+  GET /api/workflows/{workflow_id}/jobs
+  POST /api/workflows/{workflow_id}/rerun
   POST /api/workflows/batch
   DELETE /cache
 """
@@ -50,13 +52,15 @@ class PegasusProviderService:
         self.setup_routes()
         self.service_info = {
             "name": "Pegasus Data Provider",
-            "version": "1.0.0",
+            "version": "1.1.0",
             "port": HTTP_PORT,
             "started_at": datetime.now().isoformat(),
             "capabilities": [
                 "pegasus-status",
                 "pegasus-analyzer",
                 "pegasus-statistics",
+                "pegasus-run",
+                "workflow-rerun",
                 "batch_queries",
                 "caching"
             ]
@@ -88,6 +92,7 @@ class PegasusProviderService:
             ('GET', '/api/workflows/{workflow_id}/statistics', self.handle_statistics),
             ('GET', '/api/workflows/{workflow_id}/full', self.handle_full_analysis),
             ('GET', '/api/workflows/{workflow_id}/jobs', self.handle_jobs),
+            ('POST', '/api/workflows/{workflow_id}/rerun', self.handle_rerun_workflow),
             ('POST', '/api/workflows/batch', self.handle_batch_query),
             ('DELETE', '/api/cache', self.handle_clear_cache),
             ('GET', '/api/cache/stats', self.handle_cache_stats)
@@ -468,6 +473,64 @@ class PegasusProviderService:
                 "error": str(e)
             }, status=500)
 
+    async def handle_rerun_workflow(self, request):
+        """Rerun a workflow using pegasus-run"""
+        workflow_id = request.match_info.get('workflow_id')
+
+        try:
+            logger.info(f"🔄 Rerun requested for workflow: {workflow_id}")
+
+            # Get workflow submit directory from Monitor
+            submit_dir = await self.get_workflow_submit_dir(workflow_id)
+
+            if not submit_dir:
+                logger.error(f"❌ No submit directory found for workflow {workflow_id}")
+                return web.json_response({
+                    "success": False,
+                    "error": "Workflow submit directory not found"
+                }, status=404)
+
+            logger.info(f"📂 Submit directory: {submit_dir}")
+
+            # Execute pegasus-run command
+            import subprocess
+            result = subprocess.run(
+                ['pegasus-run', submit_dir],
+                capture_output=True,
+                text=True,
+                timeout=60
+            )
+
+            success = result.returncode == 0
+
+            if success:
+                logger.info(f"✅ Workflow rerun started successfully")
+            else:
+                logger.error(f"❌ Workflow rerun failed: {result.stderr}")
+
+            return web.json_response({
+                "success": success,
+                "workflow_id": workflow_id,
+                "submit_dir": submit_dir,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "returncode": result.returncode,
+                "timestamp": datetime.now().isoformat()
+            })
+
+        except subprocess.TimeoutExpired:
+            logger.error(f"❌ Rerun timeout for workflow {workflow_id}")
+            return web.json_response({
+                "success": False,
+                "error": "Rerun command timed out"
+            }, status=500)
+        except Exception as e:
+            logger.error(f"❌ Error rerunning workflow: {e}")
+            return web.json_response({
+                "success": False,
+                "error": str(e)
+            }, status=500)
+
     async def start(self):
         """Start the HTTP server"""
         runner = web.AppRunner(self.app)
@@ -490,6 +553,8 @@ class PegasusProviderService:
         logger.info(f"  GET  /api/workflows/{{id}}/analyzer")
         logger.info(f"  GET  /api/workflows/{{id}}/statistics")
         logger.info(f"  GET  /api/workflows/{{id}}/full")
+        logger.info(f"  GET  /api/workflows/{{id}}/jobs")
+        logger.info(f"  POST /api/workflows/{{id}}/rerun")
         logger.info(f"  POST /api/workflows/batch")
         logger.info(f"  DELETE /api/cache")
         logger.info("=" * 80)

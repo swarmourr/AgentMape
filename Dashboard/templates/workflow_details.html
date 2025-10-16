@@ -411,20 +411,30 @@
                     <div class="workflow-id" id="workflow-id-display">Loading...</div>
                 </div>
             </div>
-            <button class="refresh-btn" onclick="loadWorkflowData()">🔄 Refresh</button>
+            <div style="display: flex; gap: 12px;">
+                <button class="refresh-btn" onclick="rerunWorkflow()" style="background: #f59e0b; border: none; color: white; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+                    🔄 Rerun Workflow
+                </button>
+                <button class="refresh-btn" onclick="loadWorkflowData()">🔄 Refresh</button>
+            </div>
         </div>
     </div>
 
     <!-- Main Container -->
     <div class="container">
+        <!-- Workflow Statistics Cards -->
+        <div style="background: white; padding: 24px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 24px;" id="workflow-stats-section">
+            <h2 style="margin: 0 0 20px 0; font-size: 20px; color: var(--gray-900);">📊 Workflow Statistics</h2>
+            <div id="workflow-stats-cards">
+                <div style="text-align: center; padding: 40px; color: var(--gray-400);">
+                    Loading workflow statistics...
+                </div>
+            </div>
+        </div>
+
         <!-- Workflow DAG Visualization -->
         <div style="background: white; padding: 24px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 24px;" id="workflow-dag-section">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2 style="margin: 0; font-size: 20px; color: var(--gray-900);">📊 Workflow Structure</h2>
-                <button onclick="toggleDAGView()" style="padding: 8px 16px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">
-                    Toggle View
-                </button>
-            </div>
+            <h2 style="margin: 0 0 20px 0; font-size: 20px; color: var(--gray-900);">🔀 Workflow DAG</h2>
             <div id="workflow-dag-content">
                 <div style="text-align: center; padding: 40px; color: var(--gray-400);">
                     Loading workflow structure...
@@ -496,6 +506,10 @@
                     console.warn('Pegasus error:', pegasusError);
                 }
 
+                console.log('🎨 Rendering stats cards...');
+                renderWorkflowStats(pegasusData);
+                console.log('✅ Stats cards rendered');
+
                 console.log('🎨 Rendering pipeline...');
                 renderPipeline(data, pegasusData);
                 console.log('✅ Pipeline rendered successfully');
@@ -521,12 +535,87 @@
             }
         }
 
+        // Rerun workflow
+        async function rerunWorkflow() {
+            // Show confirmation dialog
+            const confirmed = confirm(
+                `⚠️ Rerun Workflow?\n\n` +
+                `This will execute: pegasus-run <workflow-dir>\n\n` +
+                `Workflow ID: ${workflowId}\n\n` +
+                `Are you sure you want to rerun this workflow?`
+            );
+
+            if (!confirmed) {
+                return;
+            }
+
+            try {
+                // Show loading state
+                const button = event.target;
+                const originalText = button.innerHTML;
+                button.disabled = true;
+                button.innerHTML = '⏳ Rerunning...';
+
+                console.log('🔄 Rerunning workflow:', workflowId);
+
+                const response = await fetch(`${CONFIG.PEGASUS_PROVIDER_URL}/api/workflows/${workflowId}/rerun`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+
+                // Reset button
+                button.disabled = false;
+                button.innerHTML = originalText;
+
+                if (result.success) {
+                    alert(
+                        `✅ Workflow Rerun Started!\n\n` +
+                        `Workflow ID: ${workflowId}\n` +
+                        `Submit Dir: ${result.submit_dir}\n\n` +
+                        `Output:\n${result.stdout || 'No output'}`
+                    );
+                    console.log('✅ Workflow rerun successful:', result);
+
+                    // Refresh the page after a short delay
+                    setTimeout(() => {
+                        loadWorkflowData();
+                        loadWorkflowDAG();
+                    }, 2000);
+                } else {
+                    alert(
+                        `❌ Workflow Rerun Failed\n\n` +
+                        `Error: ${result.error}\n\n` +
+                        `${result.stderr || ''}`
+                    );
+                    console.error('❌ Workflow rerun failed:', result);
+                }
+
+            } catch (error) {
+                console.error('❌ Error rerunning workflow:', error);
+                alert(`❌ Error: ${error.message}`);
+
+                // Reset button on error
+                const button = event.target;
+                button.disabled = false;
+                button.innerHTML = '🔄 Rerun Workflow';
+            }
+        }
+
         // Load and render workflow DAG
         async function loadWorkflowDAG() {
             try {
-                const response = await fetch(`${CONFIG.PEGASUS_PROVIDER_URL}/api/workflows/${workflowId}/jobs`);
-                if (!response.ok) {
-                    console.warn('Could not load workflow jobs');
+                // Fetch both jobs and full workflow data for DAG construction
+                const [jobsResponse, fullResponse] = await Promise.all([
+                    fetch(`${CONFIG.PEGASUS_PROVIDER_URL}/api/workflows/${workflowId}/jobs`),
+                    fetch(`${CONFIG.PEGASUS_PROVIDER_URL}/api/workflows/${workflowId}/full`)
+                ]);
+
+                if (!jobsResponse.ok && !fullResponse.ok) {
+                    console.warn('Could not load workflow data');
                     document.getElementById('workflow-dag-content').innerHTML = `
                         <div style="text-align: center; padding: 20px; color: var(--gray-400);">
                             Workflow structure not available
@@ -535,9 +624,14 @@
                     return;
                 }
 
-                const data = await response.json();
-                if (data.success && data.jobs) {
-                    renderWorkflowDAG(data.jobs);
+                const jobsData = jobsResponse.ok ? await jobsResponse.json() : null;
+                const fullData = fullResponse.ok ? await fullResponse.json() : null;
+
+                const jobs = jobsData?.jobs || fullData?.jobs || [];
+                const workflowYaml = fullData?.workflow_yaml || null;
+
+                if (jobs.length > 0) {
+                    renderWorkflowDAGGraph(jobs, workflowYaml);
                 } else {
                     document.getElementById('workflow-dag-content').innerHTML = `
                         <div style="text-align: center; padding: 20px; color: var(--gray-400);">
@@ -555,7 +649,181 @@
             }
         }
 
-        function renderWorkflowDAG(jobs) {
+        function renderWorkflowDAGGraph(jobs, workflowYaml) {
+            const container = document.getElementById('workflow-dag-content');
+
+            // Create container for graph and toggle
+            container.innerHTML = `
+                <div style="margin-bottom: 16px; display: flex; gap: 12px; align-items: center;">
+                    <button id="dag-view-graph" onclick="switchDAGView('graph')" style="padding: 8px 16px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                        📊 Graph View
+                    </button>
+                    <button id="dag-view-summary" onclick="switchDAGView('summary')" style="padding: 8px 16px; background: white; color: var(--gray-700); border: 1px solid var(--gray-300); border-radius: 6px; cursor: pointer; font-size: 14px;">
+                        📋 Summary View
+                    </button>
+                </div>
+                <div id="dag-graph-container" style="width: 100%; height: 500px; border: 1px solid #e5e7eb; border-radius: 8px;"></div>
+                <div id="dag-summary-container" style="display: none;"></div>
+            `;
+
+            // Render initial graph view
+            renderDAGGraph(jobs);
+
+            // Store jobs for view switching
+            window._workflowJobs = jobs;
+        }
+
+        function switchDAGView(view) {
+            const graphBtn = document.getElementById('dag-view-graph');
+            const summaryBtn = document.getElementById('dag-view-summary');
+            const graphContainer = document.getElementById('dag-graph-container');
+            const summaryContainer = document.getElementById('dag-summary-container');
+
+            if (view === 'graph') {
+                graphBtn.style.background = 'var(--primary)';
+                graphBtn.style.color = 'white';
+                summaryBtn.style.background = 'white';
+                summaryBtn.style.color = 'var(--gray-700)';
+                graphContainer.style.display = 'block';
+                summaryContainer.style.display = 'none';
+                renderDAGGraph(window._workflowJobs);
+            } else {
+                graphBtn.style.background = 'white';
+                graphBtn.style.color = 'var(--gray-700)';
+                summaryBtn.style.background = 'var(--primary)';
+                summaryBtn.style.color = 'white';
+                graphContainer.style.display = 'none';
+                summaryContainer.style.display = 'block';
+                renderDAGSummary(window._workflowJobs);
+            }
+        }
+
+        function renderDAGGraph(jobs) {
+            if (!jobs || jobs.length === 0) return;
+
+            const container = document.getElementById('dag-graph-container');
+
+            // Create nodes and edges from jobs
+            const nodes = [];
+            const edges = [];
+
+            // Color mapping by job state
+            const stateColors = {
+                'success': '#10b981',
+                'running': '#3b82f6',
+                'failed': '#ef4444',
+                'held': '#f59e0b',
+                'queued': '#8b5cf6',
+                'ready': '#06b6d4',
+                'unsubmitted': '#6b7280',
+                'other': '#9ca3af'
+            };
+
+            // Build nodes
+            jobs.forEach(job => {
+                const state = job.state || 'other';
+                const color = stateColors[state] || stateColors['other'];
+                const label = job.name || job.exec_job_id || 'Unknown';
+
+                nodes.push({
+                    id: job.exec_job_id || job.name,
+                    label: label.length > 20 ? label.substring(0, 17) + '...' : label,
+                    title: `Job: ${label}\nState: ${state}\nType: ${job.type_desc || 'N/A'}`,
+                    color: {
+                        background: color,
+                        border: color,
+                        highlight: {
+                            background: color,
+                            border: '#000'
+                        }
+                    },
+                    font: {
+                        color: '#ffffff',
+                        size: 12
+                    },
+                    shape: 'box',
+                    margin: 10
+                });
+            });
+
+            // Build edges from parent dependencies
+            jobs.forEach(job => {
+                if (job.parents && Array.isArray(job.parents)) {
+                    job.parents.forEach(parentId => {
+                        edges.push({
+                            from: parentId,
+                            to: job.exec_job_id || job.name,
+                            arrows: 'to',
+                            color: { color: '#94a3b8', highlight: '#475569' },
+                            width: 2
+                        });
+                    });
+                }
+            });
+
+            // If no edges found, try to infer from job dependencies
+            if (edges.length === 0) {
+                // Simple fallback: link jobs sequentially if they have dependencies
+                console.log('No explicit parent relationships found, using simple layout');
+            }
+
+            // Create vis-network graph
+            const data = {
+                nodes: new vis.DataSet(nodes),
+                edges: new vis.DataSet(edges)
+            };
+
+            const options = {
+                layout: {
+                    hierarchical: {
+                        enabled: true,
+                        direction: 'UD',  // Up to Down
+                        sortMethod: 'directed',
+                        nodeSpacing: 150,
+                        levelSeparation: 100
+                    }
+                },
+                physics: {
+                    enabled: false
+                },
+                interaction: {
+                    hover: true,
+                    tooltipDelay: 100,
+                    zoomView: true,
+                    dragView: true
+                },
+                nodes: {
+                    borderWidth: 2,
+                    borderWidthSelected: 3
+                },
+                edges: {
+                    smooth: {
+                        type: 'cubicBezier',
+                        forceDirection: 'vertical'
+                    }
+                }
+            };
+
+            try {
+                const network = new vis.Network(container, data, options);
+
+                // Add click handler
+                network.on('click', function(params) {
+                    if (params.nodes.length > 0) {
+                        const nodeId = params.nodes[0];
+                        const job = jobs.find(j => (j.exec_job_id || j.name) === nodeId);
+                        if (job) {
+                            alert(`Job: ${job.name}\nState: ${job.state}\nType: ${job.type_desc || 'N/A'}\nDuration: ${job.duration || 'N/A'}`);
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error creating DAG graph:', error);
+                container.innerHTML = `<div style="padding: 40px; text-align: center; color: var(--danger);">Error rendering graph: ${error.message}</div>`;
+            }
+        }
+
+        function renderDAGSummary(jobs) {
             // Group jobs by state
             const jobsByState = {
                 'success': [],
@@ -642,18 +910,115 @@
                 </div>
             `;
 
-            document.getElementById('workflow-dag-content').innerHTML = html;
+            const summaryContainer = document.getElementById('dag-summary-container');
+            if (summaryContainer) {
+                summaryContainer.innerHTML = html;
+            }
         }
 
-        let dagViewMode = 'summary';
-        function toggleDAGView() {
-            // Can be extended to toggle between summary and detailed views
-            const content = document.getElementById('workflow-dag-content');
-            if (content.style.display === 'none') {
-                content.style.display = 'block';
-            } else {
-                content.style.display = 'none';
+        function renderWorkflowStats(pegasusData) {
+            const container = document.getElementById('workflow-stats-cards');
+
+            if (!pegasusData || !pegasusData.statistics) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: var(--gray-400);">
+                        <p>Workflow statistics not available</p>
+                        <p style="font-size: 14px; margin-top: 8px;">Ensure Pegasus Provider is running and can access workflow data</p>
+                    </div>
+                `;
+                return;
             }
+
+            const stats = pegasusData.statistics || {};
+            const status = pegasusData.status?.status || {};
+            const jobs = pegasusData.jobs || [];
+
+            // Calculate job statistics
+            const totalJobs = jobs.length;
+            const successJobs = jobs.filter(j => j.state === 'success').length;
+            const failedJobs = jobs.filter(j => j.state === 'failed').length;
+            const runningJobs = jobs.filter(j => j.state === 'running').length;
+            const successRate = totalJobs > 0 ? ((successJobs / totalJobs) * 100).toFixed(1) : 0;
+
+            // Calculate duration
+            const duration = stats.total_duration || status.duration || 'N/A';
+            const durationFormatted = typeof duration === 'number' ?
+                (duration > 3600 ? `${(duration/3600).toFixed(1)}h` :
+                 duration > 60 ? `${(duration/60).toFixed(1)}m` :
+                 `${duration}s`) : duration;
+
+            // Get workflow state
+            const workflowState = status.state || stats.status || 'Unknown';
+            const stateColor = {
+                'Success': '#10b981',
+                'Running': '#3b82f6',
+                'Failed': '#ef4444',
+                'Held': '#f59e0b',
+                'Unknown': '#6b7280'
+            }[workflowState] || '#6b7280';
+
+            // Render stats cards
+            const html = `
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+                    <!-- Total Jobs Card -->
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 12px; color: white;">
+                        <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">📋 Total Jobs</div>
+                        <div style="font-size: 32px; font-weight: 700;">${totalJobs}</div>
+                        <div style="font-size: 12px; opacity: 0.8; margin-top: 4px;">
+                            ${runningJobs > 0 ? `${runningJobs} running` : 'All processed'}
+                        </div>
+                    </div>
+
+                    <!-- Success Rate Card -->
+                    <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 20px; border-radius: 12px; color: white;">
+                        <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">✅ Success Rate</div>
+                        <div style="font-size: 32px; font-weight: 700;">${successRate}%</div>
+                        <div style="font-size: 12px; opacity: 0.8; margin-top: 4px;">
+                            ${successJobs} / ${totalJobs} jobs
+                        </div>
+                    </div>
+
+                    <!-- Failed Jobs Card -->
+                    <div style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); padding: 20px; border-radius: 12px; color: white;">
+                        <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">❌ Failed Jobs</div>
+                        <div style="font-size: 32px; font-weight: 700;">${failedJobs}</div>
+                        <div style="font-size: 12px; opacity: 0.8; margin-top: 4px;">
+                            ${failedJobs > 0 ? 'Need attention' : 'None failed'}
+                        </div>
+                    </div>
+
+                    <!-- Duration Card -->
+                    <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 20px; border-radius: 12px; color: white;">
+                        <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">⏱️ Duration</div>
+                        <div style="font-size: 32px; font-weight: 700;">${durationFormatted}</div>
+                        <div style="font-size: 12px; opacity: 0.8; margin-top: 4px;">
+                            Execution time
+                        </div>
+                    </div>
+
+                    <!-- Workflow State Card -->
+                    <div style="background: linear-gradient(135deg, ${stateColor} 0%, ${stateColor}dd 100%); padding: 20px; border-radius: 12px; color: white;">
+                        <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">🔄 State</div>
+                        <div style="font-size: 28px; font-weight: 700; text-transform: capitalize;">${workflowState}</div>
+                        <div style="font-size: 12px; opacity: 0.8; margin-top: 4px;">
+                            Current status
+                        </div>
+                    </div>
+
+                    ${stats.tasks_count ? `
+                    <!-- Tasks Count Card -->
+                    <div style="background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); padding: 20px; border-radius: 12px; color: white;">
+                        <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">📦 Tasks</div>
+                        <div style="font-size: 32px; font-weight: 700;">${stats.tasks_count}</div>
+                        <div style="font-size: 12px; opacity: 0.8; margin-top: 4px;">
+                            Workflow tasks
+                        </div>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+
+            container.innerHTML = html;
         }
 
         function renderPipeline(data, pegasusData) {
