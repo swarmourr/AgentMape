@@ -25,7 +25,6 @@ import sys
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 from aiohttp import web
-import aiohttp_cors
 
 # Add parent directory to path to import pegasus_commands
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'Monitoring'))
@@ -89,21 +88,9 @@ class PegasusProviderService:
         return response
 
     def setup_routes(self):
-        """Setup HTTP routes with proper CORS for ngrok/pinggy"""
+        """Setup HTTP routes - CORS handled by middleware"""
 
-        # FIXED CORS Configuration for ngrok/pinggy
-        # When allow_credentials is True, cannot use wildcard origin
-        # So we allow credentials=False with wildcard origin for public tunnel access
-        cors = aiohttp_cors.setup(self.app, defaults={
-            "*": aiohttp_cors.ResourceOptions(
-                allow_credentials=False,  # Changed to False to allow wildcard origin
-                expose_headers="*",
-                allow_headers="*",
-                allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"]
-            )
-        })
-
-        # Define all routes
+        # Define all routes (CORS is now handled by middleware, not aiohttp_cors)
         routes = [
             ('GET', '/health', self.handle_health),
             ('GET', '/api/info', self.handle_service_info),
@@ -118,10 +105,9 @@ class PegasusProviderService:
             ('GET', '/api/cache/stats', self.handle_cache_stats)
         ]
 
-        # Add routes with CORS
+        # Add routes (no CORS library needed - middleware handles it)
         for method, path, handler in routes:
-            route = self.app.router.add_route(method, path, handler)
-            cors.add(route)
+            self.app.router.add_route(method, path, handler)
 
     async def handle_health(self, request):
         """Health check endpoint"""

@@ -491,14 +491,16 @@
                     try {
                         // First get the raw text to see what we're receiving
                         const pegasusText = await pegasusResponse.text();
-                        console.log('📄 Raw Pegasus response (first 500 chars):', pegasusText.substring(0, 500));
+                        console.log('📄 Raw Pegasus response (first 1000 chars):', pegasusText.substring(0, 1000));
+                        console.log('📄 Response length:', pegasusText.length);
 
                         // Try to parse it as JSON
                         pegasusData = JSON.parse(pegasusText);
                         console.log('📊 Pegasus real-time data loaded:', pegasusData);
                     } catch (parseError) {
                         console.error('❌ Failed to parse Pegasus response as JSON:', parseError);
-                        console.error('Response was:', await pegasusResponse.clone().text());
+                        console.error('📄 Full response text:', pegasusText);
+                        console.error('📄 Response starts with:', pegasusText.substring(0, 200));
                     }
                 } else {
                     console.warn('⚠️ Pegasus Provider not available or workflow not found');
@@ -624,8 +626,28 @@
                     return;
                 }
 
-                const jobsData = jobsResponse.ok ? await jobsResponse.json() : null;
-                const fullData = fullResponse.ok ? await fullResponse.json() : null;
+                let jobsData = null;
+                let fullData = null;
+
+                if (jobsResponse.ok) {
+                    try {
+                        const jobsText = await jobsResponse.text();
+                        console.log('📄 Jobs response (first 500 chars):', jobsText.substring(0, 500));
+                        jobsData = JSON.parse(jobsText);
+                    } catch (e) {
+                        console.error('❌ Failed to parse jobs response:', e);
+                    }
+                }
+
+                if (fullResponse.ok) {
+                    try {
+                        const fullText = await fullResponse.text();
+                        console.log('📄 Full response (first 500 chars):', fullText.substring(0, 500));
+                        fullData = JSON.parse(fullText);
+                    } catch (e) {
+                        console.error('❌ Failed to parse full response:', e);
+                    }
+                }
 
                 const jobs = jobsData?.jobs || fullData?.jobs || [];
                 const workflowYaml = fullData?.workflow_yaml || null;
