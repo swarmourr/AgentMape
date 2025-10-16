@@ -14,13 +14,13 @@ const CONFIG = {
     REFRESH_INTERVAL: 15000
 };
 
-// Auto-detect if we're accessed via tunnel and use same origin for services
+// Auto-detect: Only use auto URLs if accessing via localhost
+// For ngrok/pinggy tunnels, you MUST manually set URLs above
 if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    // We're accessed via a tunnel, assume services are on the same origin with different ports
-    const origin = window.location.origin;
-    CONFIG.PEGASUS_PROVIDER_URL = origin.replace(':5000', ':8084');
-    CONFIG.MONITOR_URL = origin.replace(':5000', ':8080');
-    console.log('🌐 Detected tunnel access');
-    console.log('   Pegasus Provider URL:', CONFIG.PEGASUS_PROVIDER_URL);
-    console.log('   Monitor URL:', CONFIG.MONITOR_URL);
+    console.warn('⚠️  Tunnel detected! Please configure URLs manually in config.js');
+    console.warn('   Ngrok/Pinggy requires separate tunnels for each service');
+    console.warn('   Current Pegasus Provider URL:', CONFIG.PEGASUS_PROVIDER_URL);
+    console.warn('   Current Monitor URL:', CONFIG.MONITOR_URL);
+
+    // Don't auto-change URLs for tunnels - user must set them manually
 }
