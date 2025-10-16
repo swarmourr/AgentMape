@@ -65,59 +65,46 @@ class PegasusProviderService:
 
 
     def setup_routes(self):
-        """Setup HTTP routes"""
-        
-        # Configuration CORS plus permissive
+        """Setup HTTP routes with proper CORS for ngrok/pinggy"""
+
+        # FIXED CORS Configuration for ngrok/pinggy
+        # When allow_credentials is True, cannot use wildcard origin
+        # So we allow credentials=False with wildcard origin for public tunnel access
         cors = aiohttp_cors.setup(self.app, defaults={
             "*": aiohttp_cors.ResourceOptions(
-                    allow_credentials=True,
-                    expose_headers="*",
-                    allow_headers="*",
-                    allow_methods="*",
-                    max_age=3600
+                allow_credentials=False,  # Changed to False to allow wildcard origin
+                expose_headers="*",
+                allow_headers="*",
+                allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"]
             )
         })
 
-        # Routes avec CORS
+        # Define all routes
         routes = [
             ('GET', '/health', self.handle_health),
             ('GET', '/api/info', self.handle_service_info),
             ('GET', '/api/workflows/{workflow_id}/status', self.handle_status),
             ('GET', '/api/workflows/{workflow_id}/analyzer', self.handle_analyzer),
-            ('GET', '/api/workflows/{workflow_id}/statistics', self.handle_statistics), 
+            ('GET', '/api/workflows/{workflow_id}/statistics', self.handle_statistics),
             ('GET', '/api/workflows/{workflow_id}/full', self.handle_full_analysis),
-            ('GET', '/api/workflows/{workflow_id}/jobs', self.handle_jobs),  # Ajout de la route jobs
+            ('GET', '/api/workflows/{workflow_id}/jobs', self.handle_jobs),
             ('POST', '/api/workflows/batch', self.handle_batch_query),
             ('DELETE', '/api/cache', self.handle_clear_cache),
             ('GET', '/api/cache/stats', self.handle_cache_stats)
         ]
 
-        # Application des routes avec CORS
+        # Add routes with CORS
         for method, path, handler in routes:
             route = self.app.router.add_route(method, path, handler)
             cors.add(route)
 
-    def get_cors_headers(self):
-        """Headers CORS optimisés pour Pinggy avec passpreflight"""
-        return {
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
-            "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, Accept, Origin",
-            "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Max-Age": "3600",
-            "Access-Control-Expose-Headers": "*",
-            "Cross-Origin-Resource-Policy": "cross-origin",
-            "Cross-Origin-Embedder-Policy": "require-corp",
-            "Cross-Origin-Opener-Policy": "same-origin"
-        }
-
     async def handle_health(self, request):
-        """Health check endpoint avec CORS"""
+        """Health check endpoint"""
         return web.json_response({
             "status": "healthy",
             "service": "pegasus_data_provider",
             "timestamp": datetime.now().isoformat()
-        }, headers=self.get_cors_headers())
+        })
 
     async def handle_service_info(self, request):
         """Return service information"""
@@ -250,13 +237,13 @@ class PegasusProviderService:
                 self.executor.get_workflow_jobs, submit_dir
             )
 
-            return web.json_response(result, headers=self.get_cors_headers())
+            return web.json_response(result)
 
         except Exception as e:
             return web.json_response({
                 "success": False,
                 "error": str(e)
-            }, status=500, headers=self.get_cors_headers())
+            }, status=500)
 
     async def handle_full_analysis(self, request):
         """Execute all Pegasus commands and combine results"""
@@ -306,13 +293,13 @@ class PegasusProviderService:
                 full_analysis['failed_jobs_count'] = len(analysis.get('failed_jobs', []))
                 full_analysis['held_jobs_count'] = len(analysis.get('held_jobs', []))
 
-            return web.json_response(full_analysis, headers=self.get_cors_headers())
+            return web.json_response(full_analysis)
 
         except Exception as e:
             return web.json_response({
                 "success": False,
                 "error": str(e)
-            }, status=500, headers=self.get_cors_headers())
+            }, status=500)
 
     async def handle_batch_query(self, request):
         """

@@ -396,6 +396,27 @@
             100% { transform: rotate(360deg); }
         }
     </style>
+    <!-- Configuration -->
+    <script>
+        // Dashboard Configuration - Update these URLs based on your deployment
+        const CONFIG = {
+            // Default: Local development
+            PEGASUS_PROVIDER_URL: 'http://localhost:8084',
+
+            // For ngrok/pinggy: Update with your tunnel URL, e.g.:
+            // PEGASUS_PROVIDER_URL: 'https://your-tunnel-url.ngrok.io',
+            // PEGASUS_PROVIDER_URL: 'https://your-tunnel-url.pinggy.link',
+
+            REFRESH_INTERVAL: 15000
+        };
+
+        // Auto-detect if we're accessed via tunnel and use same origin for Pegasus Provider
+        if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+            // We're accessed via a tunnel, assume Pegasus Provider is on the same origin
+            CONFIG.PEGASUS_PROVIDER_URL = window.location.origin.replace(':5000', ':8084');
+            console.log('🌐 Detected tunnel access, using Pegasus Provider URL:', CONFIG.PEGASUS_PROVIDER_URL);
+        }
+    </script>
 </head>
 <body>
     <!-- Header -->
@@ -463,7 +484,7 @@
 
                 const [dashboardResponse, pegasusResponse] = await Promise.all([
                     fetch(`/api/workflow/${workflowId}/analysis`),
-                    fetch(`http://localhost:8084/api/workflows/${workflowId}/full`)
+                    fetch(`${CONFIG.PEGASUS_PROVIDER_URL}/api/workflows/${workflowId}/full`)
                 ]);
 
                 console.log('✅ Dashboard response status:', dashboardResponse.status);
@@ -511,7 +532,7 @@
         // Load and render workflow DAG
         async function loadWorkflowDAG() {
             try {
-                const response = await fetch(`http://localhost:8084/api/workflows/${workflowId}/jobs`);
+                const response = await fetch(`${CONFIG.PEGASUS_PROVIDER_URL}/api/workflows/${workflowId}/jobs`);
                 if (!response.ok) {
                     console.warn('Could not load workflow jobs');
                     document.getElementById('workflow-dag-content').innerHTML = `
