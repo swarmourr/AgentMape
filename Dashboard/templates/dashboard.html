@@ -1089,23 +1089,7 @@
     <link href="https://unpkg.com/vis-network@9.1.6/styles/vis-network.min.css" rel="stylesheet" type="text/css" />
 
     <!-- Configuration -->
-    <script>
-        // Dashboard Configuration - Update these URLs based on your deployment
-        const CONFIG = {
-            // Default: Local development
-            PEGASUS_PROVIDER_URL: 'http://localhost:8084',
-
-            // For ngrok/pinggy: Set your Pegasus Provider tunnel URL manually, e.g.:
-            // PEGASUS_PROVIDER_URL: 'https://your-pegasus-tunnel.ngrok.io',
-            // PEGASUS_PROVIDER_URL: 'https://your-pegasus-tunnel.pinggy.link',
-
-            REFRESH_INTERVAL: 15000
-        };
-
-        // Note: If you're using separate tunnels for Dashboard and Pegasus Provider,
-        // update PEGASUS_PROVIDER_URL above with your Pegasus Provider tunnel URL
-        console.log('📡 Using Pegasus Provider URL:', CONFIG.PEGASUS_PROVIDER_URL);
-    </script>
+    <script src="/static/config.js"></script>
 </head>
 <body>
     <!-- Sidebar -->
@@ -1497,25 +1481,50 @@
 
                 container.innerHTML = `
                     <div class="activity-feed">
-                        ${activities.map(activity => `
-                            <div class="activity-item">
-                                <div class="activity-icon ${activity.agent.toLowerCase()}">
-                                    ${getAgentIcon(activity.agent)}
-                                </div>
-                                <div class="activity-content">
-                                    <div class="activity-header">
-                                        <span class="activity-agent">${activity.agent}</span>
-                                        <span class="activity-time">${formatTimeSince(activity.timestamp)}</span>
+                        ${activities.map(activity => {
+                            // Map level to colors and icons
+                            const levelStyles = {
+                                'success': { color: '#10b981', icon: '✅' },
+                                'info': { color: '#6366f1', icon: 'ℹ️' },
+                                'warning': { color: '#f59e0b', icon: '⚠️' },
+                                'error': { color: '#ef4444', icon: '❌' }
+                            };
+                            const level = levelStyles[activity.level] || levelStyles.info;
+
+                            // Format action message
+                            const actionMessages = {
+                                'started_monitoring': 'started monitoring workflow',
+                                'started_analyzing': 'started analyzing workflow',
+                                'completed_analysis': 'completed analysis',
+                                'started_planning': 'started creating repair plan',
+                                'completed_planning': 'completed repair plan',
+                                'started_execution': 'started executing repairs',
+                                'completed_execution': 'completed repairs'
+                            };
+                            const actionMessage = actionMessages[activity.action] || activity.action.replace(/_/g, ' ');
+
+                            return `
+                            <div class="activity-item" style="border-left: 4px solid ${level.color}; padding: 12px; margin-bottom: 8px; background: white; border-radius: 6px;">
+                                <div style="display: flex; gap: 12px;">
+                                    <div class="activity-icon" style="font-size: 24px; flex-shrink: 0;">
+                                        ${getAgentIcon(activity.agent)}
                                     </div>
-                                    <div class="activity-action">
-                                        ${activity.action}
-                                        <span class="activity-status-badge ${activity.status}">${activity.status}</span>
+                                    <div style="flex: 1;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                            <span style="font-weight: 600; color: #1e293b;">${activity.agent}</span>
+                                            <span style="color: #94a3b8; font-size: 12px;">${formatTimeSince(activity.timestamp)}</span>
+                                        </div>
+                                        <div style="margin: 4px 0; color: #475569;">
+                                            <span style="margin-right: 6px;">${level.icon}</span>
+                                            <span>${actionMessage}</span>
+                                        </div>
+                                        ${activity.workflow_id ? `<div style="font-size: 11px; color: #94a3b8; font-family: monospace; margin-top: 4px;">Workflow: ${activity.workflow_id.substring(0, 8)}...</div>` : ''}
+                                        ${activity.details ? `<div style="font-size: 12px; color: #64748b; margin-top: 6px; padding: 8px; background: #f8fafc; border-radius: 4px;">${activity.details}</div>` : ''}
                                     </div>
-                                    ${activity.details ? `<div class="activity-details">${activity.details}</div>` : ''}
-                                    ${activity.workflow_id ? `<div class="activity-workflow-id">${activity.workflow_id}</div>` : ''}
                                 </div>
                             </div>
-                        `).join('')}
+                        `;
+                        }).join('')}
                     </div>
                 `;
 

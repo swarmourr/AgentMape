@@ -44,6 +44,7 @@ db = TinyDB("workflows.json")
 workflows_table = db.table("workflows")
 held_jobs_table = db.table("held_jobs")
 agents_table = db.table("agents")
+activity_log_table = db.table("activity_log")  # Activity log for dashboard
 
 class TerminalColor(Enum):
     RED = '\033[31m'
@@ -63,6 +64,48 @@ class TerminalColor(Enum):
 
     def apply(self, text):
         return f"{self.value}{text}{TerminalColor.RESET.value}"
+
+
+# Activity Log Helper Functions
+def log_activity(agent: str, action: str, workflow_id: str = None, details: str = None, level: str = "info"):
+    """
+    Log system activity for dashboard display
+
+    Args:
+        agent: Name of agent (Monitor, Analyzer, Planner, Executor)
+        action: Action being performed (e.g., "started_monitoring", "analyzing", "planning")
+        workflow_id: Workflow ID if applicable
+        details: Additional details about the action
+        level: Log level (info, warning, error, success)
+    """
+    activity = {
+        "timestamp": datetime.now().isoformat(),
+        "agent": agent,
+        "action": action,
+        "workflow_id": workflow_id,
+        "details": details,
+        "level": level
+    }
+
+    # Store in database
+    activity_log_table.insert(activity)
+
+    # Keep only last 1000 activities (cleanup old entries)
+    all_activities = activity_log_table.all()
+    if len(all_activities) > 1000:
+        # Sort by timestamp and keep newest 1000
+        all_activities.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+        # Remove old ones
+        activity_log_table.truncate()
+        for activity in all_activities[:1000]:
+            activity_log_table.insert(activity)
+
+    # Also log to console
+    icon = {"info": "ℹ️", "warning": "⚠️", "error": "❌", "success": "✅"}.get(level, "•")
+    workflow_str = f" [Workflow: {workflow_id[:8]}...]" if workflow_id else ""
+    details_str = f" - {details}" if details else ""
+    logger.info(f"{icon} {agent}: {action}{workflow_str}{details_str}")
+
 
 class AgentRegistry:
     """Manages registry of known agents"""
@@ -537,6 +580,15 @@ class PegasusWorkflowManager:
                                 },
                                 "step_history": step_history
                             }, Query().workflow_id == workflow_id)
+
+                        # Log activity
+                        log_activity(
+                            agent="Analyzer",
+                            action="started_analyzing",
+                            workflow_id=workflow_id,
+                            details=f"Analyzer {healthy_analyzer['agent_id']} started root cause analysis",
+                            level="info"
+                        )
 
                         return {
                             "success": True,
@@ -2013,6 +2065,15 @@ class PegasusWorkflowManager:
         if workflow_id not in self.registered_workflows:
             self.registered_workflows[workflow_id] = iwd
 
+            # Log activity
+            log_activity(
+                agent="Monitor",
+                action="started_monitoring",
+                workflow_id=workflow_id,
+                details=f"Detected new workflow in {iwd}",
+                level="success"
+            )
+
             # CRITICAL: Collect metadata NOW before workflow can be deleted
             print(f"\n┌─ {TerminalColor.CYAN.apply('📦 COLLECTING WORKFLOW METADATA')} {'─'*48}")
             print(f"│  {TerminalColor.CYAN.apply('Workflow:')} {workflow_id[:60]}")
@@ -2435,6 +2496,10 @@ class EnhancedPegasusMCPServer:
         self.app.router.add_get('/api/workflows/{workflow_id}/status', self.handle_get_workflow_status)
         self.app.router.add_post('/api/workflows/{workflow_id}/analyze', self.handle_request_analysis)
 
+        # Activity log endpoints
+        self.app.router.add_get('/api/activities', self.handle_get_activities)
+        self.app.router.add_post('/api/activities/log', self.handle_log_activity)
+
         # Webhook endpoints
         self.app.router.add_post('/webhooks/analysis-complete', self.handle_analysis_complete_webhook)
 
@@ -2563,6 +2628,70 @@ class EnhancedPegasusMCPServer:
                 "timestamp": datetime.now().isoformat()
             })
         except Exception as e:
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def handle_get_activities(self, request):
+        """Get recent system activities for dashboard display"""
+        try:
+            # Get query parameters
+            limit = int(request.query.get('limit', '50'))  # Default 50 activities
+            workflow_id = request.query.get('workflow_id', None)  # Filter by workflow if provided
+            agent = request.query.get('agent', None)  # Filter by agent if provided
+
+            # Get all activities
+            all_activities = activity_log_table.all()
+
+            # Filter by workflow_id if provided
+            if workflow_id:
+                all_activities = [a for a in all_activities if a.get('workflow_id') == workflow_id]
+
+            # Filter by agent if provided
+            if agent:
+                all_activities = [a for a in all_activities if a.get('agent') == agent]
+
+            # Sort by timestamp (newest first)
+            all_activities.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+
+            # Limit results
+            activities = all_activities[:limit]
+
+            return web.json_response({
+                "activities": activities,
+                "total": len(activities),
+                "filtered": len(all_activities),
+                "timestamp": datetime.now().isoformat()
+            })
+        except Exception as e:
+            logger.error(f"Error getting activities: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def handle_log_activity(self, request):
+        """Accept activity log from other agents (Planner, Executor, etc.)"""
+        try:
+            data = await request.json()
+
+            # Validate required fields
+            if not data.get('agent') or not data.get('action'):
+                return web.json_response({
+                    "error": "Missing required fields: agent, action"
+                }, status=400)
+
+            # Log the activity
+            log_activity(
+                agent=data['agent'],
+                action=data['action'],
+                workflow_id=data.get('workflow_id'),
+                details=data.get('details'),
+                level=data.get('level', 'info')
+            )
+
+            return web.json_response({
+                "success": True,
+                "message": "Activity logged"
+            })
+
+        except Exception as e:
+            logger.error(f"Error logging activity: {e}")
             return web.json_response({"error": str(e)}, status=500)
 
     async def handle_get_workflow_status(self, request):

@@ -396,27 +396,9 @@
             100% { transform: rotate(360deg); }
         }
     </style>
+
     <!-- Configuration -->
-    <script>
-        // Dashboard Configuration - Update these URLs based on your deployment
-        const CONFIG = {
-            // Default: Local development
-            PEGASUS_PROVIDER_URL: 'http://localhost:8084',
-
-            // For ngrok/pinggy: Update with your tunnel URL, e.g.:
-            // PEGASUS_PROVIDER_URL: 'https://your-tunnel-url.ngrok.io',
-            // PEGASUS_PROVIDER_URL: 'https://your-tunnel-url.pinggy.link',
-
-            REFRESH_INTERVAL: 15000
-        };
-
-        // Auto-detect if we're accessed via tunnel and use same origin for Pegasus Provider
-        if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-            // We're accessed via a tunnel, assume Pegasus Provider is on the same origin
-            CONFIG.PEGASUS_PROVIDER_URL = window.location.origin.replace(':5000', ':8084');
-            console.log('🌐 Detected tunnel access, using Pegasus Provider URL:', CONFIG.PEGASUS_PROVIDER_URL);
-        }
-    </script>
+    <script src="/static/config.js"></script>
 </head>
 <body>
     <!-- Header -->
@@ -496,8 +478,18 @@
                 let pegasusData = null;
 
                 if (pegasusResponse.ok) {
-                    pegasusData = await pegasusResponse.json();
-                    console.log('📊 Pegasus real-time data loaded:', pegasusData);
+                    try {
+                        // First get the raw text to see what we're receiving
+                        const pegasusText = await pegasusResponse.text();
+                        console.log('📄 Raw Pegasus response (first 500 chars):', pegasusText.substring(0, 500));
+
+                        // Try to parse it as JSON
+                        pegasusData = JSON.parse(pegasusText);
+                        console.log('📊 Pegasus real-time data loaded:', pegasusData);
+                    } catch (parseError) {
+                        console.error('❌ Failed to parse Pegasus response as JSON:', parseError);
+                        console.error('Response was:', await pegasusResponse.clone().text());
+                    }
                 } else {
                     console.warn('⚠️ Pegasus Provider not available or workflow not found');
                     const pegasusError = await pegasusResponse.text();

@@ -26,6 +26,7 @@ from replica_helper import ReplicaHelper
 # Configuration
 HTTP_PORT = int(os.getenv("HTTP_PORT", "8082"))
 MCP_PORT = int(os.getenv("MCP_PORT", "8767"))
+MONITOR_URL = os.getenv("MONITOR_URL", "http://localhost:8080")
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -36,6 +37,26 @@ db = TinyDB("planner_db.json")
 plans_table = db.table("plans")
 execution_requests_table = db.table("execution_requests")
 agents_table = db.table("agents")
+
+
+# Activity Logging Helper
+def log_activity(action: str, workflow_id: str = None, details: str = None, level: str = "info"):
+    """Log activity to Monitor's activity log"""
+    try:
+        import requests
+        requests.post(
+            f"{MONITOR_URL}/api/activities/log",
+            json={
+                "agent": "Planner",
+                "action": action,
+                "workflow_id": workflow_id,
+                "details": details,
+                "level": level
+            },
+            timeout=2
+        )
+    except Exception as e:
+        logger.debug(f"Could not log activity: {e}")
 
 class TerminalColor(Enum):
     RED = '\033[31m'
@@ -2292,6 +2313,15 @@ class PlannerHTTPServer:
                 "INFO"
             )
 
+            # Log activity: Planning started
+            problem_count = len(analysis_result.get('problems_and_solutions', []))
+            log_activity(
+                action="started_planning",
+                workflow_id=workflow_id,
+                details=f"Creating repair plan for {problem_count} problem{'s' if problem_count != 1 else ''}",
+                level="info"
+            )
+
             # STEP 1: Received webhook
             print(f"\n{'='*80}")
             print(f"{TerminalColor.BRIGHT_CYAN.apply('📥 STEP 1: RECEIVED ANALYSIS FROM ANALYZER')}")
@@ -2441,6 +2471,15 @@ class PlannerHTTPServer:
                 "SUCCESS"
             )
 
+            # Log activity: Planning completed
+            repair_step_count = len(plan.get('repair_steps', []))
+            log_activity(
+                action="completed_planning",
+                workflow_id=workflow_id,
+                details=f"Generated plan with {repair_step_count} repair action{'s' if repair_step_count != 1 else ''} (Risk: {plan.get('risk_level', 'unknown')})",
+                level="success"
+            )
+
             # ENHANCED: Export plan to separate JSON file for easy reading
             self.export_plan_to_file(plan, workflow_id)
 
@@ -2458,6 +2497,15 @@ class PlannerHTTPServer:
             print(f"{TerminalColor.RED.apply('❌ PLANNING WORKFLOW FAILED')}")
             print(f"{TerminalColor.RED.apply('Error:')} {str(e)}")
             print(f"{'='*80}\n")
+
+            # Log activity: Planning failed
+            if 'workflow_id' in locals():
+                log_activity(
+                    action="planning_failed",
+                    workflow_id=workflow_id,
+                    details=f"Error: {str(e)[:200]}",
+                    level="error"
+                )
 
             # Write error to shared log
             if 'workflow_id' in locals():

@@ -117,19 +117,37 @@ class PegasusProviderService:
         """
         try:
             import aiohttp
+            logger.info(f"🔍 Querying Monitor for workflow: {workflow_id}")
+            logger.info(f"   Monitor URL: {MONITOR_URL}/api/workflows/{workflow_id}/status")
+
             async with aiohttp.ClientSession() as session:
                 async with session.get(
                     f"{MONITOR_URL}/api/workflows/{workflow_id}/status",
                     timeout=aiohttp.ClientTimeout(total=5)
                 ) as resp:
+                    logger.info(f"   Monitor response status: {resp.status}")
+
                     if resp.status == 200:
                         data = await resp.json()
-                        return data.get('iwd') or data.get('workflow_dir')
+                        logger.info(f"   Monitor data keys: {list(data.keys())}")
+
+                        submit_dir = data.get('iwd') or data.get('workflow_dir')
+
+                        if submit_dir:
+                            logger.info(f"✅ Found submit directory: {submit_dir}")
+                        else:
+                            logger.warning(f"⚠️  No submit directory in Monitor response")
+                            logger.warning(f"   Available data: {data}")
+
+                        return submit_dir
                     else:
-                        logger.warning(f"Monitor returned {resp.status} for workflow {workflow_id}")
+                        error_text = await resp.text()
+                        logger.warning(f"❌ Monitor returned {resp.status} for workflow {workflow_id}")
+                        logger.warning(f"   Error response: {error_text[:200]}")
                         return None
         except Exception as e:
-            logger.error(f"Error querying Monitor for workflow {workflow_id}: {e}")
+            logger.error(f"❌ Error querying Monitor for workflow {workflow_id}: {e}")
+            logger.exception("Full error traceback:")
             return None
 
     async def handle_status(self, request):
@@ -222,20 +240,28 @@ class PegasusProviderService:
         """Get workflow jobs and DAG structure"""
         try:
             workflow_id = request.match_info['workflow_id']
-            logger.info(f"Jobs request for workflow: {workflow_id}")
+            logger.info(f"📋 Jobs request for workflow: {workflow_id}")
 
             # Get submit directory from Monitor
             submit_dir = await self.get_workflow_submit_dir(workflow_id)
             if not submit_dir:
+                logger.error(f"❌ No submit directory found for jobs request")
                 return web.json_response({
                     "success": False,
                     "error": "Workflow not found or submit directory unknown"
                 }, status=404)
 
             # Execute pegasus-status --long to get jobs
+            logger.info(f"⚙️  Executing pegasus-status --long for: {submit_dir}")
             result = await asyncio.to_thread(
                 self.executor.get_workflow_jobs, submit_dir
             )
+
+            if result.get('success'):
+                job_count = len(result.get('jobs', []))
+                logger.info(f"✅ Found {job_count} jobs in workflow")
+            else:
+                logger.error(f"❌ Failed to get jobs: {result.get('error')}")
 
             return web.json_response(result)
 
@@ -249,31 +275,53 @@ class PegasusProviderService:
         """Execute all Pegasus commands and combine results"""
         try:
             workflow_id = request.match_info['workflow_id']
-            logger.info(f"Full analysis request for workflow: {workflow_id}")
+            logger.info(f"📊 Full analysis request for workflow: {workflow_id}")
 
             # Get submit directory from Monitor
             submit_dir = await self.get_workflow_submit_dir(workflow_id)
             if not submit_dir:
+                logger.error(f"❌ No submit directory found for workflow {workflow_id}")
                 return web.json_response({
                     "success": False,
                     "error": "Workflow not found or submit directory unknown"
                 }, status=404)
 
+            logger.info(f"⚙️  Executing Pegasus commands for: {submit_dir}")
+
             # Execute all commands in parallel
+            logger.info("   Running pegasus-status...")
             status_task = asyncio.create_task(asyncio.to_thread(
                 self.executor.get_workflow_status, submit_dir
             ))
+
+            logger.info("   Running pegasus-analyzer...")
             analyzer_task = asyncio.create_task(asyncio.to_thread(
                 self.executor.get_workflow_analyzer_output, submit_dir, True
             ))
+
+            logger.info("   Running pegasus-statistics...")
             stats_task = asyncio.create_task(asyncio.to_thread(
                 self.executor.get_workflow_statistics, submit_dir, "summary"
             ))
 
             # Wait for all
+            logger.info("⏳ Waiting for all commands to complete...")
             status_result, analyzer_result, stats_result = await asyncio.gather(
                 status_task, analyzer_task, stats_task, return_exceptions=True
             )
+
+            # Log results
+            logger.info("📋 Command results:")
+            logger.info(f"   Status success: {isinstance(status_result, dict) and status_result.get('success')}")
+            logger.info(f"   Analyzer success: {isinstance(analyzer_result, dict) and analyzer_result.get('success')}")
+            logger.info(f"   Statistics success: {isinstance(stats_result, dict) and stats_result.get('success')}")
+
+            if isinstance(status_result, Exception):
+                logger.error(f"   ❌ Status error: {status_result}")
+            if isinstance(analyzer_result, Exception):
+                logger.error(f"   ❌ Analyzer error: {analyzer_result}")
+            if isinstance(stats_result, Exception):
+                logger.error(f"   ❌ Statistics error: {stats_result}")
 
             # Compile results
             full_analysis = {
@@ -292,7 +340,9 @@ class PegasusProviderService:
                 full_analysis['has_failures'] = analysis.get('has_failures', False)
                 full_analysis['failed_jobs_count'] = len(analysis.get('failed_jobs', []))
                 full_analysis['held_jobs_count'] = len(analysis.get('held_jobs', []))
+                logger.info(f"✅ Extracted {len(full_analysis['root_causes'])} root causes")
 
+            logger.info(f"✅ Returning full analysis with {len(full_analysis)} fields")
             return web.json_response(full_analysis)
 
         except Exception as e:
