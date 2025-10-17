@@ -123,7 +123,7 @@ class PegasusCommandExecutor:
                 "state": state,
                 "percent_done": totals.get('percent_done', 0),
                 "total_jobs": totals.get('total', 0),
-                "succeeded": totals.get('success', 0),
+                "succeeded": totals.get('succeeded', 0),  # Field name is 'succeeded', not 'success'!
                 "failed": totals.get('failed', 0),
                 "running": totals.get('pre', 0) + totals.get('post', 0),  # pre and post are running states
                 "ready": totals.get('ready', 0),
@@ -554,11 +554,11 @@ class PegasusCommandExecutor:
             return {
                 "success": False,
                 "error": result['error'],
-                "raw_output": result['output']
+                "raw_output": result.get('output', '') if isinstance(result, dict) else ''
             }
 
         # Parse job information
-        output = result['output']
+        output = result.get('output', '') if isinstance(result, dict) else str(result)
 
         try:
             # Try parsing as JSON first
@@ -566,39 +566,56 @@ class PegasusCommandExecutor:
             parsed = []
 
             # Extract jobs from JSON structure
-            if 'jobs' in jobs_json:
-                for job in jobs_json['jobs']:
-                    parsed.append({
-                        "job_name": job.get('name', job.get('id', 'unknown')),
-                        "state": job.get('state', 'unknown').lower(),
-                        "raw_state": job.get('state', 'UNKNOWN'),
-                        "job_type": self._infer_job_type(job.get('name', ''))
-                    })
-                logger.info(f"Parsed {len(parsed)} jobs from JSON")
-            elif 'dags' in jobs_json:
+            if isinstance(jobs_json, dict) and 'jobs' in jobs_json:
+                jobs_list = jobs_json.get('jobs', [])
+                if isinstance(jobs_list, list):
+                    for job in jobs_list:
+                        if isinstance(job, dict):
+                            parsed.append({
+                                "job_name": job.get('name', job.get('id', 'unknown')),
+                                "state": str(job.get('state', 'unknown')).lower(),
+                                "raw_state": str(job.get('state', 'UNKNOWN')),
+                                "job_type": self._infer_job_type(str(job.get('name', '')))
+                            })
+                    logger.info(f"Parsed {len(parsed)} jobs from JSON")
+            elif isinstance(jobs_json, dict) and 'dags' in jobs_json:
                 # Sometimes JSON has dag structure with job lists
-                for dag in jobs_json.get('dags', []):
-                    for job in dag.get('jobs', []):
-                        parsed.append({
-                            "job_name": job.get('name', job.get('id', 'unknown')),
-                            "state": job.get('state', 'unknown').lower(),
-                            "raw_state": job.get('state', 'UNKNOWN'),
-                            "job_type": self._infer_job_type(job.get('name', ''))
-                        })
-                logger.info(f"Parsed {len(parsed)} jobs from JSON (dag structure)")
-            else:
-                logger.warning("JSON format not recognized, falling back to text parsing")
+                dags = jobs_json.get('dags', {})
+                if isinstance(dags, dict):
+                    for dag_name, dag in dags.items():
+                        if isinstance(dag, dict) and 'jobs' in dag:
+                            jobs_list = dag.get('jobs', [])
+                            if isinstance(jobs_list, list):
+                                for job in jobs_list:
+                                    if isinstance(job, dict):
+                                        parsed.append({
+                                            "job_name": job.get('name', job.get('id', 'unknown')),
+                                            "state": str(job.get('state', 'unknown')).lower(),
+                                            "raw_state": str(job.get('state', 'UNKNOWN')),
+                                            "job_type": self._infer_job_type(str(job.get('name', '')))
+                                        })
+                    logger.info(f"Parsed {len(parsed)} jobs from JSON (dag structure)")
+
+            if not parsed:
+                logger.warning("No jobs found in JSON, falling back to text parsing")
                 parsed = self._parse_pegasus_jobs(output)
 
-        except json.JSONDecodeError:
-            logger.info("Not JSON format, using text parsing")
+        except (json.JSONDecodeError, AttributeError, TypeError) as e:
+            logger.warning(f"JSON parsing failed ({e}), using text parsing")
             parsed = self._parse_pegasus_jobs(output)
+        except Exception as e:
+            logger.error(f"Unexpected error parsing jobs: {e}")
+            return {
+                "success": False,
+                "error": f"Failed to parse jobs: {str(e)}",
+                "raw_output": output
+            }
 
         return {
             "success": True,
             "jobs": parsed,
             "raw_output": output,
-            "timestamp": result['timestamp']
+            "timestamp": result.get('timestamp') if isinstance(result, dict) else datetime.now().isoformat()
         }
 
     def _parse_pegasus_jobs(self, output: str) -> List[Dict[str, Any]]:
@@ -831,15 +848,22 @@ class PegasusCommandExecutor:
         nodes = []
         edges = []
 
-        # Extract nodes (format: "job_id" [label="job_name"])
-        node_pattern = re.compile(r'"([^"]+)"\s*\[label="([^"]+)"[^\]]*\]')
+        # Extract nodes (format: "job_id" [attributes...label="job_name"...])
+        # Label can have newlines like "FineTuneLLM\\nFineTuneLLM_ID0000001"
+        node_pattern = re.compile(r'"([^"]+)"\s*\[[^\]]*label="([^"]+)"[^\]]*\]')
         for match in node_pattern.finditer(dot_content):
             node_id = match.group(1)
             node_label = match.group(2)
+
+            # Clean up label - remove newline escapes and extra info
+            # "FineTuneLLM\\nFineTuneLLM_ID0000001" -> "FineTuneLLM"
+            label_parts = node_label.split('\\n')
+            clean_label = label_parts[0] if label_parts else node_label
+
             nodes.append({
                 "id": node_id,
-                "label": node_label,
-                "job_name": node_label
+                "label": clean_label,
+                "job_name": node_id  # Use node_id as job_name for matching with status
             })
 
         # Extract edges (format: "job1" -> "job2")

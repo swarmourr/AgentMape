@@ -298,27 +298,52 @@ class PegasusProviderService:
                     "error": "Workflow not found or submit directory unknown"
                 }, status=404)
 
-            # Try pegasus-graphviz first
-            logger.info(f"⚙️  Trying pegasus-graphviz for: {submit_dir}")
-            result = await asyncio.to_thread(
-                self.executor.get_workflow_dag, submit_dir
-            )
+            # Try pegasus-graphviz first (with retry)
+            max_retries = 2
+            result = None
 
-            if result.get('success'):
-                node_count = len(result.get('nodes', []))
-                edge_count = len(result.get('edges', []))
-                logger.info(f"✅ Generated DAG with {node_count} nodes and {edge_count} edges")
-                return web.json_response(result)
-            else:
-                # Fallback to synthetic jobs from pegasus-status
-                logger.warning(f"⚠️  pegasus-graphviz failed, falling back to synthetic jobs")
-                logger.warning(f"   Error was: {result.get('error', 'unknown')}")
+            for attempt in range(max_retries):
+                try:
+                    logger.info(f"⚙️  Trying pegasus-graphviz for: {submit_dir} (attempt {attempt + 1}/{max_retries})")
+                    result = await asyncio.to_thread(
+                        self.executor.get_workflow_dag, submit_dir
+                    )
 
+                    if result and isinstance(result, dict) and result.get('success'):
+                        node_count = len(result.get('nodes', []))
+                        edge_count = len(result.get('edges', []))
+
+                        # Check if we actually got nodes (not just edges)
+                        if node_count > 0:
+                            logger.info(f"✅ Generated DAG with {node_count} nodes and {edge_count} edges")
+                            return web.json_response(result)
+                        else:
+                            logger.warning(f"⚠️  pegasus-graphviz returned 0 nodes (retry {attempt + 1}/{max_retries})")
+                            await asyncio.sleep(0.5)  # Brief delay before retry
+                            continue
+                    else:
+                        logger.warning(f"⚠️  pegasus-graphviz failed (attempt {attempt + 1}/{max_retries})")
+                        logger.warning(f"   Error was: {result.get('error', 'unknown') if result else 'no result'}")
+                        await asyncio.sleep(0.5)
+                        continue
+
+                except Exception as e:
+                    logger.error(f"❌ Exception in pegasus-graphviz (attempt {attempt + 1}/{max_retries}): {e}")
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(0.5)
+                        continue
+                    else:
+                        break
+
+            # Fallback to synthetic jobs from pegasus-status
+            logger.warning(f"⚠️  pegasus-graphviz failed after {max_retries} attempts, falling back to synthetic jobs")
+
+            try:
                 jobs_result = await asyncio.to_thread(
                     self.executor.get_workflow_jobs, submit_dir
                 )
 
-                if jobs_result.get('success'):
+                if jobs_result and isinstance(jobs_result, dict) and jobs_result.get('success'):
                     logger.info(f"✅ Using {len(jobs_result.get('jobs', []))} synthetic jobs as fallback")
                     return web.json_response({
                         "success": True,
@@ -329,7 +354,17 @@ class PegasusProviderService:
                         "timestamp": jobs_result.get('timestamp')
                     })
                 else:
-                    return web.json_response(jobs_result)
+                    logger.error(f"❌ Fallback jobs also failed")
+                    return web.json_response(jobs_result if jobs_result else {
+                        "success": False,
+                        "error": "Both pegasus-graphviz and pegasus-status failed"
+                    })
+            except Exception as e:
+                logger.error(f"❌ Exception getting fallback jobs: {e}")
+                return web.json_response({
+                    "success": False,
+                    "error": f"Failed to get workflow structure: {str(e)}"
+                })
 
         except Exception as e:
             logger.error(f"❌ Error in handle_dag: {e}")
