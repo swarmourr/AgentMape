@@ -111,19 +111,21 @@ class PegasusCommandExecutor:
         output = result['output']
         try:
             status_json = json.loads(output)
-            # Extract relevant fields from JSON
+            totals = status_json.get('totals', {})
+
+            # Extract relevant fields from JSON (fields are directly in totals)
             parsed = {
-                "state": status_json.get('state', 'unknown').lower(),
-                "percent_done": status_json.get('percent_done', 0),
-                "total_jobs": status_json.get('totals', {}).get('total', 0),
-                "succeeded": status_json.get('totals', {}).get('success', 0),
-                "failed": status_json.get('totals', {}).get('failed', 0),
-                "running": status_json.get('totals', {}).get('running', 0),
-                "ready": status_json.get('totals', {}).get('ready', 0),
-                "queued": status_json.get('totals', {}).get('queued', 0),
-                "unsubmitted": status_json.get('totals', {}).get('unsubmitted', 0)
+                "state": totals.get('state', 'unknown').lower(),
+                "percent_done": totals.get('percent_done', 0),
+                "total_jobs": totals.get('total', 0),
+                "succeeded": totals.get('success', 0),
+                "failed": totals.get('failed', 0),
+                "running": totals.get('pre', 0) + totals.get('post', 0),  # pre and post are running states
+                "ready": totals.get('ready', 0),
+                "queued": totals.get('queued', 0),
+                "unsubmitted": totals.get('unready', 0)  # 'unready' in JSON = 'unsubmitted'
             }
-            logger.info(f"Parsed JSON status: {parsed['total_jobs']} total jobs, state={parsed['state']}")
+            logger.info(f"Parsed JSON status: {parsed['total_jobs']} total jobs, {parsed['succeeded']} success, {parsed['failed']} failed, state={parsed['state']}")
         except json.JSONDecodeError as e:
             logger.warning(f"Failed to parse JSON, falling back to text parsing: {e}")
             parsed = self._parse_pegasus_status(output)
@@ -743,6 +745,100 @@ class PegasusCommandExecutor:
             return 'cleanup'
         else:
             return 'compute'
+
+    def get_workflow_dag(self, submit_dir: str) -> Dict[str, Any]:
+        """
+        Get workflow DAG structure using pegasus-graphviz
+
+        Returns nodes (jobs) and edges (dependencies) for visualization
+        """
+        cache_key = f"{submit_dir}_dag"
+
+        # Find the workflow YAML file in submit directory
+        import glob
+        yaml_files = glob.glob(os.path.join(submit_dir, "*.yml"))
+        if not yaml_files:
+            yaml_files = glob.glob(os.path.join(submit_dir, "*.yaml"))
+
+        if not yaml_files:
+            return {
+                "success": False,
+                "error": "No workflow YAML file found in submit directory"
+            }
+
+        workflow_file = yaml_files[0]
+        logger.info(f"Using workflow file: {workflow_file}")
+
+        # Generate DOT file
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.dot', delete=False) as tmp:
+            dot_file = tmp.name
+
+        try:
+            command = ['pegasus-graphviz', workflow_file, '--label=xform-id', f'--output={dot_file}']
+            result = self.execute_command(command, cache_key=cache_key)
+
+            if not result['success']:
+                return {
+                    "success": False,
+                    "error": result['error'],
+                    "raw_output": result['output']
+                }
+
+            # Parse DOT file to extract nodes and edges
+            with open(dot_file, 'r') as f:
+                dot_content = f.read()
+
+            nodes, edges = self._parse_dot_file(dot_content)
+
+            # Clean up temp file
+            os.unlink(dot_file)
+
+            return {
+                "success": True,
+                "nodes": nodes,
+                "edges": edges,
+                "dot_content": dot_content,
+                "timestamp": datetime.now().isoformat()
+            }
+
+        except Exception as e:
+            logger.error(f"Error generating workflow DAG: {e}")
+            if os.path.exists(dot_file):
+                os.unlink(dot_file)
+            return {
+                "success": False,
+                "error": str(e)
+            }
+
+    def _parse_dot_file(self, dot_content: str) -> tuple:
+        """Parse DOT file to extract nodes and edges"""
+        nodes = []
+        edges = []
+
+        # Extract nodes (format: "job_id" [label="job_name"])
+        node_pattern = re.compile(r'"([^"]+)"\s*\[label="([^"]+)"[^\]]*\]')
+        for match in node_pattern.finditer(dot_content):
+            node_id = match.group(1)
+            node_label = match.group(2)
+            nodes.append({
+                "id": node_id,
+                "label": node_label,
+                "job_name": node_label
+            })
+
+        # Extract edges (format: "job1" -> "job2")
+        edge_pattern = re.compile(r'"([^"]+)"\s*->\s*"([^"]+)"')
+        for match in edge_pattern.finditer(dot_content):
+            from_node = match.group(1)
+            to_node = match.group(2)
+            edges.append({
+                "from": from_node,
+                "to": to_node
+            })
+
+        logger.info(f"Parsed DOT file: {len(nodes)} nodes, {len(edges)} edges")
+        return nodes, edges
 
     def clear_cache(self):
         """Clear command result cache"""

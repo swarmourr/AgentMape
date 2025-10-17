@@ -99,6 +99,7 @@ class PegasusProviderService:
             ('GET', '/api/workflows/{workflow_id}/statistics', self.handle_statistics),
             ('GET', '/api/workflows/{workflow_id}/full', self.handle_full_analysis),
             ('GET', '/api/workflows/{workflow_id}/jobs', self.handle_jobs),
+            ('GET', '/api/workflows/{workflow_id}/dag', self.handle_dag),
             ('POST', '/api/workflows/{workflow_id}/rerun', self.handle_rerun_workflow),
             ('POST', '/api/workflows/batch', self.handle_batch_query),
             ('DELETE', '/api/cache', self.handle_clear_cache),
@@ -273,6 +274,42 @@ class PegasusProviderService:
                 logger.info(f"✅ Found {job_count} jobs in workflow")
             else:
                 logger.error(f"❌ Failed to get jobs: {result.get('error')}")
+
+            return web.json_response(result)
+
+        except Exception as e:
+            return web.json_response({
+                "success": False,
+                "error": str(e)
+            }, status=500)
+
+    async def handle_dag(self, request):
+        """Get workflow DAG structure using pegasus-graphviz"""
+        try:
+            workflow_id = request.match_info['workflow_id']
+            logger.info(f"🔀 DAG request for workflow: {workflow_id}")
+
+            # Get submit directory from Monitor
+            submit_dir = await self.get_workflow_submit_dir(workflow_id)
+            if not submit_dir:
+                logger.error(f"❌ No submit directory found for DAG request")
+                return web.json_response({
+                    "success": False,
+                    "error": "Workflow not found or submit directory unknown"
+                }, status=404)
+
+            # Execute pegasus-graphviz to get DAG structure
+            logger.info(f"⚙️  Executing pegasus-graphviz for: {submit_dir}")
+            result = await asyncio.to_thread(
+                self.executor.get_workflow_dag, submit_dir
+            )
+
+            if result.get('success'):
+                node_count = len(result.get('nodes', []))
+                edge_count = len(result.get('edges', []))
+                logger.info(f"✅ Generated DAG with {node_count} nodes and {edge_count} edges")
+            else:
+                logger.error(f"❌ Failed to get DAG: {result.get('error')}")
 
             return web.json_response(result)
 

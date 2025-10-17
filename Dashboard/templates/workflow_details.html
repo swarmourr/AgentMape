@@ -616,7 +616,7 @@
             try {
                 // Fetch both jobs and full workflow data for DAG construction
                 const [jobsResponse, fullResponse] = await Promise.all([
-                    fetch(`${CONFIG.PEGASUS_PROVIDER_URL}/workflows/${workflowId}/jobs`),
+                    fetch(`${CONFIG.PEGASUS_PROVIDER_URL}/workflows/${workflowId}/dag`),
                     fetch(`${CONFIG.PEGASUS_PROVIDER_URL}/workflows/${workflowId}/full`)
                 ]);
 
@@ -653,18 +653,34 @@
                     }
                 }
 
-                // Extract jobs from various possible locations
+                // Try to get DAG structure from new endpoint first
+                const dagNodes = jobsData?.nodes || [];
+                const dagEdges = jobsData?.edges || [];
+
+                // Fallback to jobs from full data for backward compatibility
                 const jobs = jobsData?.jobs ||
                             fullData?.jobs ||
                             fullData?.analyzer?.jobs ||
                             fullData?.analyzer?.analysis?.jobs ||
                             [];
-                const workflowYaml = fullData?.workflow_yaml || null;
 
-                console.log('📊 Found jobs:', jobs.length);
+                console.log('📊 Found DAG nodes:', dagNodes.length);
+                console.log('📊 Found DAG edges:', dagEdges.length);
+                console.log('📊 Fallback jobs:', jobs.length);
 
-                if (jobs.length > 0) {
-                    renderWorkflowDAGGraph(jobs, workflowYaml);
+                // Get job states from full data to color the DAG nodes
+                const jobStates = {};
+                if (fullData?.status?.status) {
+                    // Store status info for coloring
+                    jobStates.status = fullData.status.status;
+                }
+
+                if (dagNodes.length > 0) {
+                    // Use new DAG structure with real job names and dependencies
+                    renderWorkflowDAGFromGraphviz(dagNodes, dagEdges, jobs, jobStates);
+                } else if (jobs.length > 0) {
+                    // Fallback to old synthetic job rendering
+                    renderWorkflowDAGGraph(jobs, null);
                 } else {
                     document.getElementById('workflow-dag-content').innerHTML = `
                         <div style="text-align: center; padding: 20px; color: var(--gray-400);">
@@ -680,6 +696,149 @@
                     </div>
                 `;
             }
+        }
+
+        function renderWorkflowDAGFromGraphviz(dagNodes, dagEdges, jobs, jobStates) {
+            /**
+             * Render workflow DAG using pegasus-graphviz output
+             * This gives us real job names and actual dependencies!
+             */
+            const container = document.getElementById('workflow-dag-content');
+
+            // Create container for graph
+            container.innerHTML = `
+                <div style="margin-bottom: 16px; display: flex; gap: 12px; align-items: center;">
+                    <button id="dag-view-graph" onclick="switchDAGView('graph')" style="padding: 8px 16px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                        📊 Graph View
+                    </button>
+                    <button id="dag-view-summary" onclick="switchDAGView('summary')" style="padding: 8px 16px; background: white; color: var(--gray-700); border: 1px solid var(--gray-300); border-radius: 6px; cursor: pointer; font-size: 14px;">
+                        📋 Summary View
+                    </button>
+                </div>
+                <div id="dag-graph-container" style="width: 100%; height: 500px; border: 1px solid #e5e7eb; border-radius: 8px;"></div>
+                <div id="dag-summary-container" style="display: none;"></div>
+            `;
+
+            // Map job states from jobs array for coloring
+            const jobStateMap = {};
+            jobs.forEach(job => {
+                jobStateMap[job.job_name] = job.state;
+            });
+
+            // Color mapping for job states
+            const stateColors = {
+                'success': '#10b981',
+                'running': '#3b82f6',
+                'failed': '#ef4444',
+                'held': '#f59e0b',
+                'queued': '#8b5cf6',
+                'ready': '#06b6d4',
+                'unsubmitted': '#6b7280',
+                'pre_script': '#3b82f6',
+                'post_script': '#3b82f6',
+                'unknown': '#9ca3af'
+            };
+
+            // Convert DAG nodes to vis-network format
+            const visNodes = dagNodes.map(node => {
+                const state = jobStateMap[node.job_name] || 'unknown';
+                return {
+                    id: node.id,
+                    label: node.label,
+                    color: {
+                        background: stateColors[state] || stateColors['unknown'],
+                        border: '#2563eb',
+                        highlight: {
+                            background: stateColors[state] || stateColors['unknown'],
+                            border: '#1d4ed8'
+                        }
+                    },
+                    font: {
+                        color: '#ffffff',
+                        size: 14
+                    },
+                    shape: 'box',
+                    margin: 10,
+                    state: state
+                };
+            });
+
+            // Convert DAG edges to vis-network format
+            const visEdges = dagEdges.map(edge => ({
+                from: edge.from,
+                to: edge.to,
+                arrows: 'to',
+                color: {
+                    color: '#94a3b8',
+                    highlight: '#1d4ed8'
+                },
+                smooth: {
+                    type: 'cubicBezier',
+                    forceDirection: 'vertical'
+                }
+            }));
+
+            // Create vis-network graph
+            const data = {
+                nodes: new vis.DataSet(visNodes),
+                edges: new vis.DataSet(visEdges)
+            };
+
+            const options = {
+                layout: {
+                    hierarchical: {
+                        enabled: true,
+                        direction: 'UD',  // Up to Down
+                        sortMethod: 'directed',
+                        nodeSpacing: 150,
+                        levelSeparation: 100
+                    }
+                },
+                physics: {
+                    enabled: false
+                },
+                interaction: {
+                    hover: true,
+                    tooltipDelay: 100,
+                    zoomView: true,
+                    dragView: true
+                },
+                nodes: {
+                    borderWidth: 2,
+                    borderWidthSelected: 3
+                },
+                edges: {
+                    smooth: {
+                        type: 'cubicBezier',
+                        forceDirection: 'vertical'
+                    }
+                }
+            };
+
+            try {
+                const graphContainer = document.getElementById('dag-graph-container');
+                const network = new vis.Network(graphContainer, data, options);
+
+                // Add click handler
+                network.on('click', function(params) {
+                    if (params.nodes.length > 0) {
+                        const nodeId = params.nodes[0];
+                        const node = dagNodes.find(n => n.id === nodeId);
+                        const state = jobStateMap[node?.job_name] || 'unknown';
+                        if (node) {
+                            alert(`Job: ${node.label}\nState: ${state}`);
+                        }
+                    }
+                });
+
+                console.log(`✅ Rendered DAG with ${visNodes.length} nodes and ${visEdges.length} edges`);
+            } catch (error) {
+                console.error('Error creating DAG graph:', error);
+                graphContainer.innerHTML = `<div style="padding: 40px; text-align: center; color: var(--danger);">Error rendering graph: ${error.message}</div>`;
+            }
+
+            // Render summary view
+            renderDAGSummary(jobs);
         }
 
         function renderWorkflowDAGGraph(jobs, workflowYaml) {
