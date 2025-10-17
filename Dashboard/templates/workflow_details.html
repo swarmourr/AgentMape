@@ -510,6 +510,9 @@
                 }
 
                 console.log('🎨 Rendering stats cards...');
+                console.log('📦 pegasusData:', pegasusData);
+                console.log('📦 pegasusData type:', typeof pegasusData);
+                console.log('📦 pegasusData is null?', pegasusData === null);
                 renderWorkflowStats(pegasusData);
                 console.log('✅ Stats cards rendered');
 
@@ -947,9 +950,16 @@
         }
 
         function renderWorkflowStats(pegasusData) {
+            console.log('🎯 renderWorkflowStats called with:', pegasusData);
+
             const container = document.getElementById('workflow-stats-cards');
 
+            console.log('🎯 Container found:', container);
+            console.log('🎯 Has pegasusData?', !!pegasusData);
+            console.log('🎯 Has statistics?', !!pegasusData?.statistics);
+
             if (!pegasusData || !pegasusData.statistics) {
+                console.warn('⚠️ No pegasusData or statistics, showing not available message');
                 container.innerHTML = `
                     <div style="text-align: center; padding: 40px; color: var(--gray-400);">
                         <p>Workflow statistics not available</p>
@@ -958,6 +968,8 @@
                 `;
                 return;
             }
+
+            console.log('✅ Proceeding with stats rendering...');
 
             const stats = pegasusData.statistics || {};
             const status = pegasusData.status?.status || {};
@@ -1060,7 +1072,16 @@
                 </div>
             `;
 
+            console.log('📊 Setting stats HTML...');
+            console.log('📊 Total Jobs:', totalJobs);
+            console.log('📊 Success Jobs:', successJobs);
+            console.log('📊 Failed Jobs:', failedJobs);
+            console.log('📊 Success Rate:', successRate);
+            console.log('📊 Duration:', durationFormatted);
+            console.log('📊 State:', workflowState);
+
             container.innerHTML = html;
+            console.log('✅ Stats HTML set successfully');
         }
 
         function renderPipeline(data, pegasusData) {
