@@ -284,7 +284,7 @@ class PegasusProviderService:
             }, status=500)
 
     async def handle_dag(self, request):
-        """Get workflow DAG structure using pegasus-graphviz"""
+        """Get workflow DAG structure using pegasus-graphviz, fallback to synthetic jobs"""
         try:
             workflow_id = request.match_info['workflow_id']
             logger.info(f"🔀 DAG request for workflow: {workflow_id}")
@@ -298,8 +298,8 @@ class PegasusProviderService:
                     "error": "Workflow not found or submit directory unknown"
                 }, status=404)
 
-            # Execute pegasus-graphviz to get DAG structure
-            logger.info(f"⚙️  Executing pegasus-graphviz for: {submit_dir}")
+            # Try pegasus-graphviz first
+            logger.info(f"⚙️  Trying pegasus-graphviz for: {submit_dir}")
             result = await asyncio.to_thread(
                 self.executor.get_workflow_dag, submit_dir
             )
@@ -308,12 +308,31 @@ class PegasusProviderService:
                 node_count = len(result.get('nodes', []))
                 edge_count = len(result.get('edges', []))
                 logger.info(f"✅ Generated DAG with {node_count} nodes and {edge_count} edges")
+                return web.json_response(result)
             else:
-                logger.error(f"❌ Failed to get DAG: {result.get('error')}")
+                # Fallback to synthetic jobs from pegasus-status
+                logger.warning(f"⚠️  pegasus-graphviz failed, falling back to synthetic jobs")
+                logger.warning(f"   Error was: {result.get('error', 'unknown')}")
 
-            return web.json_response(result)
+                jobs_result = await asyncio.to_thread(
+                    self.executor.get_workflow_jobs, submit_dir
+                )
+
+                if jobs_result.get('success'):
+                    logger.info(f"✅ Using {len(jobs_result.get('jobs', []))} synthetic jobs as fallback")
+                    return web.json_response({
+                        "success": True,
+                        "nodes": [],  # Empty - triggers fallback in frontend
+                        "edges": [],
+                        "jobs": jobs_result.get('jobs', []),
+                        "fallback": True,
+                        "timestamp": jobs_result.get('timestamp')
+                    })
+                else:
+                    return web.json_response(jobs_result)
 
         except Exception as e:
+            logger.error(f"❌ Error in handle_dag: {e}")
             return web.json_response({
                 "success": False,
                 "error": str(e)

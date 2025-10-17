@@ -657,16 +657,18 @@
                 const dagNodes = jobsData?.nodes || [];
                 const dagEdges = jobsData?.edges || [];
 
-                // Fallback to jobs from full data for backward compatibility
+                // Jobs can come from DAG endpoint (fallback) or full data
                 const jobs = jobsData?.jobs ||
                             fullData?.jobs ||
                             fullData?.analyzer?.jobs ||
                             fullData?.analyzer?.analysis?.jobs ||
                             [];
 
+                console.log('📊 DAG endpoint success:', jobsData?.success);
                 console.log('📊 Found DAG nodes:', dagNodes.length);
                 console.log('📊 Found DAG edges:', dagEdges.length);
-                console.log('📊 Fallback jobs:', jobs.length);
+                console.log('📊 Found jobs:', jobs.length);
+                console.log('📊 Using fallback:', jobsData?.fallback);
 
                 // Get job states from full data to color the DAG nodes
                 const jobStates = {};
@@ -675,13 +677,16 @@
                     jobStates.status = fullData.status.status;
                 }
 
-                if (dagNodes.length > 0) {
+                if (dagNodes.length > 0 && dagEdges.length > 0) {
                     // Use new DAG structure with real job names and dependencies
+                    console.log('✅ Using pegasus-graphviz DAG structure');
                     renderWorkflowDAGFromGraphviz(dagNodes, dagEdges, jobs, jobStates);
                 } else if (jobs.length > 0) {
-                    // Fallback to old synthetic job rendering
+                    // Fallback to synthetic job rendering
+                    console.log('✅ Using synthetic jobs (pegasus-graphviz not available)');
                     renderWorkflowDAGGraph(jobs, null);
                 } else {
+                    console.warn('❌ No job data available');
                     document.getElementById('workflow-dag-content').innerHTML = `
                         <div style="text-align: center; padding: 20px; color: var(--gray-400);">
                             No job data available

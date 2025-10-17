@@ -112,10 +112,15 @@ class PegasusCommandExecutor:
         try:
             status_json = json.loads(output)
             totals = status_json.get('totals', {})
+            dags = status_json.get('dags', {})
+
+            # Get state from dags.root.state (not in totals!)
+            root_dag = dags.get('root', {})
+            state = root_dag.get('state', 'unknown').lower()
 
             # Extract relevant fields from JSON (fields are directly in totals)
             parsed = {
-                "state": totals.get('state', 'unknown').lower(),
+                "state": state,
                 "percent_done": totals.get('percent_done', 0),
                 "total_jobs": totals.get('total', 0),
                 "succeeded": totals.get('success', 0),
@@ -754,20 +759,20 @@ class PegasusCommandExecutor:
         """
         cache_key = f"{submit_dir}_dag"
 
-        # Find the workflow YAML file in submit directory
+        # Find the DAG file in submit directory (*.dag, not *.yml)
+        # The DAG file is the actual workflow structure file
         import glob
-        yaml_files = glob.glob(os.path.join(submit_dir, "*.yml"))
-        if not yaml_files:
-            yaml_files = glob.glob(os.path.join(submit_dir, "*.yaml"))
+        dag_files = glob.glob(os.path.join(submit_dir, "*.dag"))
 
-        if not yaml_files:
+        if not dag_files:
+            logger.warning("No .dag file found in submit directory")
             return {
                 "success": False,
-                "error": "No workflow YAML file found in submit directory"
+                "error": "No workflow DAG file found in submit directory"
             }
 
-        workflow_file = yaml_files[0]
-        logger.info(f"Using workflow file: {workflow_file}")
+        dag_file = dag_files[0]
+        logger.info(f"Using DAG file: {dag_file}")
 
         # Generate DOT file
         import tempfile
@@ -775,10 +780,12 @@ class PegasusCommandExecutor:
             dot_file = tmp.name
 
         try:
-            command = ['pegasus-graphviz', workflow_file, '--label=xform-id', f'--output={dot_file}']
+            # Use pegasus-graphviz with DAG file and output to dot file
+            command = ['pegasus-graphviz', dag_file, '--label=xform-id', '--output', dot_file]
             result = self.execute_command(command, cache_key=cache_key)
 
             if not result['success']:
+                logger.error(f"pegasus-graphviz failed: {result.get('error')}")
                 return {
                     "success": False,
                     "error": result['error'],
@@ -786,6 +793,13 @@ class PegasusCommandExecutor:
                 }
 
             # Parse DOT file to extract nodes and edges
+            if not os.path.exists(dot_file) or os.path.getsize(dot_file) == 0:
+                logger.error(f"DOT file not created or empty: {dot_file}")
+                return {
+                    "success": False,
+                    "error": "pegasus-graphviz did not generate output"
+                }
+
             with open(dot_file, 'r') as f:
                 dot_content = f.read()
 
@@ -794,6 +808,7 @@ class PegasusCommandExecutor:
             # Clean up temp file
             os.unlink(dot_file)
 
+            logger.info(f"Successfully parsed {len(nodes)} nodes and {len(edges)} edges from DAG")
             return {
                 "success": True,
                 "nodes": nodes,
