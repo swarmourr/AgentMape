@@ -995,13 +995,27 @@ def proxy_monitor(path):
     try:
         url = f"{MONITOR_URL}/api/{path}"
 
+        # Get request body if present
+        body = None
+        if request.method in ['POST', 'PUT'] and request.data:
+            try:
+                body = request.get_json()
+            except:
+                body = None
+
         # Forward request with same method, headers, and body
         if request.method == 'GET':
             resp = requests.get(url, params=request.args, timeout=30)
         elif request.method == 'POST':
-            resp = requests.post(url, json=request.get_json(), params=request.args, timeout=30)
+            if body is not None:
+                resp = requests.post(url, json=body, params=request.args, timeout=30)
+            else:
+                resp = requests.post(url, params=request.args, timeout=30)
         elif request.method == 'PUT':
-            resp = requests.put(url, json=request.get_json(), params=request.args, timeout=30)
+            if body is not None:
+                resp = requests.put(url, json=body, params=request.args, timeout=30)
+            else:
+                resp = requests.put(url, params=request.args, timeout=30)
         elif request.method == 'DELETE':
             resp = requests.delete(url, params=request.args, timeout=30)
         elif request.method == 'OPTIONS':
@@ -1021,13 +1035,27 @@ def proxy_pegasus(path):
     try:
         url = f"{PEGASUS_PROVIDER_URL}/api/{path}"
 
+        # Get request body if present
+        body = None
+        if request.method in ['POST', 'PUT'] and request.data:
+            try:
+                body = request.get_json()
+            except:
+                body = None
+
         # Forward request with same method, headers, and body
         if request.method == 'GET':
             resp = requests.get(url, params=request.args, timeout=30)
         elif request.method == 'POST':
-            resp = requests.post(url, json=request.get_json(), params=request.args, timeout=30)
+            if body is not None:
+                resp = requests.post(url, json=body, params=request.args, timeout=30)
+            else:
+                resp = requests.post(url, params=request.args, timeout=30)
         elif request.method == 'PUT':
-            resp = requests.put(url, json=request.get_json(), params=request.args, timeout=30)
+            if body is not None:
+                resp = requests.put(url, json=body, params=request.args, timeout=30)
+            else:
+                resp = requests.put(url, params=request.args, timeout=30)
         elif request.method == 'DELETE':
             resp = requests.delete(url, params=request.args, timeout=30)
         elif request.method == 'OPTIONS':
