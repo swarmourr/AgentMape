@@ -159,6 +159,40 @@ class PegasusCommandExecutor:
             if match:
                 status[key] = int(match.group(1))
 
+        # Also try parsing tabular summary format
+        # Example format:
+        # UNREADY READY  PRE  IN_Q  POST  DONE  FAIL %DONE  STATE  DAGNAME
+        #    6      0     0    1     0     1     0    12.5 Running falcon-7b-0.dag
+        table_match = re.search(
+            r'UNREADY\s+READY\s+PRE\s+IN_Q\s+POST\s+DONE\s+FAIL\s+%DONE\s+STATE\s+DAGNAME\s*\n\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+([\d.]+)\s+(\w+)\s+(.+)',
+            output,
+            re.MULTILINE
+        )
+
+        if table_match:
+            unready = int(table_match.group(1))
+            ready = int(table_match.group(2))
+            pre = int(table_match.group(3))
+            in_q = int(table_match.group(4))
+            post = int(table_match.group(5))
+            done = int(table_match.group(6))
+            fail = int(table_match.group(7))
+            percent_done = float(table_match.group(8))
+            state = table_match.group(9)
+
+            logger.info(f"Parsed tabular status: {unready} UNREADY, {ready} READY, {in_q} IN_Q, {done} DONE, {fail} FAIL")
+
+            # Update status with tabular data
+            status['state'] = state.lower()
+            status['percent_done'] = percent_done
+            status['unsubmitted'] = unready
+            status['ready'] = ready
+            status['queued'] = in_q  # IN_Q means queued
+            status['succeeded'] = done
+            status['failed'] = fail
+            status['running'] = pre + post  # PRE and POST are execution states
+            status['total_jobs'] = unready + ready + pre + in_q + post + done + fail
+
         return status
 
     def get_workflow_statistics(self, submit_dir: str, stat_type: str = "summary") -> Dict[str, Any]:
@@ -473,7 +507,7 @@ class PegasusCommandExecutor:
         """Parse pegasus-status --long output to extract job information"""
         jobs = []
 
-        # Look for job listing section
+        # First try to parse individual job lines (detailed format)
         # Example format:
         # UNRDY  preprocess_ID0000001
         # RUN    process_ID0000002
@@ -506,6 +540,101 @@ class PegasusCommandExecutor:
                 "raw_state": state,
                 "job_type": self._infer_job_type(job_name)
             })
+
+        # If no jobs found, try parsing tabular summary format
+        # Example format:
+        # UNREADY READY  PRE  IN_Q  POST  DONE  FAIL %DONE  STATE  DAGNAME
+        #    6      0     0    1     0     1     0    12.5 Running falcon-7b-0.dag
+        if not jobs:
+            logger.info("No individual jobs found, parsing tabular summary format")
+
+            # Find the summary table (header line with UNREADY, READY, etc.)
+            table_match = re.search(
+                r'UNREADY\s+READY\s+PRE\s+IN_Q\s+POST\s+DONE\s+FAIL\s+%DONE\s+STATE\s+DAGNAME\s*\n\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+([\d.]+)\s+(\w+)\s+(.+)',
+                output,
+                re.MULTILINE
+            )
+
+            if table_match:
+                unready = int(table_match.group(1))
+                ready = int(table_match.group(2))
+                pre = int(table_match.group(3))
+                in_q = int(table_match.group(4))
+                post = int(table_match.group(5))
+                done = int(table_match.group(6))
+                fail = int(table_match.group(7))
+                percent_done = float(table_match.group(8))
+                state = table_match.group(9)
+                dagname = table_match.group(10).strip()
+
+                logger.info(f"Parsed tabular format: {unready} UNREADY, {ready} READY, {in_q} IN_Q, {done} DONE, {fail} FAIL")
+
+                # Create synthetic job entries based on counts
+                job_id = 1
+                for i in range(unready):
+                    jobs.append({
+                        "job_name": f"{dagname}_unready_{job_id}",
+                        "state": "unsubmitted",
+                        "raw_state": "UNREADY",
+                        "job_type": "compute"
+                    })
+                    job_id += 1
+
+                for i in range(ready):
+                    jobs.append({
+                        "job_name": f"{dagname}_ready_{job_id}",
+                        "state": "ready",
+                        "raw_state": "READY",
+                        "job_type": "compute"
+                    })
+                    job_id += 1
+
+                for i in range(pre):
+                    jobs.append({
+                        "job_name": f"{dagname}_pre_{job_id}",
+                        "state": "pre_script",
+                        "raw_state": "PRE",
+                        "job_type": "compute"
+                    })
+                    job_id += 1
+
+                for i in range(in_q):
+                    jobs.append({
+                        "job_name": f"{dagname}_queued_{job_id}",
+                        "state": "queued",
+                        "raw_state": "IN_Q",
+                        "job_type": "compute"
+                    })
+                    job_id += 1
+
+                for i in range(post):
+                    jobs.append({
+                        "job_name": f"{dagname}_post_{job_id}",
+                        "state": "post_script",
+                        "raw_state": "POST",
+                        "job_type": "compute"
+                    })
+                    job_id += 1
+
+                for i in range(done):
+                    jobs.append({
+                        "job_name": f"{dagname}_done_{job_id}",
+                        "state": "success",
+                        "raw_state": "DONE",
+                        "job_type": "compute"
+                    })
+                    job_id += 1
+
+                for i in range(fail):
+                    jobs.append({
+                        "job_name": f"{dagname}_failed_{job_id}",
+                        "state": "failed",
+                        "raw_state": "FAIL",
+                        "job_type": "compute"
+                    })
+                    job_id += 1
+
+                logger.info(f"Created {len(jobs)} synthetic job entries from tabular summary")
 
         return jobs
 
