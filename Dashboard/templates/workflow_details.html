@@ -476,7 +476,7 @@
 
                 const [dashboardResponse, pegasusResponse] = await Promise.all([
                     fetch(`/api/workflow/${workflowId}/analysis`),
-                    fetch(`${CONFIG.PEGASUS_PROVIDER_URL}/api/workflows/${workflowId}/full`)
+                    fetch(`${CONFIG.PEGASUS_PROVIDER_URL}/workflows/${workflowId}/full`)
                 ]);
 
                 console.log('✅ Dashboard response status:', dashboardResponse.status);
@@ -561,7 +561,7 @@
 
                 console.log('🔄 Rerunning workflow:', workflowId);
 
-                const response = await fetch(`${CONFIG.PEGASUS_PROVIDER_URL}/api/workflows/${workflowId}/rerun`, {
+                const response = await fetch(`${CONFIG.PEGASUS_PROVIDER_URL}/workflows/${workflowId}/rerun`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -613,8 +613,8 @@
             try {
                 // Fetch both jobs and full workflow data for DAG construction
                 const [jobsResponse, fullResponse] = await Promise.all([
-                    fetch(`${CONFIG.PEGASUS_PROVIDER_URL}/api/workflows/${workflowId}/jobs`),
-                    fetch(`${CONFIG.PEGASUS_PROVIDER_URL}/api/workflows/${workflowId}/full`)
+                    fetch(`${CONFIG.PEGASUS_PROVIDER_URL}/workflows/${workflowId}/jobs`),
+                    fetch(`${CONFIG.PEGASUS_PROVIDER_URL}/workflows/${workflowId}/full`)
                 ]);
 
                 if (!jobsResponse.ok && !fullResponse.ok) {

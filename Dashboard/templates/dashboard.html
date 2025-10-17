@@ -1914,7 +1914,7 @@
                             // Only fetch for failed/held workflows
                             if (wf.state === 'Failure' || wf.state === 'Failed' || wf.problems_count > 0) {
                                 const analyzerResponse = await fetch(
-                                    `${CONFIG.PEGASUS_PROVIDER_URL}/api/workflows/${wf.workflow_id}/analyzer?verbose=false`,
+                                    `${CONFIG.PEGASUS_PROVIDER_URL}/workflows/${wf.workflow_id}/analyzer?verbose=false`,
                                     { timeout: 2000 }
                                 );
                                 if (analyzerResponse.ok) {

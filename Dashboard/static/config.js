@@ -3,6 +3,12 @@
 
 const CONFIG = {
     // Dashboard proxies requests to other services
+    // /api/pegasus/* → http://localhost:8084/api/*
+    // /api/monitor/* → http://localhost:8080/api/*
+    //
+    // Example: fetch('/api/pegasus/workflows/123/full')
+    //   → Dashboard proxies to: http://localhost:8084/api/workflows/123/full
+    //
     // Works for: localhost:8085, ngrok, or any deployment
     // No CORS issues! All APIs accessed through same domain
     PEGASUS_PROVIDER_URL: window.location.origin + '/api/pegasus',
