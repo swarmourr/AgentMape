@@ -399,6 +399,9 @@
 
     <!-- Configuration -->
     <script src="/static/config.js"></script>
+
+    <!-- vis-network library for DAG visualization -->
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
 </head>
 <body>
     <!-- Header -->
@@ -1151,11 +1154,13 @@
             console.log('📊 Full pegasusData keys:', Object.keys(pegasusData));
 
             // Calculate job statistics
-            // Use jobs array if available, otherwise use top-level counts
-            const totalJobs = jobs.length || stats.total_jobs || pegasusData.status?.total_jobs || 0;
-            const successJobs = jobs.length ? jobs.filter(j => j.state === 'success').length : (stats.success_jobs || 0);
-            const failedJobs = pegasusData.failed_jobs_count || jobs.filter(j => j.state === 'failed').length || 0;
-            const runningJobs = jobs.length ? jobs.filter(j => j.state === 'running').length : 0;
+            // Use status data from pegasus-status (most reliable)
+            const totalJobs = status.total_jobs || jobs.length || stats.total_jobs || 0;
+            const successJobs = status.succeeded || (jobs.length ? jobs.filter(j => j.state === 'success').length : 0);
+            const failedJobs = status.failed || pegasusData.failed_jobs_count || (jobs.length ? jobs.filter(j => j.state === 'failed').length : 0);
+            const runningJobs = status.running || (jobs.length ? jobs.filter(j => j.state === 'running').length : 0);
+            const queuedJobs = status.queued || 0;
+            const unsubmittedJobs = status.unsubmitted || 0;
             const successRate = totalJobs > 0 ? ((successJobs / totalJobs) * 100).toFixed(1) : 0;
 
             // Calculate duration
