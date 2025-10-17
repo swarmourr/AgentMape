@@ -2,25 +2,18 @@
 // Update these URLs based on your deployment
 
 const CONFIG = {
-    // Tunnel configuration for Pegasus Provider
-    PEGASUS_PROVIDER_URL: 'https://fyjak-149-165-153-107.a.free.pinggy.link',
-    MONITOR_URL: 'http://localhost:8080',  // Monitor accessed via Dashboard backend
-
-    // For ngrok/pinggy: Update with your tunnel URLs, e.g.:
-    // PEGASUS_PROVIDER_URL: 'https://your-pegasus-tunnel.ngrok.io',
-    // PEGASUS_PROVIDER_URL: 'https://your-pegasus-tunnel.pinggy.link',
-    // MONITOR_URL: 'https://your-monitor-tunnel.ngrok.io',
+    // Using nginx reverse proxy - all services through same origin
+    // Works for: localhost:8000, ngrok, or cloud deployment
+    // No CORS issues! All APIs accessed through same domain
+    PEGASUS_PROVIDER_URL: window.location.origin + '/api/pegasus',
+    MONITOR_URL: window.location.origin + '/api/monitor',
 
     REFRESH_INTERVAL: 15000
 };
 
-// Auto-detect: Only use auto URLs if accessing via localhost
-// For ngrok/pinggy tunnels, you MUST manually set URLs above
-if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    console.warn('⚠️  Tunnel detected! Please configure URLs manually in config.js');
-    console.warn('   Ngrok/Pinggy requires separate tunnels for each service');
-    console.warn('   Current Pegasus Provider URL:', CONFIG.PEGASUS_PROVIDER_URL);
-    console.warn('   Current Monitor URL:', CONFIG.MONITOR_URL);
-
-    // Don't auto-change URLs for tunnels - user must set them manually
-}
+// Debug logging
+console.log('🔧 MAPE-K Dashboard Configuration:');
+console.log('   Origin:', window.location.origin);
+console.log('   Pegasus Provider URL:', CONFIG.PEGASUS_PROVIDER_URL);
+console.log('   Monitor URL:', CONFIG.MONITOR_URL);
+console.log('   ✅ Using nginx reverse proxy - no CORS issues!');
