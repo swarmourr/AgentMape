@@ -18,6 +18,7 @@ CORS(app)
 MONITOR_URL = "http://localhost:8080"
 ANALYZER_URL = "http://localhost:8081"
 PLANNER_URL = "http://localhost:8082"
+PEGASUS_PROVIDER_URL = "http://localhost:8084"
 DASHBOARD_PORT = 8085
 
 class DashboardMonitor:
@@ -982,18 +983,80 @@ def get_agent_activity_chart():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
+# ============================================================================
+# REVERSE PROXY ROUTES - Forward requests to other services
+# This allows Dashboard to act as single entry point (no nginx needed!)
+# ============================================================================
+
+@app.route('/api/monitor/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'])
+def proxy_monitor(path):
+    """Proxy requests to Monitor service"""
+    try:
+        url = f"{MONITOR_URL}/api/{path}"
+
+        # Forward request with same method, headers, and body
+        if request.method == 'GET':
+            resp = requests.get(url, params=request.args, timeout=30)
+        elif request.method == 'POST':
+            resp = requests.post(url, json=request.get_json(), params=request.args, timeout=30)
+        elif request.method == 'PUT':
+            resp = requests.put(url, json=request.get_json(), params=request.args, timeout=30)
+        elif request.method == 'DELETE':
+            resp = requests.delete(url, params=request.args, timeout=30)
+        elif request.method == 'OPTIONS':
+            # Handle preflight CORS
+            return jsonify({}), 200
+
+        # Return response from Monitor
+        return resp.content, resp.status_code, {'Content-Type': resp.headers.get('Content-Type', 'application/json')}
+
+    except Exception as e:
+        return jsonify({"error": f"Monitor proxy error: {str(e)}"}), 500
+
+
+@app.route('/api/pegasus/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'])
+def proxy_pegasus(path):
+    """Proxy requests to Pegasus Provider service"""
+    try:
+        url = f"{PEGASUS_PROVIDER_URL}/api/{path}"
+
+        # Forward request with same method, headers, and body
+        if request.method == 'GET':
+            resp = requests.get(url, params=request.args, timeout=30)
+        elif request.method == 'POST':
+            resp = requests.post(url, json=request.get_json(), params=request.args, timeout=30)
+        elif request.method == 'PUT':
+            resp = requests.put(url, json=request.get_json(), params=request.args, timeout=30)
+        elif request.method == 'DELETE':
+            resp = requests.delete(url, params=request.args, timeout=30)
+        elif request.method == 'OPTIONS':
+            # Handle preflight CORS
+            return jsonify({}), 200
+
+        # Return response from Pegasus Provider
+        return resp.content, resp.status_code, {'Content-Type': resp.headers.get('Content-Type', 'application/json')}
+
+    except Exception as e:
+        return jsonify({"error": f"Pegasus Provider proxy error: {str(e)}"}), 500
+
+
 if __name__ == '__main__':
     print(f"""
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                     🎯 MAPE-K DASHBOARD SERVER                               ║
+║                   (with built-in reverse proxy!)                             ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
 ║  Dashboard URL: http://localhost:{DASHBOARD_PORT}                                      ║
-║  API Endpoint:  http://localhost:{DASHBOARD_PORT}/api/data                             ║
 ║                                                                              ║
-║  Monitoring:                                                                 ║
-║    • Monitor:  {MONITOR_URL}                                        ║
-║    • Analyzer: {ANALYZER_URL}                                        ║
-║    • Planner:  {PLANNER_URL}                                        ║
+║  🌐 Expose via ngrok (single tunnel):                                        ║
+║     ngrok http {DASHBOARD_PORT}                                                     ║
+║                                                                              ║
+║  📡 Proxied Services:                                                        ║
+║    • Monitor API:   /api/monitor/* → {MONITOR_URL}                ║
+║    • Pegasus API:   /api/pegasus/* → {PEGASUS_PROVIDER_URL}                ║
+║                                                                              ║
+║  ✅ No CORS issues - all services through one domain!                       ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
     """)
 
