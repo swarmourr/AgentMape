@@ -159,10 +159,11 @@ class PegasusCommandExecutor:
             if match:
                 status[key] = int(match.group(1))
 
-        # Also try parsing tabular summary format
-        # Example format:
-        # UNREADY READY  PRE  IN_Q  POST  DONE  FAIL %DONE  STATE  DAGNAME
-        #    6      0     0    1     0     1     0    12.5 Running falcon-7b-0.dag
+        # Also try parsing tabular summary format (two possible formats)
+        # Format 1: UNREADY READY PRE IN_Q POST DONE FAIL %DONE STATE DAGNAME
+        # Format 2: UNREADY READY PRE QUEUED POST SUCCESS FAILURE %DONE
+
+        # Try format 1 first (with STATE and DAGNAME)
         table_match = re.search(
             r'UNREADY\s+READY\s+PRE\s+IN_Q\s+POST\s+DONE\s+FAIL\s+%DONE\s+STATE\s+DAGNAME\s*\n\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+([\d.]+)\s+(\w+)\s+(.+)',
             output,
@@ -180,7 +181,7 @@ class PegasusCommandExecutor:
             percent_done = float(table_match.group(8))
             state = table_match.group(9)
 
-            logger.info(f"Parsed tabular status: {unready} UNREADY, {ready} READY, {in_q} IN_Q, {done} DONE, {fail} FAIL")
+            logger.info(f"Parsed tabular status (format 1): {unready} UNREADY, {ready} READY, {in_q} IN_Q, {done} DONE, {fail} FAIL")
 
             # Update status with tabular data
             status['state'] = state.lower()
@@ -192,6 +193,45 @@ class PegasusCommandExecutor:
             status['failed'] = fail
             status['running'] = pre + post  # PRE and POST are execution states
             status['total_jobs'] = unready + ready + pre + in_q + post + done + fail
+        else:
+            # Try format 2 (without STATE and DAGNAME, uses QUEUED/SUCCESS/FAILURE)
+            table_match2 = re.search(
+                r'UNREADY\s+READY\s+PRE\s+QUEUED\s+POST\s+SUCCESS\s+FAILURE\s+%DONE\s*\n\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+([\d.]+)',
+                output,
+                re.MULTILINE
+            )
+
+            if table_match2:
+                unready = int(table_match2.group(1))
+                ready = int(table_match2.group(2))
+                pre = int(table_match2.group(3))
+                queued = int(table_match2.group(4))
+                post = int(table_match2.group(5))
+                success = int(table_match2.group(6))
+                failure = int(table_match2.group(7))
+                percent_done = float(table_match2.group(8))
+
+                logger.info(f"Parsed tabular status (format 2): {unready} UNREADY, {ready} READY, {queued} QUEUED, {success} SUCCESS, {failure} FAILURE")
+
+                # Update status with tabular data
+                status['percent_done'] = percent_done
+                status['unsubmitted'] = unready
+                status['ready'] = ready
+                status['queued'] = queued
+                status['succeeded'] = success
+                status['failed'] = failure
+                status['running'] = pre + post  # PRE and POST are execution states
+                status['total_jobs'] = unready + ready + pre + queued + post + success + failure
+
+                # Infer state from the data
+                if failure > 0:
+                    status['state'] = 'failed'
+                elif success > 0 and (unready + ready + queued + pre + post) > 0:
+                    status['state'] = 'running'
+                elif success > 0 and (unready + ready + queued + pre + post) == 0:
+                    status['state'] = 'success'
+                else:
+                    status['state'] = 'running'
 
         return status
 
