@@ -650,8 +650,15 @@
                     }
                 }
 
-                const jobs = jobsData?.jobs || fullData?.jobs || [];
+                // Extract jobs from various possible locations
+                const jobs = jobsData?.jobs ||
+                            fullData?.jobs ||
+                            fullData?.analyzer?.jobs ||
+                            fullData?.analyzer?.analysis?.jobs ||
+                            [];
                 const workflowYaml = fullData?.workflow_yaml || null;
+
+                console.log('📊 Found jobs:', jobs.length);
 
                 if (jobs.length > 0) {
                     renderWorkflowDAGGraph(jobs, workflowYaml);
@@ -954,13 +961,25 @@
 
             const stats = pegasusData.statistics || {};
             const status = pegasusData.status?.status || {};
-            const jobs = pegasusData.jobs || [];
+            // Extract jobs from analyzer or top level
+            const jobs = pegasusData.jobs ||
+                        pegasusData.analyzer?.jobs ||
+                        pegasusData.analyzer?.analysis?.jobs ||
+                        [];
+
+            // Debug logging
+            console.log('📊 Stats data:', stats);
+            console.log('📊 Status data:', status);
+            console.log('📊 Jobs count:', jobs.length);
+            console.log('📊 Failed jobs count:', pegasusData.failed_jobs_count);
+            console.log('📊 Full pegasusData keys:', Object.keys(pegasusData));
 
             // Calculate job statistics
-            const totalJobs = jobs.length;
-            const successJobs = jobs.filter(j => j.state === 'success').length;
-            const failedJobs = jobs.filter(j => j.state === 'failed').length;
-            const runningJobs = jobs.filter(j => j.state === 'running').length;
+            // Use jobs array if available, otherwise use top-level counts
+            const totalJobs = jobs.length || stats.total_jobs || pegasusData.status?.total_jobs || 0;
+            const successJobs = jobs.length ? jobs.filter(j => j.state === 'success').length : (stats.success_jobs || 0);
+            const failedJobs = pegasusData.failed_jobs_count || jobs.filter(j => j.state === 'failed').length || 0;
+            const runningJobs = jobs.length ? jobs.filter(j => j.state === 'running').length : 0;
             const successRate = totalJobs > 0 ? ((successJobs / totalJobs) * 100).toFixed(1) : 0;
 
             // Calculate duration
