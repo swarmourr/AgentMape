@@ -90,13 +90,13 @@ class PegasusCommandExecutor:
 
     def get_workflow_status(self, submit_dir: str) -> Dict[str, Any]:
         """
-        Execute pegasus-status command
+        Execute pegasus-status command with JSON output
 
         Returns workflow state, progress, job counts
         """
         cache_key = f"{submit_dir}_status"
         result = self.execute_command(
-            ['pegasus-status', submit_dir],
+            ['pegasus-status', '-j', submit_dir],
             cache_key=cache_key
         )
 
@@ -107,9 +107,26 @@ class PegasusCommandExecutor:
                 "raw_output": result['output']
             }
 
-        # Parse pegasus-status output
+        # Parse JSON output
         output = result['output']
-        parsed = self._parse_pegasus_status(output)
+        try:
+            status_json = json.loads(output)
+            # Extract relevant fields from JSON
+            parsed = {
+                "state": status_json.get('state', 'unknown').lower(),
+                "percent_done": status_json.get('percent_done', 0),
+                "total_jobs": status_json.get('totals', {}).get('total', 0),
+                "succeeded": status_json.get('totals', {}).get('success', 0),
+                "failed": status_json.get('totals', {}).get('failed', 0),
+                "running": status_json.get('totals', {}).get('running', 0),
+                "ready": status_json.get('totals', {}).get('ready', 0),
+                "queued": status_json.get('totals', {}).get('queued', 0),
+                "unsubmitted": status_json.get('totals', {}).get('unsubmitted', 0)
+            }
+            logger.info(f"Parsed JSON status: {parsed['total_jobs']} total jobs, state={parsed['state']}")
+        except json.JSONDecodeError as e:
+            logger.warning(f"Failed to parse JSON, falling back to text parsing: {e}")
+            parsed = self._parse_pegasus_status(output)
 
         return {
             "success": True,
@@ -516,13 +533,14 @@ class PegasusCommandExecutor:
 
     def get_workflow_jobs(self, submit_dir: str) -> Dict[str, Any]:
         """
-        Get workflow jobs structure using pegasus-status --long
+        Get workflow jobs structure using pegasus-status with JSON output
 
         Returns job list with states, dependencies, and execution info
         """
         cache_key = f"{submit_dir}_jobs"
 
-        command = ['pegasus-status', '--long', '--noqueue', submit_dir]
+        # Try JSON format first
+        command = ['pegasus-status', '-j', '--long', '--noqueue', submit_dir]
         result = self.execute_command(command, cache_key=cache_key)
 
         if not result['success']:
@@ -534,7 +552,40 @@ class PegasusCommandExecutor:
 
         # Parse job information
         output = result['output']
-        parsed = self._parse_pegasus_jobs(output)
+
+        try:
+            # Try parsing as JSON first
+            jobs_json = json.loads(output)
+            parsed = []
+
+            # Extract jobs from JSON structure
+            if 'jobs' in jobs_json:
+                for job in jobs_json['jobs']:
+                    parsed.append({
+                        "job_name": job.get('name', job.get('id', 'unknown')),
+                        "state": job.get('state', 'unknown').lower(),
+                        "raw_state": job.get('state', 'UNKNOWN'),
+                        "job_type": self._infer_job_type(job.get('name', ''))
+                    })
+                logger.info(f"Parsed {len(parsed)} jobs from JSON")
+            elif 'dags' in jobs_json:
+                # Sometimes JSON has dag structure with job lists
+                for dag in jobs_json.get('dags', []):
+                    for job in dag.get('jobs', []):
+                        parsed.append({
+                            "job_name": job.get('name', job.get('id', 'unknown')),
+                            "state": job.get('state', 'unknown').lower(),
+                            "raw_state": job.get('state', 'UNKNOWN'),
+                            "job_type": self._infer_job_type(job.get('name', ''))
+                        })
+                logger.info(f"Parsed {len(parsed)} jobs from JSON (dag structure)")
+            else:
+                logger.warning("JSON format not recognized, falling back to text parsing")
+                parsed = self._parse_pegasus_jobs(output)
+
+        except json.JSONDecodeError:
+            logger.info("Not JSON format, using text parsing")
+            parsed = self._parse_pegasus_jobs(output)
 
         return {
             "success": True,
