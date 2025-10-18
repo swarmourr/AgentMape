@@ -916,8 +916,8 @@ class PegasusCommandExecutor:
         """
         import glob
 
-        # Try direct pattern first
-        pattern = os.path.join(submit_dir, f"{job_name}.out.*")
+        # Try direct pattern first (matches both .out and .out.XXX)
+        pattern = os.path.join(submit_dir, f"{job_name}.out*")
         files = sorted(glob.glob(pattern))
 
         if files:
@@ -925,7 +925,7 @@ class PegasusCommandExecutor:
             return files[-1]  # Return latest retry
 
         # Try subdirectories
-        pattern = os.path.join(submit_dir, "**", f"{job_name}.out.*")
+        pattern = os.path.join(submit_dir, "**", f"{job_name}.out*")
         files = sorted(glob.glob(pattern, recursive=True))
 
         if files:
@@ -973,6 +973,34 @@ class PegasusCommandExecutor:
             env = data.get('environment', {})
             job_id = env.get('PEGASUS_DAG_JOB_ID', '')
 
+            # Get working directory to resolve relative file paths
+            cwd = data.get('cwd', '/srv')
+
+            # Extract missing files with full paths
+            missing_files = []
+            files_section = data.get('files', {})
+            for file_key, file_info in files_section.items():
+                # Skip stdout/stderr/stdin (they're not missing input files)
+                if file_key in ['stdout', 'stderr', 'stdin', 'metadata', 'kickstart', 'logfile']:
+                    continue
+
+                # Check if file has error (error code 2 = ENOENT = file not found)
+                if isinstance(file_info, dict) and file_info.get('error') == 2:
+                    file_name = file_info.get('file_name') or file_info.get('lfn') or file_key
+
+                    # Build full path (if relative, prepend cwd)
+                    if not os.path.isabs(file_name):
+                        full_path = os.path.join(cwd, file_name)
+                    else:
+                        full_path = file_name
+
+                    missing_files.append({
+                        "file_name": file_name,
+                        "full_path": full_path,
+                        "lfn": file_info.get('lfn'),
+                        "error_code": file_info.get('error')
+                    })
+
             result = {
                 "success": True,
                 "stderr": stderr_data,
@@ -982,7 +1010,9 @@ class PegasusCommandExecutor:
                 "memory_mb": maxrss / 1024 if maxrss else 0,
                 "arguments": args,
                 "job_id": job_id,
-                "file_path": out_file_path
+                "file_path": out_file_path,
+                "cwd": cwd,
+                "missing_files": missing_files
             }
 
             logger.info(f"Extracted stderr from {out_file_path}: exit_code={exit_code}, stderr_length={len(stderr_data)}")
@@ -1034,9 +1064,17 @@ class PegasusCommandExecutor:
                 job['duration_seconds'] = stderr_data.get('duration_seconds')
                 job['memory_mb'] = stderr_data.get('memory_mb')
                 job['arguments'] = stderr_data.get('arguments')
+                job['cwd'] = stderr_data.get('cwd')
+                job['missing_files'] = stderr_data.get('missing_files', [])
                 job['stderr_available'] = True
                 job['out_file'] = out_file
-                logger.info(f"Enriched {job_name} with stderr data")
+
+                # Log enrichment details
+                missing_count = len(stderr_data.get('missing_files', []))
+                if missing_count > 0:
+                    logger.info(f"Enriched {job_name} with stderr data + {missing_count} missing file(s)")
+                else:
+                    logger.info(f"Enriched {job_name} with stderr data")
             else:
                 logger.warning(f"Failed to extract stderr for {job_name}: {stderr_data.get('error')}")
                 job['stderr_available'] = False
