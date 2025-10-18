@@ -361,6 +361,29 @@ class PegasusCommandExecutor:
         output = result['output']
         parsed = self._parse_pegasus_analyzer(output)
 
+        # Enrich failed jobs with stderr from .out files
+        if parsed.get('failed_jobs'):
+            logger.info(f"Enriching {len(parsed['failed_jobs'])} failed jobs with stderr data")
+            parsed['failed_jobs'] = self.enrich_failed_jobs_with_stderr(
+                submit_dir,
+                parsed['failed_jobs']
+            )
+
+        # Enrich root causes with stderr
+        if parsed.get('root_causes'):
+            logger.info(f"Enriching {len(parsed['root_causes'])} root causes with stderr data")
+            # Root causes are simpler dicts, need to convert format
+            root_cause_jobs = [{'job_name': rc['job']} for rc in parsed['root_causes']]
+            enriched_roots = self.enrich_failed_jobs_with_stderr(submit_dir, root_cause_jobs)
+
+            # Merge stderr back into root_causes
+            for i, rc in enumerate(parsed['root_causes']):
+                if i < len(enriched_roots) and enriched_roots[i].get('stderr'):
+                    rc['stderr'] = enriched_roots[i]['stderr']
+                    rc['exit_code'] = enriched_roots[i].get('exit_code')
+                    rc['duration_seconds'] = enriched_roots[i].get('duration_seconds')
+                    rc['memory_mb'] = enriched_roots[i].get('memory_mb')
+
         return {
             "success": True,
             "analysis": parsed,
@@ -439,7 +462,8 @@ class PegasusCommandExecutor:
                     "job_name": job_name,
                     "error_type": "unknown",
                     "error_message": "",
-                    "is_root_cause": False
+                    "is_root_cause": False,
+                    "error_files": {}
                 }
 
                 # Check for specific error patterns
@@ -878,6 +902,148 @@ class PegasusCommandExecutor:
 
         logger.info(f"Parsed DOT file: {len(nodes)} nodes, {len(edges)} edges")
         return nodes, edges
+
+    def find_job_out_file(self, submit_dir: str, job_name: str) -> Optional[str]:
+        """
+        Find .out file for a specific job
+
+        Args:
+            submit_dir: Workflow submit directory
+            job_name: Job name (e.g., "FineTuneLLM_ID0000001")
+
+        Returns:
+            Path to latest .out file, or None if not found
+        """
+        import glob
+
+        # Try direct pattern first
+        pattern = os.path.join(submit_dir, f"{job_name}.out.*")
+        files = sorted(glob.glob(pattern))
+
+        if files:
+            logger.info(f"Found {len(files)} .out file(s) for {job_name}, using latest: {files[-1]}")
+            return files[-1]  # Return latest retry
+
+        # Try subdirectories
+        pattern = os.path.join(submit_dir, "**", f"{job_name}.out.*")
+        files = sorted(glob.glob(pattern, recursive=True))
+
+        if files:
+            logger.info(f"Found .out file in subdirectory: {files[-1]}")
+            return files[-1]
+
+        logger.warning(f"No .out file found for job: {job_name}")
+        return None
+
+    def extract_stderr_from_out_file(self, out_file_path: str) -> Dict[str, Any]:
+        """
+        Extract stderr and metadata from Pegasus kickstart .out file
+
+        Args:
+            out_file_path: Path to .out file
+
+        Returns:
+            Dict with stderr, exit_code, duration, etc.
+        """
+        try:
+            import yaml
+
+            # Check file size (skip if > 50MB)
+            file_size_mb = os.path.getsize(out_file_path) / (1024 * 1024)
+            if file_size_mb > 50:
+                logger.warning(f"File {out_file_path} is {file_size_mb:.1f}MB, skipping")
+                return {
+                    "success": False,
+                    "error": f"File too large ({file_size_mb:.1f}MB)"
+                }
+
+            with open(out_file_path, 'r') as f:
+                data = yaml.safe_load(f)
+
+            # Extract key fields from YAML structure
+            stderr_data = data.get('files', {}).get('stderr', {}).get('data', '')
+            exit_code = data.get('mainjob', {}).get('status', {}).get('regular_exitcode')
+            duration = data.get('mainjob', {}).get('duration', 0)
+            maxrss = data.get('mainjob', {}).get('usage', {}).get('maxrss', 0)  # KB
+
+            # Get job arguments
+            args = data.get('mainjob', {}).get('argument_vector', [])
+
+            # Get environment variables (just important ones)
+            env = data.get('environment', {})
+            job_id = env.get('PEGASUS_DAG_JOB_ID', '')
+
+            result = {
+                "success": True,
+                "stderr": stderr_data,
+                "exit_code": exit_code,
+                "duration_seconds": duration,
+                "memory_kb": maxrss,
+                "memory_mb": maxrss / 1024 if maxrss else 0,
+                "arguments": args,
+                "job_id": job_id,
+                "file_path": out_file_path
+            }
+
+            logger.info(f"Extracted stderr from {out_file_path}: exit_code={exit_code}, stderr_length={len(stderr_data)}")
+            return result
+
+        except Exception as e:
+            logger.error(f"Error parsing .out file {out_file_path}: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "file_path": out_file_path
+            }
+
+    def enrich_failed_jobs_with_stderr(self, submit_dir: str, failed_jobs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Enrich failed job data with stderr from .out files
+
+        Args:
+            submit_dir: Workflow submit directory
+            failed_jobs: List of failed job dicts from analyzer
+
+        Returns:
+            Enriched failed jobs with stderr data
+        """
+        enriched_jobs = []
+
+        for job in failed_jobs:
+            job_name = job.get('job_name')
+            if not job_name:
+                enriched_jobs.append(job)
+                continue
+
+            # Find .out file for this job
+            out_file = self.find_job_out_file(submit_dir, job_name)
+
+            if not out_file:
+                logger.warning(f"No .out file found for {job_name}, using pegasus-analyzer data only")
+                job['stderr_available'] = False
+                enriched_jobs.append(job)
+                continue
+
+            # Extract stderr data
+            stderr_data = self.extract_stderr_from_out_file(out_file)
+
+            if stderr_data.get('success'):
+                # Merge stderr data into job info
+                job['stderr'] = stderr_data.get('stderr', '')
+                job['exit_code'] = stderr_data.get('exit_code')
+                job['duration_seconds'] = stderr_data.get('duration_seconds')
+                job['memory_mb'] = stderr_data.get('memory_mb')
+                job['arguments'] = stderr_data.get('arguments')
+                job['stderr_available'] = True
+                job['out_file'] = out_file
+                logger.info(f"Enriched {job_name} with stderr data")
+            else:
+                logger.warning(f"Failed to extract stderr for {job_name}: {stderr_data.get('error')}")
+                job['stderr_available'] = False
+
+            enriched_jobs.append(job)
+
+        return enriched_jobs
 
     def clear_cache(self):
         """Clear command result cache"""

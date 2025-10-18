@@ -5,8 +5,8 @@
         "type": "analyzer",
         "description": "Root cause analysis and problem detection agent"
     },
-    "ollama_url": "https://3d97b14da4b8.ngrok-free.app/api/generate",
-    "ollama_api_base": "https://3d97b14da4b8.ngrok-free.app",
+    "ollama_url": "https://5088a86300d9.ngrok-free.app/api/generate",
+    "ollama_api_base": "https://5088a86300d9.ngrok-free.app",
     "ollama_model": "llama3:latest",
     "ollama_check_interval": 30,
     "monitor_url": "ws://localhost:8765",
