@@ -5,8 +5,8 @@
         "type": "planner",
         "description": "Remediation plan generation and strategy agent"
     },
-    "ollama_url": "https://5088a86300d9.ngrok-free.app/api/generate",
-    "ollama_api_base": "https://5088a86300d9.ngrok-free.app",
+    "ollama_url": "https://gmbjj-176-159-79-119.a.free.pinggy.link/api/generate",
+    "ollama_api_base": "https://gmbjj-176-159-79-119.a.free.pinggy.link",
     "ollama_model": "llama3.3:latest",
     "ollama_check_interval": 30,
     "monitor_url": "http://localhost:8080",
