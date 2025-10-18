@@ -459,6 +459,7 @@ class PegasusWorkflowManager:
 
         # STEP 2.7: Extract .out files (CRITICAL for held/deleted workflows)
         print(f"\n  {TerminalColor.CYAN.apply('→ Step 1.2.7:')} Extracting job .out files...")
+        print(f"    {TerminalColor.CYAN.apply('→')} Workflow directory: {workflow_dir}")
         job_out_files = self.extract_job_out_files(workflow_dir, pegasus_analyzer_output)
 
         if job_out_files:
@@ -467,11 +468,20 @@ class PegasusWorkflowManager:
                 job_name = out_file.get('job_name', 'unknown')
                 has_stderr = bool(out_file.get('stderr'))
                 missing_count = len(out_file.get('missing_files', []))
-                print(f"      • {job_name}: stderr={'✓' if has_stderr else '✗'}, missing_files={missing_count}")
+                out_path = out_file.get('out_file_path', 'unknown')
+                print(f"      • {job_name}:")
+                print(f"        - File: {out_path}")
+                print(f"        - stderr: {'✓ ' + str(len(out_file.get('stderr', ''))) + ' chars' if has_stderr else '✗ empty'}")
+                print(f"        - exit_code: {out_file.get('exit_code', 'N/A')}")
+                print(f"        - missing_files: {missing_count}")
+                if missing_count > 0:
+                    for mf in out_file.get('missing_files', [])[:2]:
+                        print(f"          → {mf.get('full_path', 'unknown')}")
             if len(job_out_files) > 3:
                 print(f"      • ... and {len(job_out_files) - 3} more")
         else:
-            print(f"    {TerminalColor.YELLOW.apply('⚠')} No .out files found (workflow may not have failed jobs yet)")
+            print(f"    {TerminalColor.YELLOW.apply('⚠')} No .out files found")
+            print(f"    {TerminalColor.YELLOW.apply('⚠')} Check that workflow_dir exists and contains .out files")
 
         # Send analysis request via HTTP
         print(f"\n  {TerminalColor.CYAN.apply('→ Step 1.3:')} Sending analysis request to Analyzer...")
@@ -554,10 +564,23 @@ class PegasusWorkflowManager:
                         print(f"{TerminalColor.BRIGHT_GREEN.apply('✅ ANALYSIS REQUEST COMPLETED')}")
                         print(f"{'='*80}\n")
 
+                        # Save job_out_files to workflow record for persistence
+                        if job_out_files:
+                            workflows_table.update(
+                                {
+                                    "job_out_files": job_out_files,
+                                    "job_out_files_count": len(job_out_files),
+                                    "job_out_files_extracted_at": datetime.now().isoformat()
+                                },
+                                Query().workflow_id == workflow_id
+                            )
+                            logger.info(f"💾 Saved {len(job_out_files)} .out files to workflow record")
+
                         # Write to shared log
                         metadata_summary = f"Workflow YAML: {stored_metadata.get('workflow_yaml_path', 'N/A')}\n"
                         metadata_summary += f"Catalogs: {len(stored_metadata.get('catalog_info', {}))}\n"
                         metadata_summary += f"Pegasus Analyzer: {'YES' if pegasus_analyzer_output.get('ran') else 'NO'}\n"
+                        metadata_summary += f"Job .out Files: {len(job_out_files)}\n"
                         metadata_summary += f"Pull Model: Analyzer requests files on-demand\n"
                         metadata_summary += f"Request ID: {request_id}"
 
@@ -1273,21 +1296,52 @@ class PegasusWorkflowManager:
 
         job_out_files = []
 
+        # DETAILED LOGGING: Show what we're searching for
+        logger.info(f"🔍 Searching for .out files in: {workflow_dir}")
+        print(f"    {TerminalColor.CYAN.apply('→')} Search directory: {workflow_dir}")
+
+        # Check if directory exists
+        if not os.path.exists(workflow_dir):
+            logger.error(f"❌ Workflow directory does not exist: {workflow_dir}")
+            print(f"    {TerminalColor.RED.apply('✗')} Directory not found!")
+            return job_out_files
+
         # Find all .out files in workflow directory (including subdirectories)
         # Pattern matches both .out and .out.XXX
         out_file_pattern = os.path.join(workflow_dir, "**", "*.out*")
+        logger.info(f"    Pattern: {out_file_pattern}")
+        print(f"    {TerminalColor.CYAN.apply('→')} Pattern: {out_file_pattern}")
+
         out_files = glob.glob(out_file_pattern, recursive=True)
 
         if not out_files:
-            logger.info(f"No .out files found in {workflow_dir}")
-            return job_out_files
+            logger.warning(f"⚠️  No .out files found matching pattern")
+            print(f"    {TerminalColor.YELLOW.apply('⚠')} No .out files found")
 
-        logger.info(f"Found {len(out_files)} .out file(s) in {workflow_dir}")
+            # Try alternative search
+            alt_pattern = os.path.join(workflow_dir, "**", "*.out")
+            alt_files = glob.glob(alt_pattern, recursive=True)
+            if alt_files:
+                logger.info(f"    Found {len(alt_files)} .out files without extensions")
+                out_files = alt_files
+            else:
+                return job_out_files
+
+        logger.info(f"✓ Found {len(out_files)} .out file(s)")
+        print(f"    {TerminalColor.GREEN.apply('✓')} Found {len(out_files)} .out file(s):")
+        for f in out_files[:5]:  # Show first 5
+            print(f"      • {f}")
+        if len(out_files) > 5:
+            print(f"      • ... and {len(out_files) - 5} more")
 
         # Process each .out file using PegasusCommandExecutor
-        for out_file_path in out_files:
+        print(f"    {TerminalColor.CYAN.apply('→')} Processing {len(out_files)} file(s)...")
+
+        for i, out_file_path in enumerate(out_files, 1):
             # Extract job name from filename (e.g., FineTuneLLM_ID0000001.out → FineTuneLLM_ID0000001)
             filename = os.path.basename(out_file_path)
+
+            logger.info(f"  [{i}/{len(out_files)}] Processing: {filename}")
 
             # Remove .out or .out.XXX extension
             if '.out.' in filename:
@@ -1295,13 +1349,18 @@ class PegasusWorkflowManager:
             elif filename.endswith('.out'):
                 job_name = filename[:-4]
             else:
+                logger.warning(f"  [{i}/{len(out_files)}] Skipping non-.out file: {filename}")
                 continue  # Not a valid .out file
 
             # Use PegasusCommandExecutor to extract stderr
             try:
+                logger.info(f"  [{i}/{len(out_files)}] Extracting stderr from: {job_name}")
                 stderr_data = self.pegasus_executor.extract_stderr_from_out_file(out_file_path)
 
                 if stderr_data.get('success'):
+                    missing_count = len(stderr_data.get('missing_files', []))
+                    has_stderr = bool(stderr_data.get('stderr'))
+
                     job_out_files.append({
                         "job_name": job_name,
                         "out_file_path": out_file_path,
@@ -1314,16 +1373,19 @@ class PegasusWorkflowManager:
                         "arguments": stderr_data.get('arguments', [])
                     })
 
-                    missing_count = len(stderr_data.get('missing_files', []))
-                    if missing_count > 0:
-                        logger.info(f"  • {job_name}: exit={stderr_data.get('exit_code')}, missing_files={missing_count}")
+                    logger.info(f"  [{i}/{len(out_files)}] ✓ {job_name}: exit={stderr_data.get('exit_code')}, stderr={'✓' if has_stderr else '✗'}, missing={missing_count}")
+                    print(f"      {TerminalColor.GREEN.apply('✓')} {job_name}: exit={stderr_data.get('exit_code')}, missing={missing_count}")
                 else:
-                    logger.warning(f"  • {job_name}: Failed to parse - {stderr_data.get('error')}")
+                    logger.warning(f"  [{i}/{len(out_files)}] ✗ {job_name}: {stderr_data.get('error')}")
+                    print(f"      {TerminalColor.RED.apply('✗')} {job_name}: {stderr_data.get('error')}")
 
             except Exception as e:
-                logger.error(f"Error extracting stderr from {out_file_path}: {e}")
+                logger.error(f"  [{i}/{len(out_files)}] ERROR: {job_name}: {e}")
+                print(f"      {TerminalColor.RED.apply('✗')} {job_name}: {str(e)}")
                 continue
 
+        logger.info(f"✓ Extracted {len(job_out_files)} job .out file(s) successfully")
+        print(f"    {TerminalColor.GREEN.apply('✓')} Extracted {len(job_out_files)}/{len(out_files)} successfully")
         return job_out_files
 
     def discover_catalogs(self, workflow_dir: str) -> Dict[str, Any]:
@@ -2387,12 +2449,34 @@ class PegasusWorkflowManager:
                     if recent_errors:
                         self.notify_new_error_logs_sync(workflow_id, iwd, recent_errors)
 
-                    if retries >= max_retries:
-                        workflow_logger.warning(f"Maximum retries reached for workflow {workflow_id}. Stopping workflow.")
-                        subprocess.run(["pegasus-remove", iwd], check=True)
-                        workflows_table.update({"state": "removed"}, Query().workflow_id == workflow_id)
-                        self.remove_workflow(workflow_id)
-                        break
+                    # Track when workflow first became held
+                    workflow_record = workflows_table.get(Query().workflow_id == workflow_id)
+                    first_held_time = workflow_record.get('first_held_at') if workflow_record else None
+
+                    if not first_held_time:
+                        # First time held - record timestamp
+                        workflows_table.update(
+                            {"first_held_at": time.time()},
+                            Query().workflow_id == workflow_id
+                        )
+                        workflow_logger.info(f"Workflow first held at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+                    else:
+                        # Check how long it's been held
+                        held_duration = time.time() - first_held_time
+                        held_minutes = held_duration / 60
+
+                        workflow_logger.info(f"Workflow held for {held_minutes:.1f} minutes (retries: {retries}/{max_retries})")
+
+                        # Remove after 1 minute of being held AND max retries reached
+                        if held_minutes >= 1.0 and retries >= max_retries:
+                            workflow_logger.warning(f"Workflow held for {held_minutes:.1f} minutes with {retries} retries. Removing workflow.")
+                            subprocess.run(["pegasus-remove", iwd], check=True)
+                            workflows_table.update({"state": "removed"}, Query().workflow_id == workflow_id)
+                            self.remove_workflow(workflow_id)
+                            break
+                        elif retries >= max_retries:
+                            workflow_logger.info(f"Max retries reached but held < 1 min. Waiting before removal...")
+                            # Continue monitoring, will remove after 1 minute
 
             except Exception as e:
                 workflow_logger.error(f"Error monitoring workflow {workflow_id}: {e}")
