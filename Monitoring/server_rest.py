@@ -457,6 +457,22 @@ class PegasusWorkflowManager:
             if pegasus_analyzer_output.get('error'):
                 print(f"      - Error: {pegasus_analyzer_output['error']}")
 
+        # STEP 2.7: Extract .out files (CRITICAL for held/deleted workflows)
+        print(f"\n  {TerminalColor.CYAN.apply('→ Step 1.2.7:')} Extracting job .out files...")
+        job_out_files = self.extract_job_out_files(workflow_dir, pegasus_analyzer_output)
+
+        if job_out_files:
+            print(f"    {TerminalColor.GREEN.apply('✓')} Extracted {len(job_out_files)} .out file(s)")
+            for out_file in job_out_files[:3]:  # Show first 3
+                job_name = out_file.get('job_name', 'unknown')
+                has_stderr = bool(out_file.get('stderr'))
+                missing_count = len(out_file.get('missing_files', []))
+                print(f"      • {job_name}: stderr={'✓' if has_stderr else '✗'}, missing_files={missing_count}")
+            if len(job_out_files) > 3:
+                print(f"      • ... and {len(job_out_files) - 3} more")
+        else:
+            print(f"    {TerminalColor.YELLOW.apply('⚠')} No .out files found (workflow may not have failed jobs yet)")
+
         # Send analysis request via HTTP
         print(f"\n  {TerminalColor.CYAN.apply('→ Step 1.3:')} Sending analysis request to Analyzer...")
 
@@ -471,7 +487,8 @@ class PegasusWorkflowManager:
                     "requester": "monitor_agent",
                     "metadata": stored_metadata,  # PATHS ONLY - no content
                     "monitor_url": f"http://{HTTP_HOST}:{HTTP_PORT}",  # So Analyzer can request files
-                    "pegasus_analyzer": pegasus_analyzer_output  # Still include logs (needed for analysis)
+                    "pegasus_analyzer": pegasus_analyzer_output,  # Still include logs (needed for analysis)
+                    "job_out_files": job_out_files  # CRITICAL: Real errors from .out files
                 }
 
                 # Print request payload
@@ -502,6 +519,11 @@ class PegasusWorkflowManager:
                         "output_size": len(pegasus_analyzer_output.get("output", "")),
                         "issues_found": len(pegasus_analyzer_output.get("parsed_issues", [])),
                         "error": pegasus_analyzer_output.get("error")
+                    },
+                    "job_out_files": {
+                        "count": len(job_out_files),
+                        "jobs_with_stderr": sum(1 for j in job_out_files if j.get('stderr')),
+                        "jobs_with_missing_files": sum(1 for j in job_out_files if j.get('missing_files'))
                     },
                     "note": "Analyzer will request file content via /api/files/get-content"
                 }
@@ -1234,6 +1256,75 @@ class PegasusWorkflowManager:
             result["error"] = str(e)
 
         return result
+
+    def extract_job_out_files(self, workflow_dir: str, pegasus_analyzer_output: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """
+        Extract job .out files with stderr and missing file info
+        CRITICAL: Works even if workflow is deleted (uses persisted .out files)
+
+        Args:
+            workflow_dir: Workflow submit directory
+            pegasus_analyzer_output: Output from pegasus-analyzer (may have failed job names)
+
+        Returns:
+            List of job output data with stderr, exit codes, missing files, etc.
+        """
+        import glob
+
+        job_out_files = []
+
+        # Find all .out files in workflow directory (including subdirectories)
+        # Pattern matches both .out and .out.XXX
+        out_file_pattern = os.path.join(workflow_dir, "**", "*.out*")
+        out_files = glob.glob(out_file_pattern, recursive=True)
+
+        if not out_files:
+            logger.info(f"No .out files found in {workflow_dir}")
+            return job_out_files
+
+        logger.info(f"Found {len(out_files)} .out file(s) in {workflow_dir}")
+
+        # Process each .out file using PegasusCommandExecutor
+        for out_file_path in out_files:
+            # Extract job name from filename (e.g., FineTuneLLM_ID0000001.out → FineTuneLLM_ID0000001)
+            filename = os.path.basename(out_file_path)
+
+            # Remove .out or .out.XXX extension
+            if '.out.' in filename:
+                job_name = filename.split('.out.')[0]
+            elif filename.endswith('.out'):
+                job_name = filename[:-4]
+            else:
+                continue  # Not a valid .out file
+
+            # Use PegasusCommandExecutor to extract stderr
+            try:
+                stderr_data = self.pegasus_executor.extract_stderr_from_out_file(out_file_path)
+
+                if stderr_data.get('success'):
+                    job_out_files.append({
+                        "job_name": job_name,
+                        "out_file_path": out_file_path,
+                        "stderr": stderr_data.get('stderr', ''),
+                        "exit_code": stderr_data.get('exit_code'),
+                        "duration_seconds": stderr_data.get('duration_seconds'),
+                        "memory_mb": stderr_data.get('memory_mb'),
+                        "cwd": stderr_data.get('cwd'),
+                        "missing_files": stderr_data.get('missing_files', []),
+                        "arguments": stderr_data.get('arguments', [])
+                    })
+
+                    missing_count = len(stderr_data.get('missing_files', []))
+                    if missing_count > 0:
+                        logger.info(f"  • {job_name}: exit={stderr_data.get('exit_code')}, missing_files={missing_count}")
+                else:
+                    logger.warning(f"  • {job_name}: Failed to parse - {stderr_data.get('error')}")
+
+            except Exception as e:
+                logger.error(f"Error extracting stderr from {out_file_path}: {e}")
+                continue
+
+        return job_out_files
 
     def discover_catalogs(self, workflow_dir: str) -> Dict[str, Any]:
         """Discover all catalog files and their formats"""

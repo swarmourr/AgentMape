@@ -9,9 +9,10 @@ The Analyzer agent has been enhanced to extract **real error data from job .out 
 ## What Was Implemented
 
 ### 1. **Automatic .out File Discovery**
-- Finds job output files (`{job_name}.out.XXX`) in workflow submit directory
+- Finds job output files (`{job_name}.out` AND `{job_name}.out.XXX`) in workflow submit directory
+- **FIXED:** Pattern now matches both `.out` and `.out.001` formats
 - Handles multiple retries (uses latest: `.out.001` over `.out.000`)
-- Searches subdirectories if files not found in main directory
+- Searches subdirectories recursively
 
 ### 2. **YAML Parsing & stderr Extraction**
 - Parses Pegasus kickstart `.out` files (YAML format)
@@ -21,12 +22,20 @@ The Analyzer agent has been enhanced to extract **real error data from job .out 
   - `duration` - How long job ran
   - `memory_kb` - Memory used
   - `arguments` - Command-line arguments
+  - `cwd` - Working directory (e.g., `/srv`)
+  - **NEW:** `missing_files` - Files not found with FULL paths
 
-### 3. **Automatic Enrichment**
-- When `pegasus-analyzer` identifies failed jobs, system automatically:
-  1. Finds corresponding `.out` files
-  2. Extracts stderr data
-  3. Enriches analyzer results with real error messages
+### 3. **Missing File Path Resolution**
+- Extracts files with error code 2 (ENOENT - file not found)
+- Resolves relative paths using `cwd` from .out file
+- Provides FULL paths to prevent planner from generating placeholders
+- Example: `falcon-7b.zip` → `/srv/falcon-7b.zip`
+
+### 4. **Monitor Integration**
+- **CRITICAL:** Monitor now extracts .out files BEFORE sending to Analyzer
+- Works even if workflow is held/deleted (uses persisted .out files)
+- Sends `job_out_files` array with stderr, exit codes, missing files
+- Eliminates dependency on pegasus-analyzer for error details
 
 ---
 
@@ -35,56 +44,91 @@ The Analyzer agent has been enhanced to extract **real error data from job .out 
 ### Flow Diagram
 
 ```
-1. Run pegasus-analyzer (identifies root causes & cascades)
+1. Monitor detects workflow failure
                 ↓
-2. For each failed job:
-   - Find: {job_name}.out.XXX
-   - Parse: YAML → extract stderr.data
-   - Enrich: Add to analyzer results
+2. Monitor extracts .out files (PRIORITY #1):
+   - Find: run0094/00/00/*.out*
+   - Parse: YAML → extract stderr, missing_files, cwd
+   - Build: job_out_files array with REAL data
                 ↓
-3. LLM receives enriched data:
+3. Monitor runs pegasus-analyzer (optional - may fail if workflow deleted)
+                ↓
+4. Monitor sends to Analyzer:
    {
-     "job": "FineTuneLLM_ID0000001",
-     "pegasus_analysis": "root cause, POST_SCRIPT_FAILED",
-     "stderr": "SyntaxError: line 105 - missing comma",
-     "exit_code": 1,
-     "duration": 0.05s,
-     "memory": 8MB
+     "job_out_files": [
+       {
+         "job_name": "FineTuneLLM_ID0000001",
+         "stderr": "SyntaxError: line 105 - missing comma",
+         "exit_code": 1,
+         "duration_seconds": 0.05,
+         "missing_files": [
+           {"file_name": "falcon-7b.zip", "full_path": "/srv/falcon-7b.zip"}
+         ],
+         "cwd": "/srv"
+       }
+     ],
+     "pegasus_analyzer": {...}  // May be empty if workflow deleted
    }
                 ↓
-4. LLM provides detailed analysis:
-   - Understands actual error (not just error code)
-   - Suggests specific fix
-   - Determines if auto-fixable
+5. Analyzer prioritizes .out data over pegasus-analyzer:
+   - Real error: "SyntaxError" (from .out)
+   - Not cascade: "Transfer failed" (from pegasus-analyzer)
+                ↓
+6. Planner receives REAL paths:
+   - NOT: "/path/to/parent/directory/of/falcon-7b.zip" ❌
+   - BUT: "/srv/falcon-7b.zip" ✅
 ```
 
 ---
 
 ## Code Locations
 
-### Functions Added to `pegasus_commands.py`:
+### Functions in `Monitoring/pegasus_commands.py`:
 
-1. **`find_job_out_file(submit_dir, job_name)`**
+1. **`find_job_out_file(submit_dir, job_name)`** (lines 906-936)
    - Locates .out file for a job
+   - **Pattern:** `{job_name}.out*` (matches both `.out` and `.out.XXX`)
    - Returns path to latest retry
 
-2. **`extract_stderr_from_out_file(out_file_path)`**
+2. **`extract_stderr_from_out_file(out_file_path)`** (lines 938-1027)
    - Parses YAML from .out file
-   - Returns dict with stderr, exit_code, duration, memory
+   - Extracts: stderr, exit_code, duration, memory, cwd
+   - **NEW:** Extracts missing files with full paths
+   - Resolves relative paths using `cwd`
 
-3. **`enrich_failed_jobs_with_stderr(submit_dir, failed_jobs)`**
+3. **`enrich_failed_jobs_with_stderr(submit_dir, failed_jobs)`** (lines 1029-1083)
    - Takes list of failed jobs
    - Finds and parses .out files for each
-   - Returns enriched job data
+   - Returns enriched job data with missing_files
 
-### Integration Point:
+### Functions in `Monitoring/server_rest.py`:
 
-In `get_workflow_analyzer_output()`:
+4. **`extract_job_out_files(workflow_dir, pegasus_analyzer_output)`** (lines 1260-1327)
+   - **CRITICAL:** Extracts ALL .out files from workflow directory
+   - Works recursively (finds files in subdirectories)
+   - Uses `PegasusCommandExecutor.extract_stderr_from_out_file()`
+   - Returns array of job output data
+
+### Integration Points:
+
+**In `server_rest.py` → `request_workflow_analysis()`:**
+```python
+# Step 2.7: Extract .out files (line 461)
+job_out_files = self.extract_job_out_files(workflow_dir, pegasus_analyzer_output)
+
+# Include in request to Analyzer (line 491)
+request_data = {
+    "pegasus_analyzer": pegasus_analyzer_output,
+    "job_out_files": job_out_files  # NEW!
+}
+```
+
+**In `pegasus_commands.py` → `get_workflow_analyzer_output()` (LEGACY):**
 ```python
 # After parsing pegasus-analyzer output
 parsed = self._parse_pegasus_analyzer(output)
 
-# NEW: Automatic enrichment
+# Automatic enrichment (still works but Monitor does it now)
 if parsed.get('failed_jobs'):
     parsed['failed_jobs'] = self.enrich_failed_jobs_with_stderr(
         submit_dir,
