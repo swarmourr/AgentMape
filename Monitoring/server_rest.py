@@ -467,17 +467,30 @@ class PegasusWorkflowManager:
             print(f"    {TerminalColor.GREEN.apply('✓')} Extracted {len(job_out_files)} .out file(s)")
             for out_file in job_out_files[:3]:  # Show first 3
                 job_name = out_file.get('job_name', 'unknown')
-                has_stderr = bool(out_file.get('stderr'))
+                stderr_content = out_file.get('stderr', '')
+                has_stderr = bool(stderr_content)
                 missing_count = len(out_file.get('missing_files', []))
                 out_path = out_file.get('out_file_path', 'unknown')
+
                 print(f"      • {job_name}:")
                 print(f"        - File: {out_path}")
-                print(f"        - stderr: {'✓ ' + str(len(out_file.get('stderr', ''))) + ' chars' if has_stderr else '✗ empty'}")
                 print(f"        - exit_code: {out_file.get('exit_code', 'N/A')}")
+
+                # Show stderr content (first 200 chars)
+                if has_stderr:
+                    stderr_preview = stderr_content[:200].replace('\n', ' ')
+                    print(f"        - stderr: {TerminalColor.YELLOW.apply(stderr_preview)}")
+                    if len(stderr_content) > 200:
+                        print(f"          ... ({len(stderr_content)} chars total)")
+                else:
+                    print(f"        - stderr: {TerminalColor.CYAN.apply('(empty)')}")
+
+                # Show missing files
                 print(f"        - missing_files: {missing_count}")
                 if missing_count > 0:
                     for mf in out_file.get('missing_files', [])[:2]:
-                        print(f"          → {mf.get('full_path', 'unknown')}")
+                        print(f"          → {TerminalColor.RED.apply(mf.get('full_path', 'unknown'))}")
+
             if len(job_out_files) > 3:
                 print(f"      • ... and {len(job_out_files) - 3} more")
         else:
@@ -534,7 +547,8 @@ class PegasusWorkflowManager:
                     "job_out_files": {
                         "count": len(job_out_files),
                         "jobs_with_stderr": sum(1 for j in job_out_files if j.get('stderr')),
-                        "jobs_with_missing_files": sum(1 for j in job_out_files if j.get('missing_files'))
+                        "jobs_with_missing_files": sum(1 for j in job_out_files if j.get('missing_files')),
+                        "sample": job_out_files[0] if job_out_files else None  # Show first job for debugging
                     },
                     "note": "Analyzer will request file content via /api/files/get-content"
                 }
