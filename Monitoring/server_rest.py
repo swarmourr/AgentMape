@@ -173,11 +173,12 @@ class AgentRegistry:
         return False
 
 class PegasusWorkflowManager:
-    def __init__(self, agent_registry: AgentRegistry, config: dict = None, agent_identity: dict = None):
+    def __init__(self, agent_registry: AgentRegistry, config: dict = None, agent_identity: dict = None, pegasus_executor=None):
         self.registered_workflows = {}
         self.watchers = {}
         self.monitoring_active = False
         self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=10)
+        self.pegasus_executor = pegasus_executor  # For .out file extraction
         self.agent_registry = agent_registry
         self.config = config or {}  # ENHANCED: Store config for auto-analysis
         self.agent_identity = agent_identity or {
@@ -2560,13 +2561,21 @@ class EnhancedPegasusMCPServer:
         })
 
         self.agent_registry = AgentRegistry()
-        self.workflow_manager = PegasusWorkflowManager(self.agent_registry, self.config, self.agent_identity)
-        self.auto_monitor_active = False
-        self.auto_monitor_task = None
-        self.monitor_interval = self.config.get("monitor_interval", 60)
 
         # Initialize Pegasus command executor for real-time data
         self.pegasus_executor = PegasusCommandExecutor(timeout=30)
+
+        # Pass pegasus_executor to workflow_manager so it can extract .out files
+        self.workflow_manager = PegasusWorkflowManager(
+            self.agent_registry,
+            self.config,
+            self.agent_identity,
+            pegasus_executor=self.pegasus_executor
+        )
+
+        self.auto_monitor_active = False
+        self.auto_monitor_task = None
+        self.monitor_interval = self.config.get("monitor_interval", 60)
 
         # Configuration settings
         self.http_port = self.config.get("http_port", 8080)
