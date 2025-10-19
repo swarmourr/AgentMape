@@ -1377,8 +1377,15 @@ class PegasusWorkflowManager:
                     logger.info(f"  [{i}/{len(out_files)}] ✓ {job_name}: exit={stderr_data.get('exit_code')}, stderr={'✓' if has_stderr else '✗'}, missing={missing_count}")
                     print(f"      {TerminalColor.GREEN.apply('✓')} {job_name}: exit={stderr_data.get('exit_code')}, missing={missing_count}")
                 else:
-                    logger.warning(f"  [{i}/{len(out_files)}] ✗ {job_name}: {stderr_data.get('error')}")
-                    print(f"      {TerminalColor.RED.apply('✗')} {job_name}: {stderr_data.get('error')}")
+                    error_msg = stderr_data.get('error', 'Unknown error')
+
+                    # Don't show scary errors for expected skips
+                    if 'Not a kickstart' in error_msg or 'YAML parse error' in error_msg:
+                        logger.info(f"  [{i}/{len(out_files)}] ⏭️  {job_name}: {error_msg[:80]}")
+                        print(f"      {TerminalColor.CYAN.apply('⏭')} {job_name}: Skipped (not kickstart)")
+                    else:
+                        logger.warning(f"  [{i}/{len(out_files)}] ✗ {job_name}: {error_msg[:80]}")
+                        print(f"      {TerminalColor.RED.apply('✗')} {job_name}: {error_msg[:80]}")
 
             except Exception as e:
                 logger.error(f"  [{i}/{len(out_files)}] ERROR: {job_name}: {e}")

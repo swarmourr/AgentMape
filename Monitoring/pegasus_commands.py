@@ -957,8 +957,46 @@ class PegasusCommandExecutor:
                     "error": f"File too large ({file_size_mb:.1f}MB)"
                 }
 
+            # Read and parse YAML
             with open(out_file_path, 'r') as f:
-                data = yaml.safe_load(f)
+                content = f.read()
+
+            # Skip non-kickstart files (DAGMan logs, etc)
+            if 'invocation:' not in content and 'mainjob:' not in content:
+                logger.info(f"Skipping non-kickstart file: {out_file_path}")
+                return {
+                    "success": False,
+                    "error": "Not a kickstart .out file (no invocation/mainjob section)"
+                }
+
+            # Try to parse YAML - handle multiple documents
+            try:
+                # Load all YAML documents in the file
+                docs = list(yaml.safe_load_all(content))
+
+                # Find the kickstart invocation document
+                data = None
+                for doc in docs:
+                    if doc and isinstance(doc, dict) and ('invocation' in doc or 'mainjob' in doc):
+                        data = doc
+                        break
+
+                if not data:
+                    # Try single document load
+                    data = yaml.safe_load(content)
+
+            except yaml.YAMLError as e:
+                logger.warning(f"YAML parse error in {out_file_path}: {str(e)[:100]}")
+                return {
+                    "success": False,
+                    "error": f"YAML parse error: {str(e)[:100]}"
+                }
+
+            if not data or not isinstance(data, dict):
+                return {
+                    "success": False,
+                    "error": "Invalid YAML structure (not a dict)"
+                }
 
             # Extract key fields from YAML structure
             stderr_data = data.get('files', {}).get('stderr', {}).get('data', '')
