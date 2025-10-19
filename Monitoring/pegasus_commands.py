@@ -969,33 +969,82 @@ class PegasusCommandExecutor:
                     "error": "Not a kickstart .out file (no invocation/mainjob section)"
                 }
 
-            # Try to parse YAML - handle multiple documents
+            # Try to parse YAML - handle multiple documents and mixed content
             try:
-                # Load all YAML documents in the file
-                docs = list(yaml.safe_load_all(content))
+                # Strategy 1: Try to extract just the YAML portion
+                # Pegasus kickstart files often have --- separators
+                yaml_sections = content.split('---')
 
-                # Find the kickstart invocation document
                 data = None
-                for doc in docs:
-                    if doc and isinstance(doc, dict) and ('invocation' in doc or 'mainjob' in doc):
-                        data = doc
-                        break
+                for section in yaml_sections:
+                    section = section.strip()
+                    if not section or len(section) < 10:
+                        continue
 
+                    try:
+                        parsed = yaml.safe_load(section)
+                        if parsed and isinstance(parsed, dict) and ('invocation' in parsed or 'mainjob' in parsed):
+                            data = parsed
+                            break
+                    except yaml.YAMLError:
+                        continue
+
+                # Strategy 2: Try loading all documents
                 if not data:
-                    # Try single document load
-                    data = yaml.safe_load(content)
+                    try:
+                        docs = list(yaml.safe_load_all(content))
+                        for doc in docs:
+                            if doc and isinstance(doc, dict) and ('invocation' in doc or 'mainjob' in doc):
+                                data = doc
+                                break
+                    except yaml.YAMLError:
+                        pass
 
-            except yaml.YAMLError as e:
-                logger.warning(f"YAML parse error in {out_file_path}: {str(e)[:100]}")
+                # Strategy 3: Extract YAML between first line and error markers
+                if not data:
+                    # Look for YAML starting with "- invocation:"
+                    lines = content.split('\n')
+                    yaml_lines = []
+                    in_yaml = False
+
+                    for line in lines:
+                        # Start of YAML document
+                        if line.strip().startswith('- invocation:') or line.strip().startswith('invocation:'):
+                            in_yaml = True
+
+                        # Stop at separators or non-YAML content
+                        if in_yaml and ('------' in line or '======' in line):
+                            break
+
+                        if in_yaml:
+                            yaml_lines.append(line)
+
+                    if yaml_lines:
+                        try:
+                            yaml_content = '\n'.join(yaml_lines)
+                            data = yaml.safe_load(yaml_content)
+                        except yaml.YAMLError:
+                            pass
+
+            except Exception as e:
+                logger.warning(f"Error extracting YAML from {out_file_path}: {str(e)[:100]}")
                 return {
                     "success": False,
-                    "error": f"YAML parse error: {str(e)[:100]}"
+                    "error": f"YAML extraction error: {str(e)[:100]}"
                 }
+
+            # Handle list format (YAML document is a list)
+            if isinstance(data, list):
+                # Find dict in list that has invocation/mainjob
+                for item in data:
+                    if isinstance(item, dict) and ('invocation' in item or 'mainjob' in item):
+                        data = item
+                        break
 
             if not data or not isinstance(data, dict):
                 return {
                     "success": False,
-                    "error": "Invalid YAML structure (not a dict)"
+                    "error": "Invalid YAML structure (not a dict or list with dict)"
                 }
 
             # Extract key fields from YAML structure
