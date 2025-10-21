@@ -53,9 +53,34 @@ class PromptManager:
     """Dedicated class for managing LLM prompts for workflow analysis"""
     
     @staticmethod
-    def get_workflow_analysis_prompt(logs: str, workflow: Dict[str, Any]) -> str:
+    def get_workflow_analysis_prompt(logs: str, workflow: Dict[str, Any], stderr_summary: str = "") -> str:
         """Generate prompt for workflow failure analysis"""
+
+        # Build priority instruction based on whether we have stderr
+        priority_instruction = ""
+        if stderr_summary:
+            priority_instruction = (
+                "\n"
+                "=" * 80 + "\n"
+                "🔴 CRITICAL PRIORITY INSTRUCTION 🔴\n"
+                "=" * 80 + "\n"
+                "The section titled 'REAL ERROR DATA FROM JOB EXECUTION (.out files)' contains\n"
+                "the ACTUAL root cause errors from job stderr output.\n\n"
+                "ANALYSIS PRIORITY:\n"
+                "1. FIRST: Read stderr output - this shows the real error (e.g., ImportError, MemoryError, script crashes)\n"
+                "2. THEN: Read pegasus-analyzer logs - these may show CASCADE errors (e.g., 'file transfer failed')\n"
+                "3. FOCUS: Base your analysis on stderr, NOT on missing files or transfer failures\n\n"
+                "WHY THIS MATTERS:\n"
+                "- stderr shows: 'ImportError: No module named transformers' ← ROOT CAUSE\n"
+                "- pegasus-analyzer shows: 'Missing file: model.zip' ← SYMPTOM (job crashed before creating file)\n"
+                "→ Fix the ImportError, NOT the missing file!\n\n"
+                "DO NOT over-focus on any single error type (syntax, import, memory, etc.).\n"
+                "Analyze what the stderr ACTUALLY shows, not what you assume.\n"
+                "=" * 80 + "\n\n"
+            )
+
         return (
+            priority_instruction +
             "Given the following Pegasus-WMS workflow failure logs and the original workflow YAML file, "
             "analyze the errors and provide a general description of the issues and their potential solutions. "
             "Automatically identify any problems related to replicas, transformations, or jobs, and provide high-level corrections. "
@@ -115,6 +140,7 @@ class PromptManager:
             "2. For configuration errors: Specify config file path\n"
             "3. For workflow issues: workflow.yml already available\n"
             "4. If no files needed: Use empty array []\n"
+            f"{stderr_summary}\n\n" if stderr_summary else "" +
             f"Logs:\n{logs}\n\nWorkflow:\n{json.dumps(workflow, indent=2)}"
         )
     
@@ -1153,21 +1179,21 @@ class EnhancedAnalyzerAgent:
         # All analyses endpoint for dashboard
         self.app.router.add_get('/api/analyses/all', self.handle_get_all_analyses)
 
-    def send_logs_and_workflow_to_llm_enhanced(self, logs: str, workflow: Dict[str, Any], analysis_type: str = "failed", hold_reason: str = "") -> Optional[Dict[str, Any]]:
+    def send_logs_and_workflow_to_llm_enhanced(self, logs: str, workflow: Dict[str, Any], analysis_type: str = "failed", hold_reason: str = "", stderr_summary: str = "") -> Optional[Dict[str, Any]]:
         """Enhanced LLM communication with better error handling and fallback"""
-        
+
         # First, check if Ollama is healthy
         if not self.ollama_manager.quick_health_check():
             self.logger.warning(f"Ollama not healthy: {self.ollama_manager.last_error}")
             if not self.fallback_mode:
                 return None
             # Continue to try anyway in fallback mode
-        
+
         # Generate appropriate prompt based on analysis type
         if analysis_type == "held":
             prompt = self.prompt_manager.get_held_workflow_analysis_prompt(logs, workflow, hold_reason)
         else:
-            prompt = self.prompt_manager.get_workflow_analysis_prompt(logs, workflow)
+            prompt = self.prompt_manager.get_workflow_analysis_prompt(logs, workflow, stderr_summary)
 
         # Try with JSON format first (if supported)
         if self.config.get("use_json_format", True):
@@ -1581,21 +1607,77 @@ class EnhancedAnalyzerAgent:
         
         return analysis_result
 
+    def _extract_stderr_summary(self, job_out_files: List[Dict]) -> str:
+        """Extract stderr from job_out_files for LLM context - shows real root cause errors"""
+        if not job_out_files:
+            return ""
+
+        stderr_lines = []
+        stderr_lines.append("=" * 80)
+        stderr_lines.append("REAL ERROR DATA FROM JOB EXECUTION (.out files)")
+        stderr_lines.append("=" * 80)
+        stderr_lines.append("")
+
+        failed_jobs_count = 0
+        for job in job_out_files:
+            if job.get('exit_code') not in [0, None]:  # Failed jobs only
+                failed_jobs_count += 1
+                job_name = job.get('job_name', 'unknown')
+                stderr = job.get('stderr', '').strip()
+                exit_code = job.get('exit_code')
+                duration = job.get('duration_seconds', 0)
+
+                stderr_lines.append(f"Job: {job_name}")
+                stderr_lines.append(f"Exit Code: {exit_code}")
+                stderr_lines.append(f"Duration: {duration:.2f}s")
+
+                if stderr:
+                    stderr_lines.append(f"Error Output (stderr):")
+                    stderr_lines.append("-" * 80)
+                    stderr_lines.append(stderr)
+                    stderr_lines.append("-" * 80)
+                else:
+                    stderr_lines.append("(No stderr output captured)")
+
+                # Show missing files if any
+                missing_files = job.get('missing_files', [])
+                if missing_files:
+                    stderr_lines.append(f"Missing Files ({len(missing_files)}):")
+                    for mf in missing_files[:5]:  # Limit to 5
+                        stderr_lines.append(f"  - {mf.get('full_path', mf.get('file_name'))}")
+
+                stderr_lines.append("")
+
+        if failed_jobs_count == 0:
+            return ""
+
+        stderr_lines.append("=" * 80)
+        stderr_lines.append(f"Total Failed Jobs: {failed_jobs_count}")
+        stderr_lines.append("=" * 80)
+
+        return "\n".join(stderr_lines)
+
     # Core Analysis Methods
-    async def analyze_failed_workflow(self, workflow_id: str, workflow_dir: str) -> Dict[str, Any]:
+    async def analyze_failed_workflow(self, workflow_id: str, workflow_dir: str, job_out_files: List = None) -> Dict[str, Any]:
         """Analyze a failed workflow using enhanced LLM integration"""
         self.logger.info(f"Analyzing failed workflow: {workflow_id}")
-        
+
+        if job_out_files is None:
+            job_out_files = []
+
         try:
             logs = self.run_pegasus_analyzer(workflow_dir)
             yaml_path = self.find_yaml_file(workflow_dir)
-            
+
             workflow_data = {}
             if yaml_path:
                 workflow_data = self.load_workflow_yaml(yaml_path)
-            
+
+            # Extract stderr summary from .out files (PRIORITY for LLM)
+            stderr_summary = self._extract_stderr_summary(job_out_files)
+
             analysis_result = None
-            llm_response = self.send_logs_and_workflow_to_llm_enhanced(logs, workflow_data, "failed")
+            llm_response = self.send_logs_and_workflow_to_llm_enhanced(logs, workflow_data, "failed", stderr_summary=stderr_summary)
             
             if llm_response:
                 analysis_result = self.extract_workflow_info_enhanced(llm_response)
@@ -1710,10 +1792,13 @@ class EnhancedAnalyzerAgent:
                 "ollama_healthy": False
             }
 
-    async def analyze_held_workflow(self, workflow_id: str, workflow_dir: str, hold_reason: str = "") -> Dict[str, Any]:
+    async def analyze_held_workflow(self, workflow_id: str, workflow_dir: str, hold_reason: str = "", job_out_files: List = None) -> Dict[str, Any]:
         """Analyze a held workflow with enhanced LLM integration"""
         self.logger.info(f"Analyzing held workflow: {workflow_id}")
-        
+
+        if job_out_files is None:
+            job_out_files = []
+
         try:
             logs = self.run_pegasus_analyzer(workflow_dir)
             yaml_path = self.find_yaml_file(workflow_dir)
@@ -2541,7 +2626,8 @@ class EnhancedAnalyzerAgent:
                 "queued_at": datetime.now().isoformat(),
                 "metadata": data.get('metadata', {}),  # NEW: Metadata with paths only
                 "monitor_url": data.get('monitor_url'),  # NEW: Monitor URL to request files
-                "pegasus_analyzer": data.get('pegasus_analyzer', {})  # Still include logs
+                "pegasus_analyzer": data.get('pegasus_analyzer', {}),  # Still include logs
+                "job_out_files": data.get('job_out_files', [])  # CRITICAL: Real stderr from .out files
             }
             
             self.analysis_queue.append(analysis_request)
@@ -2597,10 +2683,11 @@ class EnhancedAnalyzerAgent:
             print(f"╚{'═'*78}╝\n")
 
             # Perform analysis
+            job_out_files = analysis_request.get('job_out_files', [])
             if analysis_type == "held":
-                result = await self.analyze_held_workflow(workflow_id, workflow_dir)
+                result = await self.analyze_held_workflow(workflow_id, workflow_dir, job_out_files=job_out_files)
             else:
-                result = await self.analyze_failed_workflow(workflow_id, workflow_dir)
+                result = await self.analyze_failed_workflow(workflow_id, workflow_dir, job_out_files=job_out_files)
 
             # ENHANCED: Add request_id to result for later lookup in notify_planner_of_analysis
             result["request_id"] = request_id
