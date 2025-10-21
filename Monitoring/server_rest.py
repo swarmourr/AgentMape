@@ -548,7 +548,15 @@ class PegasusWorkflowManager:
                         "count": len(job_out_files),
                         "jobs_with_stderr": sum(1 for j in job_out_files if j.get('stderr')),
                         "jobs_with_missing_files": sum(1 for j in job_out_files if j.get('missing_files')),
-                        "sample": job_out_files[0] if job_out_files else None  # Show first job for debugging
+                        "failed_jobs": [  # Show only failed jobs (exit_code != 0)
+                            {
+                                "job_name": j.get('job_name'),
+                                "exit_code": j.get('exit_code'),
+                                "stderr_preview": j.get('stderr', '')[:300],
+                                "missing_files": j.get('missing_files', [])
+                            }
+                            for j in job_out_files if j.get('exit_code') not in [0, None]
+                        ]
                     },
                     "note": "Analyzer will request file content via /api/files/get-content"
                 }
