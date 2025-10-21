@@ -124,23 +124,43 @@ class PromptManager:
             "\n"
             "IMPORTANT INSTRUCTIONS FOR files_needed_for_fix field:\n"
             "\n"
-            "🔍 HOW TO EXTRACT TRANSFORMATION SCRIPT PATHS:\n"
-            "1. IF AND ONLY IF you see explicit syntax/code errors (like 'SyntaxError', 'IndentationError'):\n"
-            "   → Look in workflow.pegasus.transformations[] array\n"
-            "   → Find transformation with matching 'name' field\n"
-            "   → Extract 'pfn' (Physical File Name) - the script path\n"
+            "🚨 CRITICAL - READ BEFORE REQUESTING FILES 🚨\n"
             "\n"
-            "Examples of WHEN to request script files:\n"
-            "  ✓ Error: 'SyntaxError: invalid syntax at line 42' → Request script pfn\n"
-            "  ✓ Error: 'IndentationError: unexpected indent' → Request script pfn\n"
-            "  ✗ Error: 'cgroup memory limit exceeded' → NO script needed (resource issue)\n"
-            "  ✗ Error: 'File not found: /data/input.txt' → NO script needed (missing file)\n"
-            "  ✗ Error: 'POST_SCRIPT_FAILED' with no syntax details → Likely NOT syntax error\n"
+            "The Planner ALREADY HAS the workflow YAML file with full catalog information.\n"
+            "DO NOT request workflow.yml, braindump.yml, or any Pegasus-generated workflow files.\n"
             "\n"
-            "2. For configuration errors: Specify config file path\n"
-            "3. For workflow issues: workflow.yml already available\n"
-            "4. If no files needed: Use empty array []\n"
-            f"{stderr_summary}\n\n" if stderr_summary else "" +
+            "ONLY request files if you need to READ/EDIT the actual content to create a fix.\n"
+            "\n"
+            "WHEN TO REQUEST FILES:\n"
+            "\n"
+            "1. Syntax/Code Errors in Scripts (SyntaxError, IndentationError):\n"
+            "   ⚠️  SCRIPT PATH PROVIDED - Use the 'Script File (Real Path)' field!\n"
+            "   → The Monitor provides the REAL source file path (not /srv/ temp paths)\n"
+            "   → Example: 'Script File (Real Path): /home/user/scripts/FineTuneLLM'\n"
+            "   → Use THIS path in files_needed_for_fix if you need the full script\n"
+            "   → Check stderr section first - if it shows the error line, you may not need the file\n"
+            "   ✗ DO NOT request files with /srv/ paths (temporary execution paths)\n"
+            "\n"
+            "2. Configuration File Errors:\n"
+            "   ✓ Request the config file if you need to modify config settings\n"
+            "   Example: {\"path\": \"/etc/app/config.yaml\", \"reason\": \"Update memory settings\"}\n"
+            "\n"
+            "WHEN NOT TO REQUEST FILES:\n"
+            "\n"
+            "✗ Memory/Resource errors → NO files needed (Planner has workflow catalogs)\n"
+            "✗ Missing input data files → NO files needed (Planner can use pegasus-rc-client)\n"
+            "✗ Workflow structure issues → NO files needed (Planner has workflow YAML)\n"
+            "✗ Job failures without code errors → NO files needed\n"
+            "\n"
+            "EXAMPLES:\n"
+            "  ✓ 'SyntaxError: invalid syntax at line 42' → Request script pfn from transformations\n"
+            "  ✓ 'IndentationError: unexpected indent' → Request script pfn from transformations\n"
+            "  ✗ 'cgroup memory limit exceeded' → Use empty array [] (resource issue)\n"
+            "  ✗ 'File not found: /data/input.txt' → Use empty array [] (missing data file)\n"
+            "  ✗ 'POST_SCRIPT_FAILED' with no syntax details → Use empty array []\n"
+            "\n"
+            "DEFAULT: If in doubt, use empty array []. The Planner has workflow catalogs!\n\n" +
+            (f"{stderr_summary}\n\n" if stderr_summary else "") +
             f"Logs:\n{logs}\n\nWorkflow:\n{json.dumps(workflow, indent=2)}"
         )
     
@@ -1623,11 +1643,16 @@ class EnhancedAnalyzerAgent:
             if job.get('exit_code') not in [0, None]:  # Failed jobs only
                 failed_jobs_count += 1
                 job_name = job.get('job_name', 'unknown')
+                transformation_name = job.get('transformation_name', 'unknown')
+                transformation_pfn = job.get('transformation_pfn')
                 stderr = job.get('stderr', '').strip()
                 exit_code = job.get('exit_code')
                 duration = job.get('duration_seconds', 0)
 
                 stderr_lines.append(f"Job: {job_name}")
+                stderr_lines.append(f"Transformation: {transformation_name}")
+                if transformation_pfn:
+                    stderr_lines.append(f"Script File (Real Path): {transformation_pfn}")
                 stderr_lines.append(f"Exit Code: {exit_code}")
                 stderr_lines.append(f"Duration: {duration:.2f}s")
 
@@ -1674,7 +1699,16 @@ class EnhancedAnalyzerAgent:
                 workflow_data = self.load_workflow_yaml(yaml_path)
 
             # Extract stderr summary from .out files (PRIORITY for LLM)
+            print(f"\n  {TerminalColor.CYAN.apply('→ Processing job_out_files:')}")
+            print(f"    • Received {len(job_out_files)} job .out file(s)")
+
             stderr_summary = self._extract_stderr_summary(job_out_files)
+
+            if stderr_summary:
+                print(f"    • ✓ Extracted stderr summary ({len(stderr_summary)} chars)")
+                print(f"    • This will be PRIORITIZED in LLM analysis")
+            else:
+                print(f"    • ⚠ No stderr data available - using pegasus-analyzer only")
 
             analysis_result = None
             llm_response = self.send_logs_and_workflow_to_llm_enhanced(logs, workflow_data, "failed", stderr_summary=stderr_summary)

@@ -461,7 +461,13 @@ class PegasusWorkflowManager:
         # STEP 2.7: Extract .out files (CRITICAL for held/deleted workflows)
         print(f"\n  {TerminalColor.CYAN.apply('→ Step 1.2.7:')} Extracting job .out files...")
         print(f"    {TerminalColor.CYAN.apply('→')} Workflow directory: {workflow_dir}")
-        job_out_files = self.extract_job_out_files(workflow_dir, pegasus_analyzer_output)
+
+        # Get transformation PFNs from metadata for path mapping
+        transformation_pfns = stored_metadata.get('transformation_pfns', [])
+        if transformation_pfns:
+            print(f"    {TerminalColor.CYAN.apply('→')} Using {len(transformation_pfns)} transformation PFN(s) for path mapping")
+
+        job_out_files = self.extract_job_out_files(workflow_dir, pegasus_analyzer_output, transformation_pfns)
 
         if job_out_files:
             print(f"    {TerminalColor.GREEN.apply('✓')} Extracted {len(job_out_files)} .out file(s)")
@@ -472,9 +478,14 @@ class PegasusWorkflowManager:
                 missing_count = len(out_file.get('missing_files', []))
                 out_path = out_file.get('out_file_path', 'unknown')
 
+                real_pfn = out_file.get('transformation_pfn')
+                transformation_name = out_file.get('transformation_name', 'unknown')
+
                 print(f"      • {job_name}:")
                 print(f"        - File: {out_path}")
                 print(f"        - exit_code: {out_file.get('exit_code', 'N/A')}")
+                if real_pfn:
+                    print(f"        - {TerminalColor.GREEN.apply('✓ Real PFN:')} {real_pfn}")
 
                 # Show stderr content (first 200 chars)
                 if has_stderr:
@@ -1303,7 +1314,7 @@ class PegasusWorkflowManager:
 
         return result
 
-    def extract_job_out_files(self, workflow_dir: str, pegasus_analyzer_output: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def extract_job_out_files(self, workflow_dir: str, pegasus_analyzer_output: Dict[str, Any], transformation_pfns: List[Dict] = None) -> List[Dict[str, Any]]:
         """
         Extract job .out files with stderr and missing file info
         CRITICAL: Works even if workflow is deleted (uses persisted .out files)
@@ -1311,13 +1322,37 @@ class PegasusWorkflowManager:
         Args:
             workflow_dir: Workflow submit directory
             pegasus_analyzer_output: Output from pegasus-analyzer (may have failed job names)
+            transformation_pfns: List of transformation PFNs from metadata (for path mapping)
 
         Returns:
             List of job output data with stderr, exit codes, missing files, etc.
         """
         import glob
 
+        if transformation_pfns is None:
+            transformation_pfns = []
+
         job_out_files = []
+
+        # Build transformation name -> real PFN mapping
+        transformation_map = {}
+        for trans in transformation_pfns:
+            name = trans.get('name', '')
+            pfn = trans.get('pfn', '')
+            if name and pfn:
+                transformation_map[name] = pfn
+                # Also map with namespace if present
+                namespace = trans.get('namespace', '')
+                if namespace:
+                    full_name = f"{namespace}::{name}"
+                    transformation_map[full_name] = pfn
+
+        if transformation_map:
+            logger.info(f"🗺️  Built transformation map with {len(transformation_map)} entries")
+            for name, pfn in list(transformation_map.items())[:3]:
+                logger.info(f"    • {name} → {pfn}")
+        else:
+            logger.warning("⚠️  No transformation PFNs provided - cannot map to real paths")
 
         # DETAILED LOGGING: Show what we're searching for
         logger.info(f"🔍 Searching for .out files in: {workflow_dir}")
@@ -1375,6 +1410,16 @@ class PegasusWorkflowManager:
                 logger.warning(f"  [{i}/{len(out_files)}] Skipping non-.out file: {filename}")
                 continue  # Not a valid .out file
 
+            # Extract transformation name from job_name (e.g., FineTuneLLM_ID0000001 → FineTuneLLM)
+            transformation_name = job_name.split('_ID')[0] if '_ID' in job_name else job_name
+
+            # Map to real PFN
+            real_pfn = transformation_map.get(transformation_name)
+            if real_pfn:
+                logger.info(f"  [{i}/{len(out_files)}] Mapped {transformation_name} → {real_pfn}")
+            else:
+                logger.debug(f"  [{i}/{len(out_files)}] No PFN mapping for {transformation_name}")
+
             # Use PegasusCommandExecutor to extract stderr
             try:
                 logger.info(f"  [{i}/{len(out_files)}] Extracting stderr from: {job_name}")
@@ -1386,6 +1431,8 @@ class PegasusWorkflowManager:
 
                     job_out_files.append({
                         "job_name": job_name,
+                        "transformation_name": transformation_name,
+                        "transformation_pfn": real_pfn,  # Real source file path!
                         "out_file_path": out_file_path,
                         "stderr": stderr_data.get('stderr', ''),
                         "exit_code": stderr_data.get('exit_code'),
