@@ -2323,10 +2323,18 @@
                             <td>
                                 <div class="workflow-actions">
                                     <button class="btn btn-secondary" onclick="showWorkflowDetails('${wf.workflow_id}')">
-                                        👁️ Quick View
+                                        👁️ View
                                     </button>
-                                    <a href="/workflow/${wf.workflow_id}" class="btn btn-primary" target="_blank">
-                                        🔄 MAPE-K Pipeline
+                                    <button class="btn btn-secondary" onclick="exportWorkflow('${wf.workflow_id}')">
+                                        📥 Export
+                                    </button>
+                                    ${wf.state === 'Failed' || wf.state === 'Failure' ? `
+                                        <button class="btn btn-primary" onclick="retryWorkflow('${wf.workflow_id}')">
+                                            🔄 Retry
+                                        </button>
+                                    ` : ''}
+                                    <a href="/workflow/${wf.workflow_id}" class="btn btn-secondary" target="_blank">
+                                        📋 Details
                                     </a>
                                 </div>
                             </td>
@@ -3343,6 +3351,134 @@
             document.getElementById('activity-agent-filter').value = '';
             document.getElementById('activity-status-filter').value = '';
             filterActivities();
+        }
+
+        // ============================================================================
+        // Workflow Management Functions
+        // ============================================================================
+
+        async function exportWorkflow(workflowId) {
+            try {
+                // Download as JSON file
+                window.location.href = `/api/workflow/${workflowId}/export/json`;
+
+                // Show toast notification
+                showToast({
+                    agent: 'Dashboard',
+                    action: 'Workflow Export',
+                    details: `Exporting data for ${workflowId}`,
+                    status: 'info',
+                    timestamp: new Date().toISOString(),
+                    workflow_id: workflowId
+                });
+            } catch (error) {
+                showToast({
+                    agent: 'Dashboard',
+                    action: 'Export Failed',
+                    details: `Error: ${error.message}`,
+                    status: 'error',
+                    timestamp: new Date().toISOString(),
+                    workflow_id: workflowId
+                });
+            }
+        }
+
+        async function retryWorkflow(workflowId) {
+            if (!confirm(`Are you sure you want to retry workflow ${workflowId}?`)) {
+                return;
+            }
+
+            try {
+                showToast({
+                    agent: 'Dashboard',
+                    action: 'Retrying Workflow',
+                    details: `Submitting retry request for ${workflowId}...`,
+                    status: 'info',
+                    timestamp: new Date().toISOString(),
+                    workflow_id: workflowId
+                });
+
+                const response = await fetch(`/api/workflow/${workflowId}/retry`, {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showToast({
+                        agent: 'Dashboard',
+                        action: 'Workflow Retry Submitted',
+                        details: data.message || 'Workflow resubmitted successfully',
+                        status: 'success',
+                        timestamp: new Date().toISOString(),
+                        workflow_id: workflowId
+                    });
+
+                    // Refresh workflows view
+                    setTimeout(() => refreshCurrentView(), 2000);
+                } else {
+                    showToast({
+                        agent: 'Dashboard',
+                        action: 'Retry Failed',
+                        details: data.error || 'Could not retry workflow',
+                        status: 'error',
+                        timestamp: new Date().toISOString(),
+                        workflow_id: workflowId
+                    });
+                }
+            } catch (error) {
+                showToast({
+                    agent: 'Dashboard',
+                    action: 'Retry Failed',
+                    details: `Error: ${error.message}`,
+                    status: 'error',
+                    timestamp: new Date().toISOString(),
+                    workflow_id: workflowId
+                });
+            }
+        }
+
+        async function viewWorkflowPlan(workflowId) {
+            try {
+                const response = await fetch(`/api/workflow/${workflowId}/plan`);
+                const data = await response.json();
+
+                if (data.success && data.plan) {
+                    // Display plan in modal or console
+                    console.log('Workflow Plan:', data.plan);
+
+                    // Show toast
+                    showToast({
+                        agent: 'Dashboard',
+                        action: 'Plan Retrieved',
+                        details: `Found ${data.all_plans.length} plan(s) for this workflow`,
+                        status: 'success',
+                        timestamp: new Date().toISOString(),
+                        workflow_id: workflowId
+                    });
+
+                    // You can add modal display here
+                    alert(`Plan found!\n\nDescription: ${data.plan.description || 'N/A'}\n\nCheck console for full details.`);
+                } else {
+                    showToast({
+                        agent: 'Dashboard',
+                        action: 'No Plan Found',
+                        details: data.error || 'No repair plan available',
+                        status: 'warning',
+                        timestamp: new Date().toISOString(),
+                        workflow_id: workflowId
+                    });
+                }
+            } catch (error) {
+                showToast({
+                    agent: 'Dashboard',
+                    action: 'Plan Fetch Failed',
+                    details: `Error: ${error.message}`,
+                    status: 'error',
+                    timestamp: new Date().toISOString(),
+                    workflow_id: workflowId
+                });
+            }
         }
 
         // ============================================================================

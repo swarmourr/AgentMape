@@ -4,11 +4,12 @@ Simple Real-Time MAPE-K Dashboard
 Monitors Monitor, Analyzer, Planner agents and displays status
 """
 
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, send_file
 from flask_cors import CORS
 from flask_sock import Sock
 import requests
 import json
+import os
 from datetime import datetime
 from typing import Dict, List, Any
 import asyncio
@@ -1446,6 +1447,279 @@ def reload_agent_config(agent_name):
             "reload_notified": reload_success,
             "message": f"Reload request sent to {agent_name}" if reload_success else f"Could not notify {agent_name} (may need manual restart)"
         })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+# ============================================================================
+# Workflow Export & Data Management
+# ============================================================================
+
+@app.route('/api/workflow/<workflow_id>/export', methods=['GET'])
+def export_workflow_data(workflow_id):
+    """Export complete workflow data including analysis, plan, and execution details"""
+    try:
+        export_data = {
+            "workflow_id": workflow_id,
+            "exported_at": datetime.now().isoformat(),
+            "analysis": None,
+            "plan": None,
+            "execution": None,
+            "metadata": None
+        }
+
+        # Get analysis from Analyzer
+        try:
+            response = requests.get(f"{ANALYZER_URL}/api/analyses/{workflow_id}", timeout=5)
+            if response.status_code == 200:
+                export_data["analysis"] = response.json()
+        except Exception as e:
+            export_data["analysis"] = {"error": str(e)}
+
+        # Get plan from Planner
+        try:
+            response = requests.get(f"{PLANNER_URL}/api/plans?workflow_id={workflow_id}", timeout=5)
+            if response.status_code == 200:
+                plans_data = response.json()
+                plans = plans_data.get("plans", [])
+                # Get the latest plan for this workflow
+                workflow_plans = [p for p in plans if p.get("workflow_id") == workflow_id]
+                if workflow_plans:
+                    export_data["plan"] = workflow_plans[0]  # Most recent
+        except Exception as e:
+            export_data["plan"] = {"error": str(e)}
+
+        # Get metadata from Monitor
+        try:
+            response = requests.get(f"{MONITOR_URL}/api/workflows/{workflow_id}", timeout=5)
+            if response.status_code == 200:
+                export_data["metadata"] = response.json()
+        except Exception as e:
+            export_data["metadata"] = {"error": str(e)}
+
+        return jsonify({
+            "success": True,
+            "data": export_data
+        })
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+@app.route('/api/workflow/<workflow_id>/export/json', methods=['GET'])
+def export_workflow_json(workflow_id):
+    """Export workflow data as downloadable JSON file"""
+    try:
+        # Get export data
+        response = requests.get(f"http://localhost:{DASHBOARD_PORT}/api/workflow/{workflow_id}/export")
+        data = response.json()
+
+        if data.get("success"):
+            # Create temporary file
+            import tempfile
+            fd, path = tempfile.mkstemp(suffix='.json')
+
+            with os.fdopen(fd, 'w') as f:
+                json.dump(data["data"], f, indent=2)
+
+            return send_file(
+                path,
+                mimetype='application/json',
+                as_attachment=True,
+                download_name=f'workflow_{workflow_id}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json'
+            )
+        else:
+            return jsonify(data), 500
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+@app.route('/api/workflow/<workflow_id>/plan', methods=['GET'])
+def get_workflow_plan(workflow_id):
+    """Get repair plan for specific workflow"""
+    try:
+        response = requests.get(f"{PLANNER_URL}/api/plans?workflow_id={workflow_id}", timeout=5)
+
+        if response.status_code == 200:
+            plans_data = response.json()
+            plans = plans_data.get("plans", [])
+
+            # Filter plans for this workflow
+            workflow_plans = [p for p in plans if p.get("workflow_id") == workflow_id]
+
+            if workflow_plans:
+                return jsonify({
+                    "success": True,
+                    "plan": workflow_plans[0],  # Most recent plan
+                    "all_plans": workflow_plans  # All historical plans
+                })
+            else:
+                return jsonify({
+                    "success": False,
+                    "error": "No plan found for this workflow"
+                }), 404
+        else:
+            return jsonify({
+                "success": False,
+                "error": "Could not fetch plans from Planner"
+            }), 500
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+@app.route('/api/workflow/<workflow_id>/analysis', methods=['GET'])
+def get_workflow_analysis(workflow_id):
+    """Get analysis details for specific workflow"""
+    try:
+        response = requests.get(f"{ANALYZER_URL}/api/analyses/{workflow_id}", timeout=5)
+
+        if response.status_code == 200:
+            return jsonify({
+                "success": True,
+                "analysis": response.json()
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": "Analysis not found"
+            }), 404
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+@app.route('/api/workflow/<workflow_id>/retry', methods=['POST'])
+def retry_workflow(workflow_id):
+    """Retry/Resubmit a failed workflow"""
+    try:
+        # Get workflow directory from Monitor
+        response = requests.get(f"{MONITOR_URL}/api/workflows/{workflow_id}", timeout=5)
+
+        if response.status_code != 200:
+            return jsonify({
+                "success": False,
+                "error": "Workflow not found in Monitor"
+            }), 404
+
+        workflow_data = response.json()
+        workflow_dir = workflow_data.get("workflow_dir") or workflow_data.get("iwd")
+
+        if not workflow_dir:
+            return jsonify({
+                "success": False,
+                "error": "Workflow directory not found"
+            }), 404
+
+        # Execute pegasus-run to retry
+        import subprocess
+        result = subprocess.run(
+            ["pegasus-run", workflow_dir],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+
+        if result.returncode == 0:
+            # Notify via WebSocket
+            dashboard.broadcast_activity({
+                "timestamp": datetime.now().isoformat(),
+                "agent": "Dashboard",
+                "action": "Workflow retry initiated",
+                "workflow_id": workflow_id,
+                "status": "info",
+                "details": f"Resubmitted workflow via pegasus-run"
+            })
+
+            return jsonify({
+                "success": True,
+                "message": "Workflow resubmitted successfully",
+                "output": result.stdout
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": result.stderr or "pegasus-run failed",
+                "output": result.stdout
+            }), 500
+
+    except subprocess.TimeoutExpired:
+        return jsonify({
+            "success": False,
+            "error": "Retry command timed out"
+        }), 500
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+@app.route('/api/export/all', methods=['GET'])
+def export_all_data():
+    """Export all system data (workflows, analyses, plans)"""
+    try:
+        export_data = {
+            "exported_at": datetime.now().isoformat(),
+            "workflows": [],
+            "analyses": [],
+            "plans": [],
+            "agents_status": {},
+            "activity_log": dashboard.get_recent_activities(100)
+        }
+
+        # Get all workflows from Monitor
+        try:
+            response = requests.get(f"{MONITOR_URL}/api/workflows/all", timeout=5)
+            if response.status_code == 200:
+                export_data["workflows"] = response.json().get("workflows", [])
+        except:
+            pass
+
+        # Get all analyses from Analyzer
+        try:
+            response = requests.get(f"{ANALYZER_URL}/api/analyses/all", timeout=5)
+            if response.status_code == 200:
+                export_data["analyses"] = response.json().get("analyses", [])
+        except:
+            pass
+
+        # Get all plans from Planner
+        try:
+            response = requests.get(f"{PLANNER_URL}/api/plans", timeout=5)
+            if response.status_code == 200:
+                export_data["plans"] = response.json().get("plans", [])
+        except:
+            pass
+
+        # Get agent status
+        export_data["agents_status"] = {
+            "monitor": dashboard.get_agent_status("Monitor", MONITOR_URL),
+            "analyzer": dashboard.get_agent_status("Analyzer", ANALYZER_URL),
+            "planner": dashboard.get_agent_status("Planner", PLANNER_URL)
+        }
+
+        return jsonify({
+            "success": True,
+            "data": export_data
+        })
+
     except Exception as e:
         return jsonify({
             "success": False,
