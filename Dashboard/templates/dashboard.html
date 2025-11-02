@@ -744,6 +744,27 @@
             box-shadow: 0 2px 8px rgba(99, 102, 241, 0.1);
         }
 
+        /* Animation for new activities */
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
         .activity-icon {
             width: 40px;
             height: 40px;
@@ -1395,12 +1416,168 @@
     <script>
         let refreshInterval;
         let currentView = 'dashboard';
+        let ws = null;
+        let wsReconnectAttempts = 0;
+        let wsReconnectInterval = null;
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             switchView('dashboard');
             refreshInterval = setInterval(() => refreshCurrentView(), 5000);
+            connectWebSocket();
         });
+
+        // WebSocket connection for real-time updates
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws/activities`;
+
+            console.log('[WebSocket] Connecting to:', wsUrl);
+
+            try {
+                ws = new WebSocket(wsUrl);
+
+                ws.onopen = () => {
+                    console.log('[WebSocket] Connected successfully');
+                    wsReconnectAttempts = 0;
+
+                    // Show connection indicator
+                    updateConnectionStatus(true);
+                };
+
+                ws.onmessage = (event) => {
+                    try {
+                        const message = JSON.parse(event.data);
+                        handleWebSocketMessage(message);
+                    } catch (e) {
+                        console.error('[WebSocket] Error parsing message:', e);
+                    }
+                };
+
+                ws.onerror = (error) => {
+                    console.error('[WebSocket] Error:', error);
+                    updateConnectionStatus(false);
+                };
+
+                ws.onclose = () => {
+                    console.log('[WebSocket] Connection closed');
+                    updateConnectionStatus(false);
+
+                    // Attempt to reconnect with exponential backoff
+                    wsReconnectAttempts++;
+                    const delay = Math.min(1000 * Math.pow(2, wsReconnectAttempts), 30000);
+                    console.log(`[WebSocket] Reconnecting in ${delay}ms...`);
+
+                    setTimeout(() => {
+                        connectWebSocket();
+                    }, delay);
+                };
+            } catch (e) {
+                console.error('[WebSocket] Failed to create connection:', e);
+                updateConnectionStatus(false);
+            }
+        }
+
+        function handleWebSocketMessage(message) {
+            if (message.type === 'initial') {
+                // Initial activity log received
+                console.log('[WebSocket] Received initial activities:', message.data.length);
+                // Don't need to update UI as it's already fetched via REST
+            } else if (message.type === 'activity') {
+                // New activity received
+                console.log('[WebSocket] New activity:', message.data);
+                prependActivity(message.data);
+            } else if (message.type === 'ping') {
+                // Keep-alive ping
+                console.log('[WebSocket] Received ping');
+            }
+        }
+
+        function prependActivity(activity) {
+            const container = document.getElementById('activity-feed-container');
+            if (!container) return;
+
+            // Check if already showing empty state
+            const emptyState = container.querySelector('.empty-state');
+            if (emptyState) {
+                container.innerHTML = '';
+            }
+
+            // Status color mapping
+            const statusColors = {
+                'info': '#3b82f6',
+                'success': '#10b981',
+                'warning': '#f59e0b',
+                'error': '#ef4444'
+            };
+
+            // Agent icons
+            const agentIcons = {
+                'Monitor': '📡',
+                'Analyzer': '🔬',
+                'Planner': '📋',
+                'Executor': '⚙️'
+            };
+
+            const statusColor = statusColors[activity.status] || '#64748b';
+            const agentIcon = agentIcons[activity.agent] || '🤖';
+
+            // Create new activity element
+            const activityHtml = `
+                <div class="activity-item" style="animation: slideIn 0.3s ease-out;">
+                    <div class="activity-icon" style="background: ${statusColor};">
+                        ${agentIcon}
+                    </div>
+                    <div class="activity-content">
+                        <div class="activity-header">
+                            <span class="activity-agent">${activity.agent}</span>
+                            <span class="activity-time">${formatTimeSince(activity.timestamp)}</span>
+                        </div>
+                        <div class="activity-action">${activity.action}</div>
+                        ${activity.workflow_id ? `<div class="activity-workflow">Workflow: <code>${activity.workflow_id}</code></div>` : ''}
+                        ${activity.details ? `<div class="activity-details">${activity.details}</div>` : ''}
+                    </div>
+                </div>
+            `;
+
+            // Insert at the beginning
+            container.insertAdjacentHTML('afterbegin', activityHtml);
+
+            // Keep only last 20 activities
+            const activities = container.querySelectorAll('.activity-item');
+            if (activities.length > 20) {
+                activities[activities.length - 1].remove();
+            }
+
+            // Add animation
+            const newActivity = container.querySelector('.activity-item');
+            newActivity.style.animation = 'slideIn 0.3s ease-out';
+        }
+
+        function updateConnectionStatus(connected) {
+            // Update connection indicator in topbar if exists
+            let indicator = document.getElementById('ws-connection-indicator');
+            if (!indicator) {
+                // Create indicator if doesn't exist
+                const topbar = document.querySelector('.topbar-right');
+                if (topbar) {
+                    indicator = document.createElement('div');
+                    indicator.id = 'ws-connection-indicator';
+                    indicator.style.cssText = 'display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500;';
+                    topbar.insertBefore(indicator, topbar.firstChild);
+                }
+            }
+
+            if (indicator) {
+                if (connected) {
+                    indicator.innerHTML = '<div style="width: 8px; height: 8px; background: #10b981; border-radius: 50%; animation: pulse 2s infinite;"></div><span style="color: #10b981;">Live</span>';
+                    indicator.style.background = '#10b98115';
+                } else {
+                    indicator.innerHTML = '<div style="width: 8px; height: 8px; background: #ef4444; border-radius: 50%;"></div><span style="color: #ef4444;">Disconnected</span>';
+                    indicator.style.background = '#ef444415';
+                }
+            }
+        }
 
         // View switching
         function switchView(viewName) {

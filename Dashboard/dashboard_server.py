@@ -6,13 +6,18 @@ Monitors Monitor, Analyzer, Planner agents and displays status
 
 from flask import Flask, render_template, jsonify, request
 from flask_cors import CORS
+from flask_sock import Sock
 import requests
 import json
 from datetime import datetime
 from typing import Dict, List, Any
+import asyncio
+import threading
+import time
 
 app = Flask(__name__)
 CORS(app)
+sock = Sock(app)
 
 # Configuration - Ports des agents
 MONITOR_URL = "http://localhost:8080"
@@ -34,6 +39,11 @@ class DashboardMonitor:
         # Activity log storage (max 100 entries)
         self.activity_log = []
         self.max_activity_logs = 100
+        # WebSocket clients for real-time updates
+        self.websocket_clients = set()
+        # Background polling thread
+        self.polling_thread = None
+        self.polling_active = False
 
     def get_agent_status(self, agent_name: str, url: str) -> Dict[str, Any]:
         """Récupère le status d'un agent"""
@@ -145,6 +155,52 @@ class DashboardMonitor:
         # Keep only max_activity_logs entries
         if len(self.activity_log) > self.max_activity_logs:
             self.activity_log = self.activity_log[:self.max_activity_logs]
+
+        # Broadcast to WebSocket clients
+        self.broadcast_activity(log_entry)
+
+    def broadcast_activity(self, activity: Dict):
+        """Broadcast activity to all connected WebSocket clients"""
+        if not self.websocket_clients:
+            return
+
+        message = json.dumps({
+            "type": "activity",
+            "data": activity
+        })
+
+        # Send to all connected clients
+        disconnected = set()
+        for ws in self.websocket_clients:
+            try:
+                ws.send(message)
+            except:
+                disconnected.add(ws)
+
+        # Remove disconnected clients
+        self.websocket_clients -= disconnected
+
+    def start_background_polling(self):
+        """Start background thread for polling agents"""
+        if self.polling_active:
+            return
+
+        self.polling_active = True
+
+        def poll_loop():
+            while self.polling_active:
+                try:
+                    self.poll_agent_activities()
+                except Exception as e:
+                    print(f"Error in polling loop: {e}")
+                time.sleep(3)  # Poll every 3 seconds
+
+        self.polling_thread = threading.Thread(target=poll_loop, daemon=True)
+        self.polling_thread.start()
+
+    def stop_background_polling(self):
+        """Stop background polling thread"""
+        self.polling_active = False
 
     def get_recent_activities(self, limit: int = 50) -> List[Dict]:
         """Get recent activity logs"""
@@ -1069,13 +1125,52 @@ def proxy_pegasus(path):
         return jsonify({"error": f"Pegasus Provider proxy error: {str(e)}"}), 500
 
 
+# WebSocket endpoint for real-time activity stream
+@sock.route('/ws/activities')
+def activities_stream(ws):
+    """WebSocket endpoint for real-time activity updates"""
+    print(f"[WebSocket] New client connected")
+    dashboard.websocket_clients.add(ws)
+
+    try:
+        # Send initial activity log
+        initial_activities = dashboard.get_recent_activities(20)
+        ws.send(json.dumps({
+            "type": "initial",
+            "data": initial_activities
+        }))
+
+        # Keep connection alive and listen for messages
+        while True:
+            # Receive messages (or timeout to keep alive)
+            try:
+                message = ws.receive(timeout=30)
+                # Handle client messages if needed
+                if message:
+                    print(f"[WebSocket] Received: {message}")
+            except:
+                # Timeout or error - send ping to keep alive
+                ws.send(json.dumps({"type": "ping"}))
+
+    except Exception as e:
+        print(f"[WebSocket] Client disconnected: {e}")
+    finally:
+        dashboard.websocket_clients.discard(ws)
+        print(f"[WebSocket] Client removed, {len(dashboard.websocket_clients)} clients remaining")
+
+
 if __name__ == '__main__':
+    # Start background polling for agent activities
+    print("Starting background polling thread...")
+    dashboard.start_background_polling()
+
     print(f"""
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                     🎯 MAPE-K DASHBOARD SERVER                               ║
 ║                   (with built-in reverse proxy!)                             ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
 ║  Dashboard URL: http://localhost:{DASHBOARD_PORT}                                      ║
+║  WebSocket URL: ws://localhost:{DASHBOARD_PORT}/ws/activities                         ║
 ║                                                                              ║
 ║  🌐 Expose via ngrok (single tunnel):                                        ║
 ║     ngrok http {DASHBOARD_PORT}                                                     ║
@@ -1085,6 +1180,7 @@ if __name__ == '__main__':
 ║    • Pegasus API:   /api/pegasus/* → {PEGASUS_PROVIDER_URL}                ║
 ║                                                                              ║
 ║  ✅ No CORS issues - all services through one domain!                       ║
+║  ✅ Real-time activity stream via WebSocket!                                ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
     """)
 
