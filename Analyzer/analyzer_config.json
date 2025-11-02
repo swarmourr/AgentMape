@@ -5,8 +5,8 @@
         "type": "analyzer",
         "description": "Root cause analysis and problem detection agent"
     },
-   "ollama_url": "http://yafck-176-159-64-125.a.free.pinggy.link/api/generate",
-    "ollama_api_base": "http://yafck-176-159-64-125.a.free.pinggy.link",
+   "ollama_url": "https://gahoc-37-66-208-20.a.free.pinggy.link/api/generate",
+    "ollama_api_base": "https://gahoc-37-66-208-20.a.free.pinggy.link",
     "ollama_model": "glm-4.6:cloud",
     "ollama_check_interval": 30,
     "monitor_url": "ws://localhost:8765",
