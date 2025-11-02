@@ -756,6 +756,17 @@
             }
         }
 
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+        }
+
         @keyframes pulse {
             0%, 100% {
                 opacity: 1;
@@ -763,6 +774,141 @@
             50% {
                 opacity: 0.5;
             }
+        }
+
+        /* Toast Notification Popup */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-width: 400px;
+        }
+
+        .toast {
+            background: white;
+            border-radius: 12px;
+            padding: 16px 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: start;
+            gap: 12px;
+            border-left: 4px solid var(--primary);
+            animation: toastSlideIn 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .toast.info { border-left-color: #3b82f6; }
+        .toast.success { border-left-color: #10b981; }
+        .toast.warning { border-left-color: #f59e0b; }
+        .toast.error { border-left-color: #ef4444; }
+
+        .toast::before {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 3px;
+            background: var(--gray-300);
+            animation: toastProgress 5s linear;
+        }
+
+        @keyframes toastSlideIn {
+            from {
+                transform: translateX(120%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes toastSlideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(120%);
+                opacity: 0;
+            }
+        }
+
+        @keyframes toastProgress {
+            from {
+                width: 100%;
+            }
+            to {
+                width: 0%;
+            }
+        }
+
+        .toast-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .toast.info .toast-icon { background: #3b82f615; }
+        .toast.success .toast-icon { background: #10b98115; }
+        .toast.warning .toast-icon { background: #f59e0b15; }
+        .toast.error .toast-icon { background: #ef444415; }
+
+        .toast-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .toast-title {
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--gray-900);
+            margin-bottom: 4px;
+        }
+
+        .toast-message {
+            font-size: 13px;
+            color: var(--gray-600);
+            line-height: 1.4;
+        }
+
+        .toast-workflow {
+            font-size: 11px;
+            color: var(--gray-500);
+            font-family: Monaco, monospace;
+            margin-top: 6px;
+            padding: 4px 8px;
+            background: var(--gray-100);
+            border-radius: 4px;
+            display: inline-block;
+        }
+
+        .toast-close {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 16px;
+            color: var(--gray-400);
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .toast-close:hover {
+            background: var(--gray-100);
+            color: var(--gray-900);
         }
 
         .activity-icon {
@@ -1113,6 +1259,9 @@
     <script src="/static/config.js"></script>
 </head>
 <body>
+    <!-- Toast Container for Popup Notifications -->
+    <div class="toast-container" id="toast-container"></div>
+
     <!-- Sidebar -->
     <div class="sidebar">
         <div class="sidebar-header">
@@ -1217,6 +1366,46 @@
                         <button class="btn btn-secondary" onclick="refreshData()">Refresh</button>
                     </div>
                 </div>
+
+                <!-- Activity Filter Bar -->
+                <div style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
+                    <input
+                        type="text"
+                        id="activity-search"
+                        placeholder="🔍 Search activities..."
+                        style="flex: 1; min-width: 200px; padding: 10px 16px; border: 1px solid var(--gray-300); border-radius: 8px; font-size: 14px;"
+                        oninput="filterActivities()"
+                    />
+                    <select
+                        id="activity-agent-filter"
+                        style="padding: 10px 16px; border: 1px solid var(--gray-300); border-radius: 8px; font-size: 14px; cursor: pointer;"
+                        onchange="filterActivities()"
+                    >
+                        <option value="">All Agents</option>
+                        <option value="Monitor">📡 Monitor</option>
+                        <option value="Analyzer">🔬 Analyzer</option>
+                        <option value="Planner">📋 Planner</option>
+                        <option value="Executor">⚙️ Executor</option>
+                    </select>
+                    <select
+                        id="activity-status-filter"
+                        style="padding: 10px 16px; border: 1px solid var(--gray-300); border-radius: 8px; font-size: 14px; cursor: pointer;"
+                        onchange="filterActivities()"
+                    >
+                        <option value="">All Statuses</option>
+                        <option value="info">ℹ️ Info</option>
+                        <option value="success">✅ Success</option>
+                        <option value="warning">⚠️ Warning</option>
+                        <option value="error">❌ Error</option>
+                    </select>
+                    <button
+                        onclick="clearActivityFilters()"
+                        style="padding: 10px 16px; border: 1px solid var(--gray-300); background: white; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500;"
+                    >
+                        Clear Filters
+                    </button>
+                </div>
+
                 <div id="activity-feed-container">
                     <div class="spinner"></div>
                 </div>
@@ -1387,12 +1576,109 @@
                     <div class="section-header">
                         <h2 class="section-title">
                             <span>⚙️</span>
-                            <span>Settings</span>
+                            <span>MAPE-K Configuration</span>
                         </h2>
                     </div>
-                    <div class="empty-state">
-                        <div class="empty-state-icon">⚙️</div>
-                        <div class="empty-state-text">Settings panel coming soon</div>
+
+                    <!-- Ollama Configuration -->
+                    <div style="background: white; border-radius: 12px; padding: 24px; margin-bottom: 24px; border: 1px solid var(--gray-200);">
+                        <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px; color: var(--gray-800);">
+                            🤖 Ollama LLM Configuration
+                        </h3>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                            <div>
+                                <label style="display: block; font-size: 13px; font-weight: 600; color: var(--gray-600); margin-bottom: 8px;">
+                                    Ollama API Base URL
+                                </label>
+                                <input
+                                    type="text"
+                                    id="ollama-api-base"
+                                    placeholder="http://localhost:11434"
+                                    style="width: 100%; padding: 10px 14px; border: 1px solid var(--gray-300); border-radius: 8px; font-size: 14px; font-family: Monaco, monospace;"
+                                />
+                                <p style="font-size: 12px; color: var(--gray-500); margin-top: 4px;">
+                                    Base URL for Ollama API (e.g., http://localhost:11434)
+                                </p>
+                            </div>
+
+                            <div>
+                                <label style="display: block; font-size: 13px; font-weight: 600; color: var(--gray-600); margin-bottom: 8px;">
+                                    Model Name
+                                </label>
+                                <input
+                                    type="text"
+                                    id="ollama-model"
+                                    placeholder="llama3.3:70b"
+                                    style="width: 100%; padding: 10px 14px; border: 1px solid var(--gray-300); border-radius: 8px; font-size: 14px; font-family: Monaco, monospace;"
+                                />
+                                <p style="font-size: 12px; color: var(--gray-500); margin-top: 4px;">
+                                    Ollama model to use (e.g., llama3.3:70b, glm-4.6:cloud)
+                                </p>
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; font-size: 13px; font-weight: 600; color: var(--gray-600); margin-bottom: 8px;">
+                                Apply To Agents
+                            </label>
+                            <div style="display: flex; gap: 16px;">
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="checkbox" id="ollama-agent-analyzer" checked style="width: 18px; height: 18px; cursor: pointer;"/>
+                                    <span style="font-size: 14px;">🔬 Analyzer</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="checkbox" id="ollama-agent-planner" checked style="width: 18px; height: 18px; cursor: pointer;"/>
+                                    <span style="font-size: 14px;">📋 Planner</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; gap: 12px; align-items: center;">
+                            <button
+                                onclick="loadOllamaConfig()"
+                                style="padding: 10px 20px; background: white; border: 1px solid var(--gray-300); border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; color: var(--gray-700);"
+                            >
+                                🔄 Load Current Config
+                            </button>
+                            <button
+                                onclick="saveOllamaConfig()"
+                                style="padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;"
+                            >
+                                💾 Save Configuration
+                            </button>
+                            <div id="ollama-save-status" style="margin-left: 12px; font-size: 14px; font-weight: 500;"></div>
+                        </div>
+
+                        <div id="ollama-current-config" style="margin-top: 20px; padding: 16px; background: var(--gray-50); border-radius: 8px; display: none;">
+                            <div style="font-size: 13px; font-weight: 600; color: var(--gray-600); margin-bottom: 12px;">
+                                Current Configuration:
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 13px; font-family: Monaco, monospace;">
+                                <div>
+                                    <strong>Analyzer:</strong>
+                                    <div id="analyzer-ollama-info" style="color: var(--gray-600); margin-top: 4px;"></div>
+                                </div>
+                                <div>
+                                    <strong>Planner:</strong>
+                                    <div id="planner-ollama-info" style="color: var(--gray-600); margin-top: 4px;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Agent Configuration Coming Soon -->
+                    <div style="background: white; border-radius: 12px; padding: 24px; margin-bottom: 24px; border: 1px solid var(--gray-200); opacity: 0.6;">
+                        <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px; color: var(--gray-800);">
+                            📡 Agent Configuration
+                        </h3>
+                        <div style="text-align: center; padding: 40px; color: var(--gray-500);">
+                            <div style="font-size: 48px; margin-bottom: 12px;">⚙️</div>
+                            <div style="font-size: 16px; font-weight: 500;">Coming Soon</div>
+                            <div style="font-size: 14px; margin-top: 8px;">
+                                Configure Monitor, Analyzer, Planner settings
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1419,13 +1705,103 @@
         let ws = null;
         let wsReconnectAttempts = 0;
         let wsReconnectInterval = null;
+        let audioContext = null;
+        let soundEnabled = true;
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             switchView('dashboard');
             refreshInterval = setInterval(() => refreshCurrentView(), 5000);
             connectWebSocket();
+            initializeAudio();
+            requestNotificationPermission();
         });
+
+        // Initialize audio context
+        function initializeAudio() {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            } catch (e) {
+                console.log('[Audio] Not supported:', e);
+            }
+        }
+
+        // Request notification permission
+        function requestNotificationPermission() {
+            if ('Notification' in window && Notification.permission === 'default') {
+                Notification.requestPermission().then(permission => {
+                    console.log('[Notification] Permission:', permission);
+                });
+            }
+        }
+
+        // Play notification sound
+        function playNotificationSound(type) {
+            if (!soundEnabled || !audioContext) return;
+
+            try {
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                // Different frequencies for different notification types
+                const frequencies = {
+                    'info': 440,      // A4
+                    'success': 523,   // C5
+                    'warning': 392,   // G4
+                    'error': 349      // F4
+                };
+
+                oscillator.frequency.value = frequencies[type] || 440;
+                oscillator.type = 'sine';
+
+                // Fade in/out
+                gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0.1, audioContext.currentTime + 0.05);
+                gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.15);
+
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.15);
+            } catch (e) {
+                console.error('[Audio] Error playing sound:', e);
+            }
+        }
+
+        // Show desktop notification
+        function showDesktopNotification(activity) {
+            if ('Notification' in window && Notification.permission === 'granted') {
+                const agentIcons = {
+                    'Monitor': '📡',
+                    'Analyzer': '🔬',
+                    'Planner': '📋',
+                    'Executor': '⚙️'
+                };
+
+                const icon = agentIcons[activity.agent] || '🤖';
+                const title = `${icon} ${activity.agent} - ${activity.action}`;
+                const body = activity.details || 'New activity detected';
+
+                const notification = new Notification(title, {
+                    body: body,
+                    icon: '/static/logo.png',
+                    badge: '/static/badge.png',
+                    tag: activity.workflow_id || 'mape-k',
+                    requireInteraction: activity.status === 'error',
+                    silent: false
+                });
+
+                // Auto-close after 5 seconds
+                setTimeout(() => notification.close(), 5000);
+
+                // Click handler - focus window
+                notification.onclick = () => {
+                    window.focus();
+                    notification.close();
+                };
+            }
+        }
 
         // WebSocket connection for real-time updates
         function connectWebSocket() {
@@ -1487,10 +1863,75 @@
                 // New activity received
                 console.log('[WebSocket] New activity:', message.data);
                 prependActivity(message.data);
+                // Show toast notification for the activity
+                showToast(message.data);
             } else if (message.type === 'ping') {
                 // Keep-alive ping
                 console.log('[WebSocket] Received ping');
             }
+        }
+
+        function showToast(activity) {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+
+            // Agent icons
+            const agentIcons = {
+                'Monitor': '📡',
+                'Analyzer': '🔬',
+                'Planner': '📋',
+                'Executor': '⚙️'
+            };
+
+            const agentIcon = agentIcons[activity.agent] || '🤖';
+
+            // Create unique ID for this toast
+            const toastId = `toast-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+            // Create toast element
+            const toast = document.createElement('div');
+            toast.className = `toast ${activity.status}`;
+            toast.id = toastId;
+            toast.innerHTML = `
+                <div class="toast-icon">
+                    ${agentIcon}
+                </div>
+                <div class="toast-content">
+                    <div class="toast-title">${activity.agent} - ${activity.action}</div>
+                    <div class="toast-message">${activity.details || 'New activity detected'}</div>
+                    ${activity.workflow_id ? `<div class="toast-workflow">Workflow: ${activity.workflow_id}</div>` : ''}
+                </div>
+                <button class="toast-close" onclick="closeToast('${toastId}')">✕</button>
+            `;
+
+            // Add to container
+            container.appendChild(toast);
+
+            // Play sound for important notifications
+            if (activity.status === 'error' || activity.status === 'warning') {
+                playNotificationSound(activity.status);
+            }
+
+            // Show desktop notification for critical events
+            if (activity.status === 'error' || (activity.status === 'warning' && activity.agent === 'Analyzer')) {
+                showDesktopNotification(activity);
+            }
+
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                closeToast(toastId);
+            }, 5000);
+        }
+
+        function closeToast(toastId) {
+            const toast = document.getElementById(toastId);
+            if (!toast) return;
+
+            // Animate out
+            toast.style.animation = 'toastSlideOut 0.3s ease-out';
+            setTimeout(() => {
+                toast.remove();
+            }, 300);
         }
 
         function prependActivity(activity) {
@@ -1522,20 +1963,29 @@
             const statusColor = statusColors[activity.status] || '#64748b';
             const agentIcon = agentIcons[activity.agent] || '🤖';
 
-            // Create new activity element
+            // Create new activity element with data attributes for filtering
             const activityHtml = `
-                <div class="activity-item" style="animation: slideIn 0.3s ease-out;">
-                    <div class="activity-icon" style="background: ${statusColor};">
-                        ${agentIcon}
-                    </div>
-                    <div class="activity-content">
-                        <div class="activity-header">
-                            <span class="activity-agent">${activity.agent}</span>
-                            <span class="activity-time">${formatTimeSince(activity.timestamp)}</span>
+                <div class="activity-item" style="border-left: 4px solid ${statusColor}; padding: 12px; margin-bottom: 8px; background: white; border-radius: 6px; animation: slideIn 0.3s ease-out;"
+                    data-agent="${activity.agent}"
+                    data-action="${activity.action}"
+                    data-details="${(activity.details || '').replace(/"/g, '&quot;')}"
+                    data-workflow="${activity.workflow_id || ''}"
+                    data-status="${activity.status}">
+                    <div style="display: flex; gap: 12px;">
+                        <div class="activity-icon" style="font-size: 24px; flex-shrink: 0;">
+                            ${agentIcon}
                         </div>
-                        <div class="activity-action">${activity.action}</div>
-                        ${activity.workflow_id ? `<div class="activity-workflow">Workflow: <code>${activity.workflow_id}</code></div>` : ''}
-                        ${activity.details ? `<div class="activity-details">${activity.details}</div>` : ''}
+                        <div style="flex: 1;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                <span style="font-weight: 600; color: #1e293b;">${activity.agent}</span>
+                                <span style="color: #94a3b8; font-size: 12px;">${formatTimeSince(activity.timestamp)}</span>
+                            </div>
+                            <div style="margin: 4px 0; color: #475569;">
+                                <span>${activity.action}</span>
+                            </div>
+                            ${activity.workflow_id ? `<div style="font-size: 11px; color: #94a3b8; font-family: monospace; margin-top: 4px;">Workflow: ${activity.workflow_id.substring(0, 8)}...</div>` : ''}
+                            ${activity.details ? `<div style="font-size: 12px; color: #64748b; margin-top: 6px; padding: 8px; background: #f8fafc; border-radius: 4px;">${activity.details}</div>` : ''}
+                        </div>
                     </div>
                 </div>
             `;
@@ -1543,15 +1993,18 @@
             // Insert at the beginning
             container.insertAdjacentHTML('afterbegin', activityHtml);
 
-            // Keep only last 20 activities
+            // Keep only last 20 activities - remove old ones with fade-out animation
             const activities = container.querySelectorAll('.activity-item');
             if (activities.length > 20) {
-                activities[activities.length - 1].remove();
+                for (let i = 20; i < activities.length; i++) {
+                    const oldActivity = activities[i];
+                    oldActivity.style.animation = 'fadeOut 0.3s ease-out';
+                    setTimeout(() => oldActivity.remove(), 300);
+                }
             }
 
-            // Add animation
-            const newActivity = container.querySelector('.activity-item');
-            newActivity.style.animation = 'slideIn 0.3s ease-out';
+            // Apply current filters to the new activity
+            filterActivities();
         }
 
         function updateConnectionStatus(connected) {
@@ -1681,7 +2134,12 @@
                             const actionMessage = actionMessages[activity.action] || activity.action.replace(/_/g, ' ');
 
                             return `
-                            <div class="activity-item" style="border-left: 4px solid ${level.color}; padding: 12px; margin-bottom: 8px; background: white; border-radius: 6px;">
+                            <div class="activity-item" style="border-left: 4px solid ${level.color}; padding: 12px; margin-bottom: 8px; background: white; border-radius: 6px;"
+                                data-agent="${activity.agent}"
+                                data-action="${activity.action}"
+                                data-details="${(activity.details || '').replace(/"/g, '&quot;')}"
+                                data-workflow="${activity.workflow_id || ''}"
+                                data-status="${activity.status}">
                                 <div style="display: flex; gap: 12px;">
                                     <div class="activity-icon" style="font-size: 24px; flex-shrink: 0;">
                                         ${getAgentIcon(activity.agent)}
@@ -2819,6 +3277,224 @@
                 return `${days}d ago`;
             } catch {
                 return dateStr;
+            }
+        }
+
+        // Activity filtering
+        function filterActivities() {
+            const searchTerm = document.getElementById('activity-search').value.toLowerCase();
+            const agentFilter = document.getElementById('activity-agent-filter').value;
+            const statusFilter = document.getElementById('activity-status-filter').value;
+
+            const activities = document.querySelectorAll('#activity-feed-container .activity-item');
+
+            let visibleCount = 0;
+            activities.forEach(activity => {
+                const activityData = activity.dataset;
+                const agent = activityData.agent || '';
+                const action = activityData.action || '';
+                const details = activityData.details || '';
+                const workflow = activityData.workflow || '';
+                const status = activityData.status || '';
+
+                // Check search term
+                const matchesSearch = !searchTerm ||
+                    agent.toLowerCase().includes(searchTerm) ||
+                    action.toLowerCase().includes(searchTerm) ||
+                    details.toLowerCase().includes(searchTerm) ||
+                    workflow.toLowerCase().includes(searchTerm);
+
+                // Check agent filter
+                const matchesAgent = !agentFilter || agent === agentFilter;
+
+                // Check status filter
+                const matchesStatus = !statusFilter || status === statusFilter;
+
+                // Show/hide based on all filters
+                if (matchesSearch && matchesAgent && matchesStatus) {
+                    activity.style.display = 'flex';
+                    visibleCount++;
+                } else {
+                    activity.style.display = 'none';
+                }
+            });
+
+            // Show empty state if no results
+            const container = document.getElementById('activity-feed-container');
+            let emptyState = container.querySelector('.filter-empty-state');
+
+            if (visibleCount === 0 && activities.length > 0) {
+                if (!emptyState) {
+                    emptyState = document.createElement('div');
+                    emptyState.className = 'empty-state filter-empty-state';
+                    emptyState.innerHTML = `
+                        <div class="empty-state-icon">🔍</div>
+                        <div class="empty-state-text">No activities match your filters</div>
+                    `;
+                    container.appendChild(emptyState);
+                }
+            } else if (emptyState) {
+                emptyState.remove();
+            }
+        }
+
+        function clearActivityFilters() {
+            document.getElementById('activity-search').value = '';
+            document.getElementById('activity-agent-filter').value = '';
+            document.getElementById('activity-status-filter').value = '';
+            filterActivities();
+        }
+
+        // ============================================================================
+        // Configuration Management Functions
+        // ============================================================================
+
+        async function loadOllamaConfig() {
+            const statusDiv = document.getElementById('ollama-save-status');
+            statusDiv.innerHTML = '<span style="color: var(--info);">⏳ Loading...</span>';
+
+            try {
+                const response = await fetch('/api/config/ollama');
+                const data = await response.json();
+
+                if (data.success) {
+                    const configs = data.ollama_configs;
+
+                    // Display current config
+                    const configDiv = document.getElementById('ollama-current-config');
+                    configDiv.style.display = 'block';
+
+                    // Show Analyzer config
+                    if (configs.analyzer) {
+                        document.getElementById('analyzer-ollama-info').innerHTML = `
+                            Base: ${configs.analyzer.ollama_api_base || 'N/A'}<br/>
+                            Model: ${configs.analyzer.ollama_model || 'N/A'}
+                        `;
+
+                        // Pre-fill form with Analyzer config
+                        document.getElementById('ollama-api-base').value = configs.analyzer.ollama_api_base || '';
+                        document.getElementById('ollama-model').value = configs.analyzer.ollama_model || '';
+                    }
+
+                    // Show Planner config
+                    if (configs.planner) {
+                        document.getElementById('planner-ollama-info').innerHTML = `
+                            Base: ${configs.planner.ollama_api_base || 'N/A'}<br/>
+                            Model: ${configs.planner.ollama_model || 'N/A'}
+                        `;
+                    }
+
+                    statusDiv.innerHTML = '<span style="color: var(--success);">✅ Loaded</span>';
+                    setTimeout(() => statusDiv.innerHTML = '', 3000);
+                } else {
+                    statusDiv.innerHTML = `<span style="color: var(--danger);">❌ Error: ${data.error}</span>`;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `<span style="color: var(--danger);">❌ Failed to load: ${error.message}</span>`;
+            }
+        }
+
+        async function saveOllamaConfig() {
+            const statusDiv = document.getElementById('ollama-save-status');
+            statusDiv.innerHTML = '<span style="color: var(--info);">⏳ Saving...</span>';
+
+            try {
+                // Get form values
+                const ollamaApiBase = document.getElementById('ollama-api-base').value.trim();
+                const ollamaModel = document.getElementById('ollama-model').value.trim();
+
+                if (!ollamaApiBase) {
+                    statusDiv.innerHTML = '<span style="color: var(--danger);">❌ API Base URL is required</span>';
+                    return;
+                }
+
+                // Get selected agents
+                const agents = [];
+                if (document.getElementById('ollama-agent-analyzer').checked) {
+                    agents.push('analyzer');
+                }
+                if (document.getElementById('ollama-agent-planner').checked) {
+                    agents.push('planner');
+                }
+
+                if (agents.length === 0) {
+                    statusDiv.innerHTML = '<span style="color: var(--danger);">❌ Select at least one agent</span>';
+                    return;
+                }
+
+                // Send update request
+                const response = await fetch('/api/config/ollama', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        ollama_api_base: ollamaApiBase,
+                        ollama_model: ollamaModel || null,
+                        agents: agents
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    statusDiv.innerHTML = `<span style="color: var(--success);">✅ Saved! Updated ${data.updated_agents.join(', ')}</span>`;
+
+                    // Show toast notification
+                    showToast({
+                        agent: 'Dashboard',
+                        action: 'Configuration Updated',
+                        details: `Ollama config saved for ${data.updated_agents.join(', ')}`,
+                        status: 'success',
+                        timestamp: new Date().toISOString()
+                    });
+
+                    // Reload to show updated values
+                    setTimeout(() => loadOllamaConfig(), 1000);
+                } else {
+                    statusDiv.innerHTML = `<span style="color: var(--danger);">❌ Error: ${data.error}</span>`;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `<span style="color: var(--danger);">❌ Failed to save: ${error.message}</span>`;
+            }
+        }
+
+        // Auto-load Ollama config when switching to settings view
+        function switchView(viewName) {
+            currentView = viewName;
+
+            // Update nav items
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            document.querySelector(`.nav-item[data-view="${viewName}"]`)?.classList.add('active');
+
+            // Update view containers
+            document.querySelectorAll('.view-container').forEach(view => {
+                view.classList.remove('active');
+            });
+            document.getElementById(`view-${viewName}`)?.classList.add('active');
+
+            // Update topbar titles
+            const titles = {
+                'dashboard': { title: 'Dashboard Overview', subtitle: 'Real-time MAPE-K workflow monitoring' },
+                'workflows': { title: 'Monitored Workflows', subtitle: 'Active workflow monitoring and status' },
+                'agents': { title: 'MAPE-K Agents', subtitle: 'Agent health and connectivity status' },
+                'analytics': { title: 'Analytics & Insights', subtitle: 'Workflow performance and metrics' },
+                'settings': { title: 'Settings', subtitle: 'MAPE-K system configuration' }
+            };
+
+            if (titles[viewName]) {
+                document.getElementById('view-title').textContent = titles[viewName].title;
+                document.getElementById('view-subtitle').textContent = titles[viewName].subtitle;
+            }
+
+            // Load view data
+            refreshCurrentView();
+
+            // Auto-load config when entering settings
+            if (viewName === 'settings') {
+                loadOllamaConfig();
             }
         }
     </script>

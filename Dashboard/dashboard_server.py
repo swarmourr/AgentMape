@@ -26,6 +26,11 @@ PLANNER_URL = "http://localhost:8082"
 PEGASUS_PROVIDER_URL = "http://localhost:8084"
 DASHBOARD_PORT = 8085
 
+# Configuration file paths
+ANALYZER_CONFIG_PATH = "../Analyzer/analyzer_config.json"
+PLANNER_CONFIG_PATH = "../Planner/planner_config.json"
+MONITOR_CONFIG_PATH = "../Monitoring/monitor_config.json"  # If exists
+
 class DashboardMonitor:
     """Collecte les données des agents MAPE-K"""
 
@@ -36,9 +41,9 @@ class DashboardMonitor:
             "workflows": [],
             "recent_events": []
         }
-        # Activity log storage (max 100 entries)
+        # Activity log storage (max 20 entries - keep only recent)
         self.activity_log = []
-        self.max_activity_logs = 100
+        self.max_activity_logs = 20
         # WebSocket clients for real-time updates
         self.websocket_clients = set()
         # Background polling thread
@@ -217,10 +222,11 @@ class DashboardMonitor:
                 data = response.json()
                 active_workflows = data.get("active_workflows", [])
 
-                # Log new workflows being monitored (simple check)
+                # Log new workflows being monitored (simple check - only check recent logs)
                 for wf in active_workflows[:3]:  # Just the first 3
                     workflow_id = wf.get("workflow_id")
-                    if workflow_id and not any(log.get("workflow_id") == workflow_id and log.get("action") == "Monitoring workflow" for log in self.activity_log[:10]):
+                    # Only check last 5 logs to avoid duplicate detection of old activities
+                    if workflow_id and not any(log.get("workflow_id") == workflow_id and log.get("action") == "Monitoring workflow" for log in self.activity_log[:5]):
                         self.add_activity_log(
                             agent="Monitor",
                             action="Monitoring workflow",
@@ -238,12 +244,13 @@ class DashboardMonitor:
                 data = response.json()
                 analyses = data.get("analyses", [])
 
-                # Log recent analyses (check if not already logged)
+                # Log recent analyses (check if not already logged - only check recent logs)
                 for analysis in analyses[:5]:  # Just the first 5
                     workflow_id = analysis.get("workflow_id")
                     analysis_type = analysis.get("analysis_type")
 
-                    if workflow_id and not any(log.get("workflow_id") == workflow_id and "Analysis" in log.get("action", "") for log in self.activity_log[:10]):
+                    # Only check last 5 logs to avoid duplicate detection of old activities
+                    if workflow_id and not any(log.get("workflow_id") == workflow_id and "Analysis" in log.get("action", "") for log in self.activity_log[:5]):
                         self.add_activity_log(
                             agent="Analyzer",
                             action=f"Analysis completed ({analysis_type})",
@@ -261,11 +268,12 @@ class DashboardMonitor:
                 data = response.json()
                 plans = data.get("plans", [])
 
-                # Log recent plans
+                # Log recent plans (only check recent logs)
                 for plan in plans[:3]:
                     workflow_id = plan.get("workflow_id")
 
-                    if workflow_id and not any(log.get("workflow_id") == workflow_id and "Repair plan" in log.get("action", "") for log in self.activity_log[:10]):
+                    # Only check last 5 logs to avoid duplicate detection of old activities
+                    if workflow_id and not any(log.get("workflow_id") == workflow_id and "Repair plan" in log.get("action", "") for log in self.activity_log[:5]):
                         self.add_activity_log(
                             agent="Planner",
                             action="Repair plan generated",
@@ -1157,6 +1165,292 @@ def activities_stream(ws):
     finally:
         dashboard.websocket_clients.discard(ws)
         print(f"[WebSocket] Client removed, {len(dashboard.websocket_clients)} clients remaining")
+
+
+# ============================================================================
+# Configuration Management API
+# ============================================================================
+
+@app.route('/api/config/agents', methods=['GET'])
+def get_all_agent_configs():
+    """Get all agent configurations"""
+    try:
+        configs = {}
+
+        # Read Analyzer config
+        if os.path.exists(ANALYZER_CONFIG_PATH):
+            with open(ANALYZER_CONFIG_PATH, 'r') as f:
+                configs['analyzer'] = json.load(f)
+
+        # Read Planner config
+        if os.path.exists(PLANNER_CONFIG_PATH):
+            with open(PLANNER_CONFIG_PATH, 'r') as f:
+                configs['planner'] = json.load(f)
+
+        # Read Monitor config if exists
+        if os.path.exists(MONITOR_CONFIG_PATH):
+            with open(MONITOR_CONFIG_PATH, 'r') as f:
+                configs['monitor'] = json.load(f)
+
+        return jsonify({
+            "success": True,
+            "configs": configs
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+@app.route('/api/config/agents/<agent_name>', methods=['GET'])
+def get_agent_config(agent_name):
+    """Get specific agent configuration"""
+    try:
+        config_paths = {
+            'analyzer': ANALYZER_CONFIG_PATH,
+            'planner': PLANNER_CONFIG_PATH,
+            'monitor': MONITOR_CONFIG_PATH
+        }
+
+        if agent_name not in config_paths:
+            return jsonify({
+                "success": False,
+                "error": f"Unknown agent: {agent_name}"
+            }), 404
+
+        config_path = config_paths[agent_name]
+
+        if not os.path.exists(config_path):
+            return jsonify({
+                "success": False,
+                "error": f"Config file not found: {config_path}"
+            }), 404
+
+        with open(config_path, 'r') as f:
+            config = json.load(f)
+
+        return jsonify({
+            "success": True,
+            "agent": agent_name,
+            "config": config
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+@app.route('/api/config/agents/<agent_name>', methods=['PUT'])
+def update_agent_config(agent_name):
+    """Update specific agent configuration"""
+    try:
+        config_paths = {
+            'analyzer': ANALYZER_CONFIG_PATH,
+            'planner': PLANNER_CONFIG_PATH,
+            'monitor': MONITOR_CONFIG_PATH
+        }
+
+        if agent_name not in config_paths:
+            return jsonify({
+                "success": False,
+                "error": f"Unknown agent: {agent_name}"
+            }), 404
+
+        config_path = config_paths[agent_name]
+
+        # Get new config from request
+        new_config = request.get_json()
+
+        if not new_config:
+            return jsonify({
+                "success": False,
+                "error": "No configuration provided"
+            }), 400
+
+        # Read existing config
+        if os.path.exists(config_path):
+            with open(config_path, 'r') as f:
+                existing_config = json.load(f)
+        else:
+            existing_config = {}
+
+        # Merge configs (update only provided fields)
+        updated_config = {**existing_config, **new_config}
+
+        # Write updated config
+        with open(config_path, 'w') as f:
+            json.dump(updated_config, f, indent=4)
+
+        # Notify via WebSocket that config changed
+        dashboard.broadcast_activity({
+            "timestamp": datetime.now().isoformat(),
+            "agent": "Dashboard",
+            "action": f"Configuration updated for {agent_name}",
+            "workflow_id": None,
+            "status": "info",
+            "details": f"Configuration changes saved to {agent_name}"
+        })
+
+        return jsonify({
+            "success": True,
+            "agent": agent_name,
+            "config": updated_config,
+            "message": f"{agent_name} configuration updated successfully"
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+@app.route('/api/config/ollama', methods=['GET'])
+def get_ollama_config():
+    """Get Ollama configuration from all agents"""
+    try:
+        ollama_configs = {}
+
+        # Analyzer Ollama config
+        if os.path.exists(ANALYZER_CONFIG_PATH):
+            with open(ANALYZER_CONFIG_PATH, 'r') as f:
+                analyzer_config = json.load(f)
+                ollama_configs['analyzer'] = {
+                    'ollama_url': analyzer_config.get('ollama_url'),
+                    'ollama_api_base': analyzer_config.get('ollama_api_base'),
+                    'ollama_model': analyzer_config.get('ollama_model')
+                }
+
+        # Planner Ollama config
+        if os.path.exists(PLANNER_CONFIG_PATH):
+            with open(PLANNER_CONFIG_PATH, 'r') as f:
+                planner_config = json.load(f)
+                ollama_configs['planner'] = {
+                    'ollama_url': planner_config.get('ollama_url'),
+                    'ollama_api_base': planner_config.get('ollama_api_base'),
+                    'ollama_model': planner_config.get('ollama_model')
+                }
+
+        return jsonify({
+            "success": True,
+            "ollama_configs": ollama_configs
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+@app.route('/api/config/ollama', methods=['PUT'])
+def update_ollama_config():
+    """Update Ollama configuration for all agents"""
+    try:
+        data = request.get_json()
+
+        if not data:
+            return jsonify({
+                "success": False,
+                "error": "No configuration provided"
+            }), 400
+
+        ollama_url = data.get('ollama_url')
+        ollama_api_base = data.get('ollama_api_base')
+        ollama_model = data.get('ollama_model')
+        agents_to_update = data.get('agents', ['analyzer', 'planner'])  # Default: update both
+
+        updated_agents = []
+
+        for agent in agents_to_update:
+            config_path = None
+            if agent == 'analyzer':
+                config_path = ANALYZER_CONFIG_PATH
+            elif agent == 'planner':
+                config_path = PLANNER_CONFIG_PATH
+
+            if not config_path or not os.path.exists(config_path):
+                continue
+
+            # Read existing config
+            with open(config_path, 'r') as f:
+                config = json.load(f)
+
+            # Update Ollama settings
+            if ollama_url:
+                config['ollama_url'] = ollama_url
+            if ollama_api_base:
+                config['ollama_api_base'] = ollama_api_base
+                # Update generate URL if api_base changed
+                if not ollama_url:  # Only if ollama_url not explicitly provided
+                    config['ollama_url'] = f"{ollama_api_base}/api/generate"
+            if ollama_model:
+                config['ollama_model'] = ollama_model
+
+            # Write updated config
+            with open(config_path, 'w') as f:
+                json.dump(config, f, indent=4)
+
+            updated_agents.append(agent)
+
+        # Notify via WebSocket
+        dashboard.broadcast_activity({
+            "timestamp": datetime.now().isoformat(),
+            "agent": "Dashboard",
+            "action": "Ollama configuration updated",
+            "workflow_id": None,
+            "status": "success",
+            "details": f"Updated Ollama config for: {', '.join(updated_agents)}"
+        })
+
+        return jsonify({
+            "success": True,
+            "updated_agents": updated_agents,
+            "message": f"Ollama configuration updated for {len(updated_agents)} agent(s)"
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+@app.route('/api/config/reload/<agent_name>', methods=['POST'])
+def reload_agent_config(agent_name):
+    """Notify agent to reload its configuration"""
+    try:
+        agent_urls = {
+            'analyzer': ANALYZER_URL,
+            'planner': PLANNER_URL,
+            'monitor': MONITOR_URL
+        }
+
+        if agent_name not in agent_urls:
+            return jsonify({
+                "success": False,
+                "error": f"Unknown agent: {agent_name}"
+            }), 404
+
+        agent_url = agent_urls[agent_name]
+
+        # Try to notify agent to reload config (if agent has reload endpoint)
+        try:
+            response = requests.post(f"{agent_url}/reload_config", timeout=5)
+            reload_success = response.status_code == 200
+        except:
+            reload_success = False
+
+        return jsonify({
+            "success": True,
+            "agent": agent_name,
+            "reload_notified": reload_success,
+            "message": f"Reload request sent to {agent_name}" if reload_success else f"Could not notify {agent_name} (may need manual restart)"
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
 
 
 if __name__ == '__main__':
