@@ -1667,16 +1667,262 @@
                         </div>
                     </div>
 
-                    <!-- Agent Configuration Coming Soon -->
-                    <div style="background: white; border-radius: 12px; padding: 24px; margin-bottom: 24px; border: 1px solid var(--gray-200); opacity: 0.6;">
+                    <!-- Agent Configuration -->
+                    <div style="background: white; border-radius: 12px; padding: 24px; margin-bottom: 24px; border: 1px solid var(--gray-200);">
                         <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px; color: var(--gray-800);">
-                            📡 Agent Configuration
+                            🤖 Agent Configuration
                         </h3>
-                        <div style="text-align: center; padding: 40px; color: var(--gray-500);">
-                            <div style="font-size: 48px; margin-bottom: 12px;">⚙️</div>
-                            <div style="font-size: 16px; font-weight: 500;">Coming Soon</div>
-                            <div style="font-size: 14px; margin-top: 8px;">
-                                Configure Monitor, Analyzer, Planner settings
+
+                        <!-- Agent Selector Tabs -->
+                        <div style="display: flex; gap: 12px; margin-bottom: 20px; border-bottom: 2px solid var(--gray-200);">
+                            <button
+                                id="tab-monitor"
+                                class="agent-tab active"
+                                onclick="switchAgentTab('monitor')"
+                                style="padding: 12px 20px; border: none; background: none; font-size: 14px; font-weight: 600; cursor: pointer; border-bottom: 3px solid var(--primary); color: var(--primary);"
+                            >
+                                📡 Monitor
+                            </button>
+                            <button
+                                id="tab-analyzer"
+                                class="agent-tab"
+                                onclick="switchAgentTab('analyzer')"
+                                style="padding: 12px 20px; border: none; background: none; font-size: 14px; font-weight: 600; cursor: pointer; border-bottom: 3px solid transparent; color: var(--gray-600);"
+                            >
+                                🔬 Analyzer
+                            </button>
+                            <button
+                                id="tab-planner"
+                                class="agent-tab"
+                                onclick="switchAgentTab('planner')"
+                                style="padding: 12px 20px; border: none; background: none; font-size: 14px; font-weight: 600; cursor: pointer; border-bottom: 3px solid transparent; color: var(--gray-600);"
+                            >
+                                📋 Planner
+                            </button>
+                        </div>
+
+                        <!-- Monitor Configuration -->
+                        <div id="config-monitor" class="agent-config-panel" style="display: block;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                                <div>
+                                    <label style="display: block; font-size: 13px; font-weight: 600; color: var(--gray-600); margin-bottom: 8px;">
+                                        Monitor URL
+                                    </label>
+                                    <input
+                                        type="text"
+                                        id="monitor-url"
+                                        placeholder="http://localhost:8080"
+                                        style="width: 100%; padding: 10px 14px; border: 1px solid var(--gray-300); border-radius: 8px; font-size: 14px; font-family: Monaco, monospace;"
+                                    />
+                                </div>
+                                <div>
+                                    <label style="display: block; font-size: 13px; font-weight: 600; color: var(--gray-600); margin-bottom: 8px;">
+                                        Log Level
+                                    </label>
+                                    <select
+                                        id="monitor-log-level"
+                                        style="width: 100%; padding: 10px 14px; border: 1px solid var(--gray-300); border-radius: 8px; font-size: 14px; cursor: pointer;"
+                                    >
+                                        <option value="DEBUG">DEBUG</option>
+                                        <option value="INFO" selected>INFO</option>
+                                        <option value="WARNING">WARNING</option>
+                                        <option value="ERROR">ERROR</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div style="display: flex; gap: 12px;">
+                                <button
+                                    onclick="loadAgentConfig('monitor')"
+                                    style="padding: 10px 20px; background: white; border: 1px solid var(--gray-300); border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer;"
+                                >
+                                    🔄 Load Config
+                                </button>
+                                <button
+                                    onclick="saveAgentConfig('monitor')"
+                                    style="padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;"
+                                >
+                                    💾 Save Config
+                                </button>
+                                <div id="monitor-save-status" style="margin-left: 12px; align-self: center; font-size: 14px; font-weight: 500;"></div>
+                            </div>
+                        </div>
+
+                        <!-- Analyzer Configuration -->
+                        <div id="config-analyzer" class="agent-config-panel" style="display: none;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                                <div>
+                                    <label style="display: block; font-size: 13px; font-weight: 600; color: var(--gray-600); margin-bottom: 8px;">
+                                        Analyzer URL
+                                    </label>
+                                    <input
+                                        type="text"
+                                        id="analyzer-monitor-url"
+                                        placeholder="ws://localhost:8765"
+                                        style="width: 100%; padding: 10px 14px; border: 1px solid var(--gray-300); border-radius: 8px; font-size: 14px; font-family: Monaco, monospace;"
+                                    />
+                                </div>
+                                <div>
+                                    <label style="display: block; font-size: 13px; font-weight: 600; color: var(--gray-600); margin-bottom: 8px;">
+                                        Planner URL
+                                    </label>
+                                    <input
+                                        type="text"
+                                        id="analyzer-planner-url"
+                                        placeholder="http://localhost:8082"
+                                        style="width: 100%; padding: 10px 14px; border: 1px solid var(--gray-300); border-radius: 8px; font-size: 14px; font-family: Monaco, monospace;"
+                                    />
+                                </div>
+                            </div>
+
+                            <div style="margin-bottom: 20px;">
+                                <label style="display: block; font-size: 13px; font-weight: 600; color: var(--gray-600); margin-bottom: 8px;">
+                                    Features
+                                </label>
+                                <div style="display: flex; flex-direction: column; gap: 8px;">
+                                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                        <input type="checkbox" id="analyzer-auto-analysis" checked style="width: 18px; height: 18px; cursor: pointer;"/>
+                                        <span style="font-size: 14px;">Auto-analysis enabled</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                        <input type="checkbox" id="analyzer-push-notifications" checked style="width: 18px; height: 18px; cursor: pointer;"/>
+                                        <span style="font-size: 14px;">Push notifications to Planner</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                        <input type="checkbox" id="analyzer-fallback-mode" checked style="width: 18px; height: 18px; cursor: pointer;"/>
+                                        <span style="font-size: 14px;">Fallback mode enabled</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div style="display: flex; gap: 12px;">
+                                <button
+                                    onclick="loadAgentConfig('analyzer')"
+                                    style="padding: 10px 20px; background: white; border: 1px solid var(--gray-300); border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer;"
+                                >
+                                    🔄 Load Config
+                                </button>
+                                <button
+                                    onclick="saveAgentConfig('analyzer')"
+                                    style="padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;"
+                                >
+                                    💾 Save Config
+                                </button>
+                                <div id="analyzer-save-status" style="margin-left: 12px; align-self: center; font-size: 14px; font-weight: 500;"></div>
+                            </div>
+                        </div>
+
+                        <!-- Planner Configuration -->
+                        <div id="config-planner" class="agent-config-panel" style="display: none;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                                <div>
+                                    <label style="display: block; font-size: 13px; font-weight: 600; color: var(--gray-600); margin-bottom: 8px;">
+                                        Monitor URL
+                                    </label>
+                                    <input
+                                        type="text"
+                                        id="planner-monitor-url"
+                                        placeholder="http://localhost:8080"
+                                        style="width: 100%; padding: 10px 14px; border: 1px solid var(--gray-300); border-radius: 8px; font-size: 14px; font-family: Monaco, monospace;"
+                                    />
+                                </div>
+                                <div>
+                                    <label style="display: block; font-size: 13px; font-weight: 600; color: var(--gray-600); margin-bottom: 8px;">
+                                        Analyzer URL
+                                    </label>
+                                    <input
+                                        type="text"
+                                        id="planner-analyzer-url"
+                                        placeholder="http://localhost:8081"
+                                        style="width: 100%; padding: 10px 14px; border: 1px solid var(--gray-300); border-radius: 8px; font-size: 14px; font-family: Monaco, monospace;"
+                                    />
+                                </div>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                                <div>
+                                    <label style="display: block; font-size: 13px; font-weight: 600; color: var(--gray-600); margin-bottom: 8px;">
+                                        Max Plan Steps
+                                    </label>
+                                    <input
+                                        type="number"
+                                        id="planner-max-steps"
+                                        placeholder="10"
+                                        min="1"
+                                        max="50"
+                                        style="width: 100%; padding: 10px 14px; border: 1px solid var(--gray-300); border-radius: 8px; font-size: 14px;"
+                                    />
+                                </div>
+                                <div>
+                                    <label style="display: block; font-size: 13px; font-weight: 600; color: var(--gray-600); margin-bottom: 8px;">
+                                        Connection Timeout (seconds)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        id="planner-timeout"
+                                        placeholder="600"
+                                        min="30"
+                                        max="1800"
+                                        style="width: 100%; padding: 10px 14px; border: 1px solid var(--gray-300); border-radius: 8px; font-size: 14px;"
+                                    />
+                                </div>
+                            </div>
+
+                            <div style="margin-bottom: 20px;">
+                                <label style="display: block; font-size: 13px; font-weight: 600; color: var(--gray-600); margin-bottom: 8px;">
+                                    Features
+                                </label>
+                                <div style="display: flex; flex-direction: column; gap: 8px;">
+                                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                        <input type="checkbox" id="planner-auto-planning" checked style="width: 18px; height: 18px; cursor: pointer;"/>
+                                        <span style="font-size: 14px;">Enable auto-planning</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                        <input type="checkbox" id="planner-auto-approve" style="width: 18px; height: 18px; cursor: pointer;"/>
+                                        <span style="font-size: 14px;">Auto-approve low-risk plans</span>
+                                    </label>
+                                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                        <input type="checkbox" id="planner-fallback-mode" checked style="width: 18px; height: 18px; cursor: pointer;"/>
+                                        <span style="font-size: 14px;">Fallback mode enabled</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div style="margin-bottom: 20px;">
+                                <label style="display: block; font-size: 13px; font-weight: 600; color: var(--gray-600); margin-bottom: 8px;">
+                                    Auto-Approve Confidence Threshold
+                                </label>
+                                <input
+                                    type="range"
+                                    id="planner-confidence-threshold"
+                                    min="0"
+                                    max="1"
+                                    step="0.05"
+                                    value="0.75"
+                                    style="width: 100%;"
+                                    oninput="document.getElementById('confidence-value').textContent = this.value"
+                                />
+                                <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--gray-600); margin-top: 4px;">
+                                    <span>0% (Never)</span>
+                                    <span id="confidence-value" style="font-weight: 600;">0.75</span>
+                                    <span>100% (Always)</span>
+                                </div>
+                            </div>
+
+                            <div style="display: flex; gap: 12px;">
+                                <button
+                                    onclick="loadAgentConfig('planner')"
+                                    style="padding: 10px 20px; background: white; border: 1px solid var(--gray-300); border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer;"
+                                >
+                                    🔄 Load Config
+                                </button>
+                                <button
+                                    onclick="saveAgentConfig('planner')"
+                                    style="padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;"
+                                >
+                                    💾 Save Config
+                                </button>
+                                <div id="planner-save-status" style="margin-left: 12px; align-self: center; font-size: 14px; font-weight: 500;"></div>
                             </div>
                         </div>
                     </div>
@@ -3478,6 +3724,140 @@
                     timestamp: new Date().toISOString(),
                     workflow_id: workflowId
                 });
+            }
+        }
+
+        // ============================================================================
+        // Agent Configuration Functions
+        // ============================================================================
+
+        function switchAgentTab(agentName) {
+            // Update tab styles
+            document.querySelectorAll('.agent-tab').forEach(tab => {
+                tab.style.borderBottom = '3px solid transparent';
+                tab.style.color = 'var(--gray-600)';
+            });
+
+            const activeTab = document.getElementById(`tab-${agentName}`);
+            activeTab.style.borderBottom = '3px solid var(--primary)';
+            activeTab.style.color = 'var(--primary)';
+
+            // Show/hide panels
+            document.querySelectorAll('.agent-config-panel').forEach(panel => {
+                panel.style.display = 'none';
+            });
+            document.getElementById(`config-${agentName}`).style.display = 'block';
+
+            // Load config for the selected agent
+            loadAgentConfig(agentName);
+        }
+
+        async function loadAgentConfig(agentName) {
+            const statusDiv = document.getElementById(`${agentName}-save-status`);
+            statusDiv.innerHTML = '<span style="color: var(--info);">⏳ Loading...</span>';
+
+            try {
+                const response = await fetch(`/api/config/agents/${agentName}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    const config = data.config;
+
+                    // Load config based on agent type
+                    if (agentName === 'monitor') {
+                        document.getElementById('monitor-url').value = config.monitor_url || '';
+                        document.getElementById('monitor-log-level').value = config.log_level || 'INFO';
+                    } else if (agentName === 'analyzer') {
+                        document.getElementById('analyzer-monitor-url').value = config.monitor_url || '';
+                        document.getElementById('analyzer-planner-url').value = config.planner_url || '';
+                        document.getElementById('analyzer-auto-analysis').checked = config.auto_analysis_enabled !== false;
+                        document.getElementById('analyzer-push-notifications').checked = config.push_notifications_enabled !== false;
+                        document.getElementById('analyzer-fallback-mode').checked = config.fallback_mode !== false;
+                    } else if (agentName === 'planner') {
+                        document.getElementById('planner-monitor-url').value = config.monitor_url || '';
+                        document.getElementById('planner-analyzer-url').value = config.analyzer_url || '';
+                        document.getElementById('planner-max-steps').value = config.max_plan_steps || 10;
+                        document.getElementById('planner-timeout').value = config.connection_timeout || 600;
+                        document.getElementById('planner-auto-planning').checked = config.enable_auto_planning !== false;
+                        document.getElementById('planner-auto-approve').checked = config.auto_approve_low_risk === true;
+                        document.getElementById('planner-fallback-mode').checked = config.fallback_mode !== false;
+                        document.getElementById('planner-confidence-threshold').value = config.auto_approve_confidence_threshold || 0.75;
+                        document.getElementById('confidence-value').textContent = config.auto_approve_confidence_threshold || 0.75;
+                    }
+
+                    statusDiv.innerHTML = '<span style="color: var(--success);">✅ Loaded</span>';
+                    setTimeout(() => statusDiv.innerHTML = '', 3000);
+                } else {
+                    statusDiv.innerHTML = `<span style="color: var(--danger);">❌ Error: ${data.error}</span>`;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `<span style="color: var(--danger);">❌ Failed: ${error.message}</span>`;
+            }
+        }
+
+        async function saveAgentConfig(agentName) {
+            const statusDiv = document.getElementById(`${agentName}-save-status`);
+            statusDiv.innerHTML = '<span style="color: var(--info);">⏳ Saving...</span>';
+
+            try {
+                let configData = {};
+
+                // Gather config based on agent type
+                if (agentName === 'monitor') {
+                    configData = {
+                        monitor_url: document.getElementById('monitor-url').value,
+                        log_level: document.getElementById('monitor-log-level').value
+                    };
+                } else if (agentName === 'analyzer') {
+                    configData = {
+                        monitor_url: document.getElementById('analyzer-monitor-url').value,
+                        planner_url: document.getElementById('analyzer-planner-url').value,
+                        auto_analysis_enabled: document.getElementById('analyzer-auto-analysis').checked,
+                        push_notifications_enabled: document.getElementById('analyzer-push-notifications').checked,
+                        fallback_mode: document.getElementById('analyzer-fallback-mode').checked
+                    };
+                } else if (agentName === 'planner') {
+                    configData = {
+                        monitor_url: document.getElementById('planner-monitor-url').value,
+                        analyzer_url: document.getElementById('planner-analyzer-url').value,
+                        max_plan_steps: parseInt(document.getElementById('planner-max-steps').value) || 10,
+                        connection_timeout: parseInt(document.getElementById('planner-timeout').value) || 600,
+                        enable_auto_planning: document.getElementById('planner-auto-planning').checked,
+                        auto_approve_low_risk: document.getElementById('planner-auto-approve').checked,
+                        fallback_mode: document.getElementById('planner-fallback-mode').checked,
+                        auto_approve_confidence_threshold: parseFloat(document.getElementById('planner-confidence-threshold').value) || 0.75
+                    };
+                }
+
+                // Send update request
+                const response = await fetch(`/api/config/agents/${agentName}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(configData)
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    statusDiv.innerHTML = '<span style="color: var(--success);">✅ Saved!</span>';
+
+                    // Show toast notification
+                    showToast({
+                        agent: 'Dashboard',
+                        action: 'Configuration Updated',
+                        details: `${agentName} configuration saved successfully`,
+                        status: 'success',
+                        timestamp: new Date().toISOString()
+                    });
+
+                    setTimeout(() => statusDiv.innerHTML = '', 3000);
+                } else {
+                    statusDiv.innerHTML = `<span style="color: var(--danger);">❌ Error: ${data.error}</span>`;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `<span style="color: var(--danger);">❌ Failed: ${error.message}</span>`;
             }
         }
 
