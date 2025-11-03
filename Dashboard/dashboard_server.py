@@ -1581,30 +1581,6 @@ def get_workflow_plan(workflow_id):
         }), 500
 
 
-@app.route('/api/workflow/<workflow_id>/analysis', methods=['GET'])
-def get_workflow_analysis(workflow_id):
-    """Get analysis details for specific workflow"""
-    try:
-        response = requests.get(f"{ANALYZER_URL}/api/analyses/{workflow_id}", timeout=5)
-
-        if response.status_code == 200:
-            return jsonify({
-                "success": True,
-                "analysis": response.json()
-            })
-        else:
-            return jsonify({
-                "success": False,
-                "error": "Analysis not found"
-            }), 404
-
-    except Exception as e:
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
-
-
 @app.route('/api/workflow/<workflow_id>/retry', methods=['POST'])
 def retry_workflow(workflow_id):
     """Retry/Resubmit a failed workflow"""
