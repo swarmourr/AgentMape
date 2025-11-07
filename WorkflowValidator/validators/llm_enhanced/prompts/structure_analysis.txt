@@ -28,6 +28,10 @@ VALIDATION TASKS:
    - Verify argument values are reasonable
    - Detect impossible or unusual argument combinations
 
+5. CATALOGS EMBBEDDED
+  -  VERIFY IF TRANSFORMATION CATALOG IS ENCLODED
+  - VERIFY IF REPLICAS CATALOGS IS ENCLODED
+
 EXAMPLES OF ISSUES TO DETECT:
 
 Example 1: Wrong Dependency Order
