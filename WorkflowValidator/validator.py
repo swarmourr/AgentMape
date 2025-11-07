@@ -231,7 +231,7 @@ class WorkflowValidator:
 
         logger.info(f"Validation complete: {overall_status.value} ({total_duration:.2f}s)")
 
-        return report
+        return report, generated_yaml_path
 
     def _build_context(
         self,
