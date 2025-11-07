@@ -5,8 +5,8 @@
         "type": "validator",
         "description": "Pre-submission workflow validation agent"
     },
-    "ollama_url": "https://ialip-37-66-208-20.a.free.pinggy.link/api/generate",
-    "ollama_api_base": "https://ialip-37-66-208-20.a.free.pinggy.link",
+    "ollama_url": "http://duhsz-176-188-174-11.a.free.pinggy.link/api/generate",
+    "ollama_api_base": "http://duhsz-176-188-174-11.a.free.pinggy.link",
     "ollama_model": "glm-4.6:cloud",
     "ollama_check_interval": 30,
     "ollama_timeout": 60,
