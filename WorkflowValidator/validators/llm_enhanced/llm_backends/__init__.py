@@ -1,8 +1,7 @@
 """
-LLM backend implementations
+LLM backend implementations - Ollama only
 """
 from .base import LLMBackend
 from .ollama_backend import OllamaBackend
-from .openai_backend import OpenAIBackend
 
-__all__ = ['LLMBackend', 'OllamaBackend', 'OpenAIBackend']
+__all__ = ['LLMBackend', 'OllamaBackend']

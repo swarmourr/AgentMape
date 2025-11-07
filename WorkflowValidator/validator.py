@@ -92,8 +92,76 @@ class WorkflowValidator:
         import time
         start_time = time.time()
 
-        logger.info(f"Starting validation of workflow: {workflow_path}")
+        file_ext = Path(workflow_path).suffix.lower()
+        generated_yaml_path = None
+
+        logger.info(f"="*60)
+        logger.info(f"Workflow Validator Started")
+        logger.info(f"="*60)
+        logger.info(f"Input file: {workflow_path}")
+        logger.info(f"File type: {file_ext}")
         logger.info(f"Validation level: {level}")
+
+        # CASE 1: Python descriptor input (.py file)
+        if file_ext == '.py':
+            logger.info(f"Python descriptor detected - Mode: {mode}")
+
+            # Step 1: Validate Python code
+            logger.info("Step 1/3: Validating Python code...")
+            python_result = self.python_validator.validate(workflow_path)
+
+            if python_result.status == ValidationStatus.FAILED:
+                # Python code is invalid - return errors
+                logger.error("Python validation failed - cannot generate YAML")
+                report = ValidationReport(
+                    workflow_path=workflow_path,
+                    overall_status=ValidationStatus.FAILED,
+                    validator_results=[python_result],
+                    total_duration_seconds=time.time() - start_time,
+                    timestamp=datetime.now().isoformat()
+                )
+                return report, None
+
+            logger.info(f"✓ Python code validated ({python_result.checks_performed} checks)")
+
+            # Step 2: Extract workflow metadata
+            logger.info("Step 2/3: Extracting workflow information...")
+            metadata = self.python_validator.extract_workflow_info(workflow_path)
+            logger.info(f"  - Found {len(metadata['imports'])} imports")
+            logger.info(f"  - Found {len(metadata['variables'])} variables")
+
+            # Step 3: Generate YAML
+            logger.info(f"Step 3/3: Generating YAML (mode: {mode})...")
+            self.yaml_generator.set_mode(mode)
+
+            try:
+                workflow_dict = self.yaml_generator.generate(workflow_path, metadata)
+
+                # Determine output path
+                if output_yaml_path is None:
+                    output_yaml_path = str(Path(workflow_path).with_suffix('.yml'))
+
+                # Save YAML
+                self.yaml_generator.save_yaml(workflow_dict, output_yaml_path)
+                generated_yaml_path = output_yaml_path
+                logger.info(f"✓ YAML generated: {generated_yaml_path}")
+
+                # Now validate the generated YAML
+                workflow_path = generated_yaml_path
+
+            except Exception as e:
+                logger.error(f"YAML generation failed: {e}")
+                report = ValidationReport(
+                    workflow_path=workflow_path,
+                    overall_status=ValidationStatus.FAILED,
+                    validator_results=[python_result],
+                    total_duration_seconds=time.time() - start_time,
+                    timestamp=datetime.now().isoformat()
+                )
+                return report, None
+
+        # CASE 2: YAML input (.yml file) OR generated YAML from .py
+        logger.info(f"\nValidating YAML workflow: {workflow_path}")
 
         # Build workflow context
         context = self._build_context(
