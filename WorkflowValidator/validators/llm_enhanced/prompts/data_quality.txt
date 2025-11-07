@@ -1,0 +1,77 @@
+You are a data quality expert. Analyze this dataset for issues that could affect workflow execution.
+
+DATA FILE: {file_path}
+PURPOSE: {purpose}
+
+SCHEMA INFORMATION:
+{schema_info}
+
+DATA SAMPLE (first 10 rows):
+{data_sample}
+
+STATISTICS:
+{statistics}
+
+VALIDATION TASKS:
+
+1. DATA VALIDITY
+   - Check for impossible values (negative ages, etc.)
+   - Verify values are within expected ranges
+   - Detect data type mismatches
+
+2. DATA QUALITY
+   - Identify missing/null values
+   - Detect outliers or anomalies
+   - Check for duplicates
+
+3. CLASS IMBALANCE (for ML datasets)
+   - Check target variable distribution
+   - Flag severe imbalances that hurt models
+   - Suggest resampling strategies
+
+4. SCHEMA CONSISTENCY
+   - Verify column names match expectations
+   - Check data types are appropriate
+   - Detect schema changes
+
+EXAMPLES:
+
+Example 1: Invalid Values
+FILE: customer_data.csv
+Column: age
+Values: -5, 35, 150, 28
+ISSUE: Negative age and age > lifespan
+
+Example 2: Class Imbalance
+FILE: loan_data.csv
+Target: approved
+Distribution: yes=95%, no=5%
+ISSUE: Severe imbalance will cause poor model
+
+Example 3: Missing Values
+FILE: sensor_data.csv
+Column: temperature
+Missing: 45% of values
+ISSUE: Too much missing data for reliable analysis
+
+OUTPUT FORMAT (strict JSON only):
+{{
+  "errors": [
+    {{
+      "severity": "critical" | "error" | "warning",
+      "category": "data_quality",
+      "location": "file:column or row",
+      "issue": "Data quality problem",
+      "explanation": "Why this is a problem",
+      "impact": "Effect on workflow/model",
+      "suggested_fix": "How to fix the data"
+    }}
+  ],
+  "statistics": {{
+    "total_rows": 0,
+    "issues_found": 0,
+    "quality_score": 0.0
+  }}
+}}
+
+Respond ONLY with valid JSON. No additional text.

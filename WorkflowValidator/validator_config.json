@@ -1,0 +1,92 @@
+{
+    "agent_identity": {
+        "id": "validator_001",
+        "name": "Validator",
+        "type": "validator",
+        "description": "Pre-submission workflow validation agent"
+    },
+    "ollama_url": "https://ialip-37-66-208-20.a.free.pinggy.link/api/generate",
+    "ollama_api_base": "https://ialip-37-66-208-20.a.free.pinggy.link",
+    "ollama_model": "glm-4.6:cloud",
+    "ollama_check_interval": 30,
+    "ollama_timeout": 60,
+    "ollama_temperature": 0.1,
+    "ollama_max_tokens": 4000,
+    "validation_config": {
+        "run_rules_first": true,
+        "llm_only_if_rules_pass": false,
+        "fail_fast": false,
+        "enable_caching": true,
+        "cache_ttl_seconds": 3600,
+        "parallel_validation": true,
+        "max_workers": 4
+    },
+    "validation_levels": {
+        "quick": {
+            "enabled": true,
+            "validators": ["syntax", "required_fields"],
+            "use_llm": false,
+            "llm_checks": []
+        },
+        "standard": {
+            "enabled": true,
+            "validators": ["syntax", "required_fields", "dependencies", "paths"],
+            "use_llm": true,
+            "llm_checks": ["structure", "code_basic"]
+        },
+        "full": {
+            "enabled": true,
+            "validators": ["syntax", "required_fields", "dependencies", "paths", "integrity"],
+            "use_llm": true,
+            "llm_checks": ["structure", "code_deep", "resources", "data_quality", "cross_component"]
+        }
+    },
+    "rule_based_config": {
+        "structure": {
+            "required_fields": ["name", "jobs", "transformations"],
+            "check_circular_dependencies": true,
+            "check_orphan_jobs": true
+        },
+        "paths": {
+            "check_file_exists": true,
+            "check_readable": true,
+            "check_executable": true,
+            "check_shebang": true,
+            "verify_conda_env": false
+        },
+        "integrity": {
+            "check_file_readability": true,
+            "check_file_corruption": true,
+            "validate_csv_format": true,
+            "check_data_schema": true,
+            "max_file_size_mb": 1000
+        },
+        "python": {
+            "check_imports": true,
+            "check_syntax": true,
+            "check_structure": true,
+            "allowed_imports": ["pegasus", "Pegasus", "os", "sys", "pathlib", "typing"]
+        }
+    },
+    "prompts_config": {
+        "use_examples": true,
+        "use_cot": true,
+        "enforce_json_output": true
+    },
+    "output_config": {
+        "default_format": "terminal",
+        "verbosity": "standard",
+        "use_colors": true,
+        "show_suggestions": true,
+        "show_llm_reasoning": false
+    },
+    "log_level": "INFO",
+    "log_file": "validator.log",
+    "log_to_console": true,
+    "http_port": 8084,
+    "monitor_url": "http://localhost:8080",
+    "dashboard_url": "http://localhost:5000",
+    "enable_rest_api": true,
+    "connection_timeout": 30,
+    "fallback_mode": true
+}

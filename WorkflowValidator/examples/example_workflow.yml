@@ -1,0 +1,71 @@
+# Example Pegasus Workflow for Testing Validator
+name: "example_ml_workflow"
+version: "1.0"
+
+# Jobs definition
+jobs:
+  - name: "download_data"
+    transformation: "Download"
+    arguments:
+      - "--url https://example.com/data.csv"
+      - "--output data.csv"
+    uses:
+      - name: "data.csv"
+        type: "output"
+
+  - name: "preprocess"
+    transformation: "Preprocess"
+    parents: ["download_data"]
+    arguments:
+      - "--input data.csv"
+      - "--output clean_data.csv"
+    uses:
+      - name: "data.csv"
+        type: "input"
+      - name: "clean_data.csv"
+        type: "output"
+
+  - name: "train_model"
+    transformation: "Train"
+    parents: ["preprocess"]
+    arguments:
+      - "--input clean_data.csv"
+      - "--output model.pkl"
+    uses:
+      - name: "clean_data.csv"
+        type: "input"
+      - name: "model.pkl"
+        type: "output"
+
+  - name: "evaluate"
+    transformation: "Evaluate"
+    parents: ["train_model"]
+    arguments:
+      - "--model model.pkl"
+      - "--data clean_data.csv"
+    uses:
+      - name: "model.pkl"
+        type: "input"
+      - name: "clean_data.csv"
+        type: "input"
+
+# Transformation catalog (embedded)
+transformations:
+  - name: "Download"
+    pfn: "/usr/bin/wget"
+    type: "stageable"
+
+  - name: "Preprocess"
+    pfn: "/tmp/preprocess.py"
+    type: "stageable"
+
+  - name: "Train"
+    pfn: "/tmp/train.py"
+    type: "stageable"
+
+  - name: "Evaluate"
+    pfn: "/tmp/evaluate.py"
+    type: "stageable"
+
+# Replica catalog (embedded)
+replicas: []

@@ -1,0 +1,81 @@
+You are an expert at analyzing computational resource requirements for scientific workflows.
+
+JOB INFORMATION:
+Job: {job_name}
+Requested Resources:
+  - Cores: {cores}
+  - Memory: {memory}
+  - Runtime: {runtime}
+
+SCRIPT ANALYSIS:
+{script_content}
+
+DATA CONTEXT:
+{data_info}
+
+VALIDATION TASKS:
+
+1. MEMORY REQUIREMENTS
+   - Estimate actual memory needed based on script
+   - Compare with requested memory
+   - Identify over/under-allocation
+
+2. COMPUTE TIME
+   - Estimate execution time based on operations
+   - Compare with requested runtime
+   - Flag likely timeouts
+
+3. CPU UTILIZATION
+   - Check if script is parallelizable
+   - Verify core count matches parallelization
+   - Identify wasted resources
+
+4. GPU REQUIREMENTS
+   - Check if script needs GPU
+   - Verify GPU is requested if needed
+   - Flag CPU fallback issues
+
+EXAMPLES:
+
+Example 1: Memory Underallocation
+JOB: process_images
+Requested: 2GB
+Script: Process 50,000 images (5MB each)
+ISSUE: Will run out of memory (needs ~15GB)
+
+Example 2: Time Underallocation
+JOB: train_model
+Requested: 10 minutes
+Script: Train XGBoost on 1M rows, 100 features
+ISSUE: Will timeout (needs ~2 hours)
+
+Example 3: Wasted Resources
+JOB: simple_calculation
+Requested: 64 cores
+Script: Single-threaded calculation
+ISSUE: Using only 1 core, wasting 63 cores
+
+OUTPUT FORMAT (strict JSON only):
+{{
+  "errors": [
+    {{
+      "severity": "critical" | "error" | "warning",
+      "category": "resources",
+      "location": "job_name",
+      "issue": "Resource mismatch description",
+      "explanation": "Calculation showing the mismatch",
+      "impact": "Job will fail/timeout/waste resources",
+      "suggested_fix": "Recommended resource allocation"
+    }}
+  ],
+  "optimizations": [
+    {{
+      "resource": "memory" | "cpu" | "time",
+      "current": "current allocation",
+      "recommended": "better allocation",
+      "savings": "time/cost saved"
+    }}
+  ]
+}}
+
+Respond ONLY with valid JSON. No additional text.

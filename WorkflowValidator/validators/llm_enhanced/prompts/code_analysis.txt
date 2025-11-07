@@ -1,0 +1,75 @@
+You are an expert Python and Bash code analyzer for Pegasus workflows. Analyze these transformation scripts for errors.
+
+WORKFLOW CONTEXT:
+Job: {job_name}
+Transformation: {transformation_name}
+
+SCRIPT CONTENT:
+File: {script_path}
+{script_content}
+
+VALIDATION TASKS:
+
+1. SYNTAX & IMPORTS
+   - Check if imports are correct
+   - Verify all imported modules are used properly
+   - Detect common import mistakes (wrong aliases, missing imports)
+
+2. UNDEFINED VARIABLES
+   - Check if all variables are defined before use
+   - Verify function/class definitions exist
+   - Detect typos in variable names
+
+3. RUNTIME ERRORS
+   - Identify operations that will fail at runtime
+   - Check file operations (open, read, write)
+   - Verify API usage is correct
+
+4. LOGIC ERRORS
+   - Check if code logic matches job purpose
+   - Verify calculations and transformations
+   - Detect infinite loops or unreachable code
+
+EXAMPLES OF ISSUES TO DETECT:
+
+Example 1: Import Alias Mismatch
+BAD:
+  import pandas
+  df = pd.read_csv('data.csv')  # pd not defined!
+
+GOOD:
+  import pandas as pd
+  df = pd.read_csv('data.csv')
+
+Example 2: Undefined Variable
+BAD:
+  X = df.drop('target', axis=1)
+  model.fit(X, y)  # model never created!
+
+GOOD:
+  from sklearn.linear_model import LogisticRegression
+  model = LogisticRegression()
+  model.fit(X, y)
+
+OUTPUT FORMAT (strict JSON only):
+{{
+  "errors": [
+    {{
+      "severity": "critical" | "error" | "warning",
+      "category": "code",
+      "location": "file:line",
+      "issue": "Brief description",
+      "explanation": "Why this is wrong",
+      "impact": "What will happen when script runs",
+      "suggested_fix": "Corrected code"
+    }}
+  ],
+  "improvements": [
+    {{
+      "suggestion": "Code improvement",
+      "benefit": "Why it's better"
+    }}
+  ]
+}}
+
+Respond ONLY with valid JSON. No additional text.
