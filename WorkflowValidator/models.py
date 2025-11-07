@@ -174,3 +174,4 @@ class WorkflowContext:
     transformation_scripts: Dict[str, str] = field(default_factory=dict)  # name -> content
     data_samples: Dict[str, Any] = field(default_factory=dict)  # file -> sample data
     metadata: Dict[str, Any] = field(default_factory=dict)
+    base_directory: Optional[str] = None  # Directory where workflow file is located (for resolving relative paths)

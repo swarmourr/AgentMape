@@ -241,8 +241,13 @@ class WorkflowValidator:
     ) -> WorkflowContext:
         """Build workflow context by loading all necessary files"""
 
+        # Get absolute path and base directory of workflow file
+        workflow_abs_path = Path(workflow_path).resolve()
+        base_dir = str(workflow_abs_path.parent)
+
         context = WorkflowContext(
-            workflow_yaml_path=workflow_path
+            workflow_yaml_path=str(workflow_abs_path),
+            base_directory=base_dir
         )
 
         # Load workflow YAML

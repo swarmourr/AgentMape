@@ -23,6 +23,30 @@ class PathValidator:
         self.check_executable = self.config.get('check_executable', True)
         self.check_shebang = self.config.get('check_shebang', True)
 
+    def _resolve_path(self, file_path: str, base_dir: str = None) -> str:
+        """
+        Resolve a file path, making it relative to the workflow directory if needed
+
+        Args:
+            file_path: The path to resolve
+            base_dir: Base directory (workflow file location) to resolve relative paths from
+
+        Returns:
+            Resolved absolute path
+        """
+        # If already absolute, return as is
+        if os.path.isabs(file_path):
+            return file_path
+
+        # If base_dir provided and path is relative, resolve from base_dir
+        if base_dir and not os.path.isabs(file_path):
+            resolved = os.path.join(base_dir, file_path)
+            logger.debug(f"Resolved '{file_path}' to '{resolved}' (base: {base_dir})")
+            return resolved
+
+        # Otherwise return as is (will be checked from current working directory)
+        return file_path
+
     def validate(self, context: WorkflowContext) -> ValidatorResult:
         """
         Validate all file paths
@@ -39,15 +63,18 @@ class PathValidator:
         issues = []
         checks_performed = 0
 
+        # Get base directory for resolving relative paths
+        base_dir = context.base_directory
+
         # Validate transformation executables
         if context.transformation_catalog:
-            trans_issues, trans_checks = self._validate_transformations(context.transformation_catalog)
+            trans_issues, trans_checks = self._validate_transformations(context.transformation_catalog, base_dir)
             issues.extend(trans_issues)
             checks_performed += trans_checks
 
         # Validate input files from replica catalog
         if context.replica_catalog:
-            replica_issues, replica_checks = self._validate_replicas(context.replica_catalog)
+            replica_issues, replica_checks = self._validate_replicas(context.replica_catalog, base_dir)
             issues.extend(replica_issues)
             checks_performed += replica_checks
 
@@ -70,7 +97,7 @@ class PathValidator:
             checks_performed=checks_performed
         )
 
-    def _validate_transformations(self, tc: Dict) -> tuple:
+    def _validate_transformations(self, tc: Dict, base_dir: str = None) -> tuple:
         """Validate transformation executable paths"""
         issues = []
         checks = 0
@@ -103,14 +130,17 @@ class PathValidator:
                 ))
                 continue
 
+            # Resolve path relative to workflow directory
+            resolved_pfn = self._resolve_path(pfn, base_dir)
+
             # Check if file exists
-            if self.check_exists and not os.path.exists(pfn):
+            if self.check_exists and not os.path.exists(resolved_pfn):
                 issues.append(ValidationIssue(
                     severity=Severity.ERROR,
                     category=Category.PATHS,
                     message=f"Transformation executable not found: {pfn}",
                     location=f"transformation:{trans_name}",
-                    explanation=f"File does not exist at specified path",
+                    explanation=f"File does not exist at specified path (resolved to: {resolved_pfn})",
                     impact="Job will fail when trying to execute transformation",
                     suggestion=f"Create file at {pfn} or update PFN in catalog",
                     detected_by="rule"
@@ -118,31 +148,31 @@ class PathValidator:
                 continue
 
             # Check if readable
-            if self.check_readable and not os.access(pfn, os.R_OK):
+            if self.check_readable and not os.access(resolved_pfn, os.R_OK):
                 issues.append(ValidationIssue(
                     severity=Severity.ERROR,
                     category=Category.PATHS,
                     message=f"Transformation executable not readable: {pfn}",
                     location=f"transformation:{trans_name}",
-                    suggestion=f"Fix file permissions: chmod +r {pfn}",
+                    suggestion=f"Fix file permissions: chmod +r {resolved_pfn}",
                     detected_by="rule"
                 ))
 
             # Check if executable
-            if self.check_executable and not os.access(pfn, os.X_OK):
+            if self.check_executable and not os.access(resolved_pfn, os.X_OK):
                 issues.append(ValidationIssue(
                     severity=Severity.ERROR,
                     category=Category.PATHS,
                     message=f"Transformation file not executable: {pfn}",
                     location=f"transformation:{trans_name}",
                     explanation="Script must have execute permission",
-                    suggestion=f"Fix file permissions: chmod +x {pfn}",
+                    suggestion=f"Fix file permissions: chmod +x {resolved_pfn}",
                     detected_by="rule"
                 ))
 
             # Check shebang for scripts
-            if self.check_shebang and pfn.endswith(('.py', '.sh', '.pl', '.rb')):
-                shebang_issue = self._check_shebang(pfn, trans_name)
+            if self.check_shebang and resolved_pfn.endswith(('.py', '.sh', '.pl', '.rb')):
+                shebang_issue = self._check_shebang(resolved_pfn, trans_name)
                 if shebang_issue:
                     issues.append(shebang_issue)
 
@@ -179,7 +209,7 @@ class PathValidator:
 
         return None
 
-    def _validate_replicas(self, rc: Dict) -> tuple:
+    def _validate_replicas(self, rc: Dict, base_dir: str = None) -> tuple:
         """Validate replica catalog file paths"""
         issues = []
         checks = 0
@@ -207,14 +237,17 @@ class PathValidator:
                 ))
                 continue
 
+            # Resolve path relative to workflow directory
+            resolved_pfn = self._resolve_path(pfn, base_dir)
+
             # Check if file exists
-            if self.check_exists and not os.path.exists(pfn):
+            if self.check_exists and not os.path.exists(resolved_pfn):
                 issues.append(ValidationIssue(
                     severity=Severity.ERROR,
                     category=Category.PATHS,
                     message=f"Input file not found: {pfn}",
                     location=f"replica:{lfn}",
-                    explanation=f"File does not exist at specified path",
+                    explanation=f"File does not exist at specified path (resolved to: {resolved_pfn})",
                     impact="Workflow will fail when trying to access this file",
                     suggestion=f"Create file at {pfn} or update PFN in replica catalog",
                     detected_by="rule"
@@ -222,19 +255,19 @@ class PathValidator:
                 continue
 
             # Check if readable
-            if self.check_readable and not os.access(pfn, os.R_OK):
+            if self.check_readable and not os.access(resolved_pfn, os.R_OK):
                 issues.append(ValidationIssue(
                     severity=Severity.ERROR,
                     category=Category.PATHS,
                     message=f"Input file not readable: {pfn}",
                     location=f"replica:{lfn}",
-                    suggestion=f"Fix file permissions: chmod +r {pfn}",
+                    suggestion=f"Fix file permissions: chmod +r {resolved_pfn}",
                     detected_by="rule"
                 ))
 
             # Check file size (warn if empty)
             try:
-                size = os.path.getsize(pfn)
+                size = os.path.getsize(resolved_pfn)
                 if size == 0:
                     issues.append(ValidationIssue(
                         severity=Severity.WARNING,
