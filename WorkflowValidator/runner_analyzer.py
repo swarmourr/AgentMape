@@ -150,8 +150,8 @@ def _llm_based_detection(content: str, llm_backend, generator_content: Optional[
     if generator_content:
         # Analyze both scripts together
         # Use larger context to ensure we capture output paths
-        runner_truncate = min(len(content), 4000)
-        generator_truncate = min(len(generator_content), 4000)
+        runner_truncate = min(len(content), 100000)
+        generator_truncate = min(len(generator_content), 100000)
 
         prompt = f"""You are analyzing a workflow generation system with two scripts:
 
@@ -206,6 +206,7 @@ Look for:
 2. Output directories (e.g., output/, generated/)
 3. File redirection (e.g., > output.yml)
 4. Variable assignments (e.g., OUTPUT_DIR=output)
+5. Please in case of multiple files, try to match name patterns because is complementary each other.
 
 Respond with ONLY the path/pattern where workflows are saved, or "NONE" if not found.
 

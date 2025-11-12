@@ -12,7 +12,7 @@
         "model": "glm-4.6:cloud",
         "timeout": 60,
         "temperature": 0.1,
-        "max_tokens": 100000
+        "max_tokens": 200000
     },
     "ollama_url": "https://vsuhm-90-101-5-186.a.free.pinggy.link/api/generate",
     "ollama_api_base": "https://vsuhm-90-101-5-186.a.free.pinggy.link",
@@ -20,7 +20,7 @@
     "ollama_check_interval": 30,
     "ollama_timeout": 60,
     "ollama_temperature": 0.1,
-    "ollama_max_tokens": 100000,
+    "ollama_max_tokens": 200000,
     "validation_config": {
         "run_rules_first": true,
         "llm_only_if_rules_pass": false,
