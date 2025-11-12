@@ -3,8 +3,7 @@ You are an expert Pegasus workflow validator. Analyze this workflow for structur
 WORKFLOW YAML:
 {workflow_yaml}
 
-TRANSFORMATION CATALOG:
-{transformation_catalog}
+
 
 VALIDATION TASKS:
 
@@ -29,7 +28,7 @@ VALIDATION TASKS:
    - Detect impossible or unusual argument combinations
 
 5. CATALOGS EMBBEDDED
-  -  VERIFY IF TRANSFORMATION CATALOG IS ENCLODED
+  - VERIFY IF TRANSFORMATION CATALOG IS ENCLODED
   - VERIFY IF REPLICAS CATALOGS IS ENCLODED
 
 EXAMPLES OF ISSUES TO DETECT:
@@ -60,7 +59,7 @@ GOOD:
   - name: "train_model"
     parents: ["preprocess_data"]
 
-OUTPUT FORMAT (strict JSON only):
+OUTPUT FORMAT MUST BE (strict JSON only):
 {{
   "errors": [
     {{

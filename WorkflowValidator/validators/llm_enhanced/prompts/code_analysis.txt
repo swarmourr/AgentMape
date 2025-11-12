@@ -58,7 +58,7 @@ OUTPUT FORMAT (strict JSON only):
       "severity": "critical" | "error" | "warning",
       "category": "code",
       "location": "file:line",
-      "issue": "Brief description",
+      "issue": "Large description",
       "explanation": "Why this is wrong",
       "impact": "What will happen when script runs",
       "suggested_fix": "Corrected code"
