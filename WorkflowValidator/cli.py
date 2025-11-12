@@ -11,6 +11,7 @@ from pathlib import Path
 
 from validator import WorkflowValidator
 from models import ValidationStatus
+from runner_analyzer import analyze_runner_script, find_generated_workflows
 
 
 def _detect_generator_metadata(file_path):
@@ -140,10 +141,13 @@ def _detect_generator_metadata(file_path):
 @click.option('--runner',
               type=click.Path(exists=True),
               help='Script that executes the generator (e.g., orchestrator.sh that calls generator.py)')
+@click.option('--generated-workflows',
+              type=str,
+              help='Path to generated YAML file(s) or directory. Use glob patterns like "output/*.yml" or single file "output/workflow.yml"')
 @click.option('--verbose', '-v',
               is_flag=True,
               help='Verbose output')
-def validate(workflow, tc, rc, level, mode, output_yaml, format, output, config, workflow_dir, workflow_args, from_generator, runner, verbose):
+def validate(workflow, tc, rc, level, mode, output_yaml, format, output, config, workflow_dir, workflow_args, from_generator, runner, generated_workflows, verbose):
     """
     Validate a Pegasus workflow before submission.
 
@@ -222,13 +226,14 @@ def validate(workflow, tc, rc, level, mode, output_yaml, format, output, config,
                 workflow_args = generator_metadata['default_args']
                 click.echo(f"   Using generator_args from metadata: {workflow_args}", err=True)
 
-        # Handle runner (script that executes the generator)
-        if runner:
+        # Handle runner with generated workflows path
+        if runner and generated_workflows:
             import subprocess
-            import tempfile
+            import glob as glob_module
 
             click.echo(f"🏃 Runner script detected: {runner}", err=True)
             click.echo(f"   Generator: {workflow}", err=True)
+            click.echo(f"   Generated workflows: {generated_workflows}", err=True)
 
             # Build command to run the runner
             cmd = []
@@ -247,7 +252,7 @@ def validate(workflow, tc, rc, level, mode, output_yaml, format, output, config,
 
             click.echo(f"   Running: {' '.join(cmd)}", err=True)
 
-            # Run runner and capture output
+            # Run runner (doesn't need to capture stdout)
             try:
                 result = subprocess.run(
                     cmd,
@@ -263,57 +268,237 @@ def validate(workflow, tc, rc, level, mode, output_yaml, format, output, config,
                         click.echo(f"Error output:\n{result.stderr}", err=True)
                     sys.exit(2)
 
-                generated_yaml_content = result.stdout
+                # Show runner output
+                if result.stdout:
+                    click.echo(f"✅ Runner completed successfully", err=True)
+                if result.stderr:
+                    click.echo(result.stderr, err=True)
 
-                # Check if multiple YAML documents (separated by ---)
-                yaml_docs = generated_yaml_content.split('\n---\n')
-                num_docs = len([doc for doc in yaml_docs if doc.strip()])
+                # Find generated YAML files
+                click.echo(f"\n🔍 Looking for generated workflows...", err=True)
 
-                if num_docs > 1:
-                    click.echo(f"✅ Runner produced {num_docs} YAML documents ({len(generated_yaml_content)} bytes)", err=True)
-                    click.echo(f"   Validating all {num_docs} workflows...", err=True)
+                # Support glob patterns and directories
+                yaml_files = []
 
-                    # Save each document and validate separately
-                    all_reports = []
-                    for i, yaml_doc in enumerate(yaml_docs):
-                        if not yaml_doc.strip():
-                            continue
-
-                        click.echo(f"\n📄 Validating workflow {i+1}/{num_docs}...", err=True)
-
-                        # Save to temporary file
-                        with tempfile.NamedTemporaryFile(mode='w', suffix=f'_{i}.yml', delete=False) as f:
-                            f.write(yaml_doc)
-                            temp_path = f.name
-
-                        # Validate this document (will be handled below)
-                        workflow = temp_path
-                        # Note: For now, validate only first document
-                        # TODO: Support validating all documents and combining reports
-                        if i == 0:
-                            break
-
-                    from_generator = False  # Already handled
-
+                # Check if it's a directory
+                if Path(generated_workflows).is_dir():
+                    yaml_files = list(Path(generated_workflows).glob('*.yml')) + list(Path(generated_workflows).glob('*.yaml'))
+                # Check if it's a glob pattern
+                elif '*' in generated_workflows or '?' in generated_workflows:
+                    yaml_files = [Path(f) for f in glob_module.glob(generated_workflows)]
+                # Single file
+                elif Path(generated_workflows).exists():
+                    yaml_files = [Path(generated_workflows)]
                 else:
-                    # Single YAML document
-                    click.echo(f"✅ Runner produced {len(generated_yaml_content)} bytes of YAML", err=True)
+                    click.echo(f"❌ No workflows found at: {generated_workflows}", err=True)
+                    sys.exit(2)
 
-                    # Save to temporary file for validation
-                    with tempfile.NamedTemporaryFile(mode='w', suffix='.yml', delete=False) as f:
-                        f.write(generated_yaml_content)
-                        temp_yaml_path = f.name
+                if not yaml_files:
+                    click.echo(f"❌ No YAML files found in: {generated_workflows}", err=True)
+                    sys.exit(2)
 
-                    # Update workflow path to generated YAML
-                    workflow = temp_yaml_path
-                    from_generator = False  # Already handled
+                click.echo(f"   Found {len(yaml_files)} workflow(s) to validate", err=True)
+
+                # Validate each found workflow
+                for i, yaml_file in enumerate(yaml_files):
+                    click.echo(f"\n📄 Validating {yaml_file.name} ({i+1}/{len(yaml_files)})...", err=True)
+
+                    # For now, validate first one (TODO: validate all)
+                    workflow = str(yaml_file)
+                    if i == 0:
+                        break
 
             except subprocess.TimeoutExpired:
                 click.echo(f"❌ Runner timed out after 120 seconds", err=True)
                 sys.exit(2)
             except Exception as e:
                 click.echo(f"❌ Failed to run runner: {e}", err=True)
+                if verbose:
+                    import traceback
+                    traceback.print_exc()
                 sys.exit(2)
+
+        # Handle runner with LLM auto-detection of output path
+        elif runner:
+            import subprocess
+
+            click.echo(f"🏃 Runner script detected: {runner}", err=True)
+            click.echo(f"   Generator: {workflow}", err=True)
+
+            # Try to auto-detect where runner saves workflows
+            click.echo(f"\n🔍 Analyzing runner to detect workflow output location...", err=True)
+
+            # Initialize LLM backend for analysis (if available)
+            llm_backend = None
+            try:
+                from validators.llm_enhanced.llm_backends import OllamaBackend
+                validator_config_path = Path(__file__).parent / 'validator_config.json'
+                if validator_config_path.exists():
+                    import json
+                    with open(validator_config_path) as f:
+                        config = json.load(f)
+                        llm_config = config.get('llm_backend', {})
+                        if llm_config.get('enabled', False):
+                            llm_backend = OllamaBackend(llm_config)
+                            if llm_backend.is_available():
+                                click.echo(f"   LLM backend available for analysis", err=True)
+            except Exception as e:
+                if verbose:
+                    click.echo(f"   LLM backend not available: {e}", err=True)
+
+            # Analyze runner script
+            detected_pattern = analyze_runner_script(runner, llm_backend)
+
+            if detected_pattern:
+                click.echo(f"   ✅ Auto-detected output: {detected_pattern}", err=True)
+                generated_workflows = detected_pattern
+            else:
+                click.echo(f"   ⚠️  Could not auto-detect output location", err=True)
+                click.echo(f"   Trying standard output (stdout) capture...", err=True)
+
+            # Build command to run the runner
+            cmd = []
+            runner_ext = Path(runner).suffix.lower()
+
+            if runner_ext == '.py':
+                cmd = ['python3', runner]
+            elif runner_ext == '.sh':
+                cmd = ['bash', runner]
+            else:
+                cmd = [runner]
+
+            # Add workflow arguments if provided
+            if workflow_args:
+                cmd.extend(workflow_args.split())
+
+            click.echo(f"   Running: {' '.join(cmd)}", err=True)
+
+            # If we detected a file-based output pattern, run without capturing stdout
+            if generated_workflows:
+                try:
+                    result = subprocess.run(
+                        cmd,
+                        capture_output=True,
+                        text=True,
+                        cwd=workflow_dir if workflow_dir else Path(runner).parent,
+                        timeout=120
+                    )
+
+                    if result.returncode != 0:
+                        click.echo(f"❌ Runner failed with exit code {result.returncode}", err=True)
+                        if result.stderr:
+                            click.echo(f"Error output:\n{result.stderr}", err=True)
+                        sys.exit(2)
+
+                    # Show runner output
+                    if result.stdout:
+                        click.echo(f"✅ Runner completed successfully", err=True)
+                    if result.stderr:
+                        click.echo(result.stderr, err=True)
+
+                    # Find generated YAML files
+                    click.echo(f"\n🔍 Looking for generated workflows at: {generated_workflows}", err=True)
+
+                    base_dir = workflow_dir if workflow_dir else str(Path(runner).parent)
+                    yaml_files = find_generated_workflows(base_dir, generated_workflows)
+
+                    if not yaml_files:
+                        click.echo(f"❌ No YAML files found", err=True)
+                        click.echo(f"   Searched: {base_dir}/{generated_workflows}", err=True)
+                        sys.exit(2)
+
+                    click.echo(f"   Found {len(yaml_files)} workflow(s) to validate", err=True)
+
+                    # Validate each found workflow
+                    for i, yaml_file in enumerate(yaml_files):
+                        click.echo(f"\n📄 Validating {yaml_file.name} ({i+1}/{len(yaml_files)})...", err=True)
+
+                        # For now, validate first one (TODO: validate all)
+                        workflow = str(yaml_file)
+                        if i == 0:
+                            break
+
+                except subprocess.TimeoutExpired:
+                    click.echo(f"❌ Runner timed out after 120 seconds", err=True)
+                    sys.exit(2)
+                except Exception as e:
+                    click.echo(f"❌ Failed to run runner: {e}", err=True)
+                    if verbose:
+                        import traceback
+                        traceback.print_exc()
+                    sys.exit(2)
+
+            # Fallback: capture stdout if no file-based output detected
+            else:
+                import tempfile
+
+                # Run runner and capture output
+                try:
+                    result = subprocess.run(
+                        cmd,
+                        capture_output=True,
+                        text=True,
+                        cwd=workflow_dir if workflow_dir else Path(runner).parent,
+                        timeout=120
+                    )
+
+                    if result.returncode != 0:
+                        click.echo(f"❌ Runner failed with exit code {result.returncode}", err=True)
+                        if result.stderr:
+                            click.echo(f"Error output:\n{result.stderr}", err=True)
+                        sys.exit(2)
+
+                    generated_yaml_content = result.stdout
+
+                    # Check if multiple YAML documents (separated by ---)
+                    yaml_docs = generated_yaml_content.split('\n---\n')
+                    num_docs = len([doc for doc in yaml_docs if doc.strip()])
+
+                    if num_docs > 1:
+                        click.echo(f"✅ Runner produced {num_docs} YAML documents ({len(generated_yaml_content)} bytes)", err=True)
+                        click.echo(f"   Validating all {num_docs} workflows...", err=True)
+
+                        # Save each document and validate separately
+                        all_reports = []
+                        for i, yaml_doc in enumerate(yaml_docs):
+                            if not yaml_doc.strip():
+                                continue
+
+                            click.echo(f"\n📄 Validating workflow {i+1}/{num_docs}...", err=True)
+
+                            # Save to temporary file
+                            with tempfile.NamedTemporaryFile(mode='w', suffix=f'_{i}.yml', delete=False) as f:
+                                f.write(yaml_doc)
+                                temp_path = f.name
+
+                            # Validate this document (will be handled below)
+                            workflow = temp_path
+                            # Note: For now, validate only first document
+                            # TODO: Support validating all documents and combining reports
+                            if i == 0:
+                                break
+
+                        from_generator = False  # Already handled
+
+                    else:
+                        # Single YAML document
+                        click.echo(f"✅ Runner produced {len(generated_yaml_content)} bytes of YAML", err=True)
+
+                        # Save to temporary file for validation
+                        with tempfile.NamedTemporaryFile(mode='w', suffix='.yml', delete=False) as f:
+                            f.write(generated_yaml_content)
+                            temp_yaml_path = f.name
+
+                        # Update workflow path to generated YAML
+                        workflow = temp_yaml_path
+                        from_generator = False  # Already handled
+
+                except subprocess.TimeoutExpired:
+                    click.echo(f"❌ Runner timed out after 120 seconds", err=True)
+                    sys.exit(2)
+                except Exception as e:
+                    click.echo(f"❌ Failed to run runner: {e}", err=True)
+                    sys.exit(2)
 
         # Handle generator scripts (direct)
         elif from_generator:
