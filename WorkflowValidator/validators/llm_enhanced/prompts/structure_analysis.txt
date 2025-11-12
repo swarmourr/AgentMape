@@ -1,7 +1,8 @@
 You are an expert Pegasus workflow validator. Analyze this workflow for structural and logical errors.
 
-Your output must be ONLY valid JSON (strictly parseable by Python’s json.loads()).  
-Do NOT include explanations, comments, or text outside of the JSON object.
+IMPORTANT: Start your output immediately with the JSON object starting with '{'.  
+Do NOT add any text, explanation, Markdown, or newlines before or after the JSON object.  
+Output must be strictly valid JSON with double quotes.  
 
 WORKFLOW YAML:
 {workflow_yaml}
@@ -35,8 +36,8 @@ VALIDATION TASKS:
 5. CATALOGS EMBEDDED
    - Verify if transformation catalog is embedded
    - Verify if replica catalog is embedded
-   - IMPORTANT: If the workflow uses Python API catalogs (`transformationCatalog` or `replicaCatalog`), **do NOT treat this as an error**.  
-     Instead, emit a **warning** informing the user that the workflow was generated via Python API and may need flattening for CLI execution.  
+   - IMPORTANT: If the workflow uses Python API catalogs (`transformationCatalog` or `replicaCatalog`), do NOT treat this as an error.  
+     Instead, emit a warning informing the user that the workflow was generated via Python API and may need flattening for CLI execution.
 
 RULES:
 - Only report an error if the workflow cannot logically or structurally execute (e.g., exposed secrets, jobs referencing nonexistent transformations).  
@@ -44,7 +45,6 @@ RULES:
 - Python API–generated catalogs (`transformationCatalog`, `replicaCatalog`) should generate a warning, not an error.  
 - Always include both "errors" and "improvements" lists, even if empty.  
 - JSON keys must appear in this order: errors, improvements.  
-- Do not output Markdown, code blocks, or text outside the JSON object.
 
 EXAMPLES OF ISSUES TO DETECT:
 
@@ -53,18 +53,18 @@ BAD:
   - name: "evaluate_model"
     parents: ["download_data"]
   - name: "train_model"
-    parents: ["evaluate_model"]  # Training AFTER evaluation!
+    parents: ["evaluate_model"]
 GOOD:
   - name: "train_model"
     parents: ["download_data"]
   - name: "evaluate_model"
-    parents: ["train_model"]  # Evaluate after training
+    parents: ["train_model"]
 
 Example 2: Missing Step
 BAD:
   - name: "download_data"
   - name: "train_model"
-    parents: ["download_data"]  # Missing preprocessing!
+    parents: ["download_data"]
 GOOD:
   - name: "download_data"
   - name: "preprocess_data"
@@ -76,7 +76,7 @@ Example 3: Exposed Token
 BAD:
   - arguments: ["--auth_token hf_xxx"]
 GOOD:
-  - arguments: ["--auth_token $HF_TOKEN"]  # Use environment variables or Pegasus profiles
+  - arguments: ["--auth_token $HF_TOKEN"]
 
 OUTPUT FORMAT (strict JSON only):
 {
