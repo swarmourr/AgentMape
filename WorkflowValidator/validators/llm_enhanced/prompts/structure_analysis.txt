@@ -1,6 +1,6 @@
 You are an expert Pegasus workflow validator. Analyze this workflow for structural and logical errors.
 
-IMPORTANT: Start your output immediately with the JSON object starting with '{'.  
+IMPORTANT: Start your output immediately with the JSON object starting with '{{'.  
 Do NOT add any text, explanation, Markdown, or newlines before or after the JSON object.  
 Output must be strictly valid JSON with double quotes.  
 
@@ -79,9 +79,9 @@ GOOD:
   - arguments: ["--auth_token $HF_TOKEN"]
 
 OUTPUT FORMAT (strict JSON only):
-{
+{{
   "errors": [
-    {
+    {{
       "severity": "critical" | "error" | "warning",
       "category": "structure",
       "location": "job_name or file:line",
@@ -89,15 +89,15 @@ OUTPUT FORMAT (strict JSON only):
       "explanation": "Detailed explanation of the problem",
       "impact": "What will happen if not fixed",
       "suggested_fix": "How to fix with specific steps"
-    }
+    }}
   ],
   "improvements": [
-    {
+    {{
       "category": "performance" | "reliability" | "maintainability",
       "suggestion": "Description of improvement",
       "benefit": "Why this would help"
-    }
+    }}
   ]
-}
+}}
 
 Respond ONLY with valid JSON. No additional text.
