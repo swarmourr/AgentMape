@@ -1,75 +1,69 @@
-You are an expert Python and Bash code analyzer for Pegasus workflows. Analyze these transformation scripts for errors.
+You are an expert Pegasus workflow validator. Analyze this workflow for structural and logical errors.
 
-WORKFLOW CONTEXT:
-Job: {job_name}
-Transformation: {transformation_name}
+WORKFLOW YAML:
+{workflow_yaml}
 
-SCRIPT CONTENT:
-File: {script_path}
-{script_content}
+TRANSFORMATION CATALOG:
+{transformation_catalog}
 
 VALIDATION TASKS:
 
-1. SYNTAX & IMPORTS
-   - Check if imports are correct
-   - Verify all imported modules are used properly
-   - Detect common import mistakes (wrong aliases, missing imports)
+1. DEPENDENCY LOGIC
+   - Check if job dependencies make logical sense
+   - Verify jobs are in the correct execution order
+   - Detect missing dependencies that should exist
 
-2. UNDEFINED VARIABLES
-   - Check if all variables are defined before use
-   - Verify function/class definitions exist
-   - Detect typos in variable names
+2. JOB NAMING CONSISTENCY
+   - Check if job names match their actual purpose
+   - Verify transformation names are descriptive
+   - Detect misleading or confusing names
 
-3. RUNTIME ERRORS
-   - Identify operations that will fail at runtime
-   - Check file operations (open, read, write)
-   - Verify API usage is correct
+3. WORKFLOW COMPLETENESS
+   - Identify missing steps in the pipeline
+   - Check if workflow has all necessary stages
+   - Verify data flow makes sense end-to-end
+   - If workflow is Python API–generated and top-level 'transformations' field is missing, treat this as a WARNING, not an error
+   - If jobs do not have explicit 'transformation' fields, do NOT treat this as an error; instead, validate them against the embedded transformationCatalog
 
-4. LOGIC ERRORS
-   - Check if code logic matches job purpose
-   - Verify calculations and transformations
-   - Detect infinite loops or unreachable code
+4. TRANSFORMATION VALIDATION
+   - For each job, check if its 'transformation' exists in the embedded transformationCatalog
+   - If a job references a transformation not in the catalog, mark as ERROR
+   - If a job has no 'transformation' field, try to infer from job name and validate against transformationCatalog; if not found, issue a WARNING
+   - Validate that transformation PFN paths exist and are executable
+   - Validate that containers referenced in transformations exist
 
-EXAMPLES OF ISSUES TO DETECT:
+5. ARGUMENT VALIDATION
+   - Check if job arguments are consistent
+   - Verify argument values are reasonable
+   - Detect impossible or unusual argument combinations
+   - Detect exposed authentication tokens (e.g., Hugging Face tokens) and mark as CRITICAL errors
 
-Example 1: Import Alias Mismatch
-BAD:
-  import pandas
-  df = pd.read_csv('data.csv')  # pd not defined!
-
-GOOD:
-  import pandas as pd
-  df = pd.read_csv('data.csv')
-
-Example 2: Undefined Variable
-BAD:
-  X = df.drop('target', axis=1)
-  model.fit(X, y)  # model never created!
-
-GOOD:
-  from sklearn.linear_model import LogisticRegression
-  model = LogisticRegression()
-  model.fit(X, y)
+6. CATALOGS EMBEDDED
+   - Verify if transformation catalog is embedded
+   - Verify if replica catalog is embedded
+   - Embedded catalogs may generate warnings but are not errors
+   - Do not require a top-level 'transformations:' field for Python API workflows
 
 OUTPUT FORMAT (strict JSON only):
-{{
+{
   "errors": [
-    {{
+    {
       "severity": "critical" | "error" | "warning",
-      "category": "code",
-      "location": "file:line",
+      "category": "structure",
+      "location": "job_name or file:line",
       "issue": "Large description",
-      "explanation": "Why this is wrong",
-      "impact": "What will happen when script runs",
-      "suggested_fix": "Corrected code"
-    }}
+      "explanation": "Detailed explanation of the problem",
+      "impact": "What will happen if not fixed",
+      "suggested_fix": "How to fix with specific steps"
+    }
   ],
   "improvements": [
-    {{
-      "suggestion": "Code improvement",
-      "benefit": "Why it's better"
-    }}
+    {
+      "category": "performance" | "reliability" | "maintainability",
+      "suggestion": "Description of improvement",
+      "benefit": "Why this would help"
+    }
   ]
-}}
+}
 
 Respond ONLY with valid JSON. No additional text.
