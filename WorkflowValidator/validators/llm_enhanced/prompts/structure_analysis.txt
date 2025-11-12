@@ -1,9 +1,13 @@
 You are an expert Pegasus workflow validator. Analyze this workflow for structural and logical errors.
 
+Your output must be ONLY valid JSON (strictly parseable by Python’s json.loads()).  
+Do NOT include any explanations, comments, or text outside of the JSON object.
+
 WORKFLOW YAML:
 {workflow_yaml}
 
-
+TRANSFORMATION CATALOG:
+{transformation_catalog}
 
 VALIDATION TASKS:
 
@@ -27,9 +31,19 @@ VALIDATION TASKS:
    - Verify argument values are reasonable
    - Detect impossible or unusual argument combinations
 
-5. CATALOGS EMBBEDDED
-  - VERIFY IF TRANSFORMATION CATALOG IS ENCLODED
-  - VERIFY IF REPLICAS CATALOGS IS ENCLODED
+5. CATALOGS EMBEDDED
+   - Verify if transformation catalog is embedded
+   - Verify if replica catalog is embedded
+   - IMPORTANT: If the workflow uses Python API catalogs (`transformationCatalog` or `replicaCatalog`), do NOT treat it as an error.  
+     Instead, emit a warning informing the user that the workflow was generated via the Python API and may need flattening for direct CLI execution.
+
+RULES:
+- Only report an error if the workflow cannot logically or structurally execute.
+- Missing embedded catalogs are allowed; if they are referenced externally, issue a warning only.
+- Python API–generated catalogs (`transformationCatalog`, `replicaCatalog`) should generate a warning, not an error.
+- Always include both "errors" and "improvements" lists, even if empty.
+- JSON keys must appear in this order: errors, improvements.
+- Do not output Markdown, code blocks, or text outside the JSON object.
 
 EXAMPLES OF ISSUES TO DETECT:
 
@@ -39,7 +53,6 @@ BAD:
     parents: ["download_data"]
   - name: "train_model"
     parents: ["evaluate_model"]  # Training AFTER evaluation!
-
 GOOD:
   - name: "train_model"
     parents: ["download_data"]
@@ -51,7 +64,6 @@ BAD:
   - name: "download_data"
   - name: "train_model"
     parents: ["download_data"]  # Missing preprocessing!
-
 GOOD:
   - name: "download_data"
   - name: "preprocess_data"
@@ -59,10 +71,10 @@ GOOD:
   - name: "train_model"
     parents: ["preprocess_data"]
 
-OUTPUT FORMAT MUST BE (strict JSON only):
-{{
+OUTPUT FORMAT (strict JSON only):
+{
   "errors": [
-    {{
+    {
       "severity": "critical" | "error" | "warning",
       "category": "structure",
       "location": "job_name or file:line",
@@ -70,15 +82,15 @@ OUTPUT FORMAT MUST BE (strict JSON only):
       "explanation": "Detailed explanation of the problem",
       "impact": "What will happen if not fixed",
       "suggested_fix": "How to fix with specific steps"
-    }}
+    }
   ],
   "improvements": [
-    {{
+    {
       "category": "performance" | "reliability" | "maintainability",
       "suggestion": "Description of improvement",
       "benefit": "Why this would help"
-    }}
+    }
   ]
-}}
+}
 
 Respond ONLY with valid JSON. No additional text.
