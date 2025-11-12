@@ -207,7 +207,7 @@ Look for:
 3. File redirection (e.g., > output.yml)
 4. Variable assignments (e.g., OUTPUT_DIR=output)
 5. Please in case of multiple files, try to match name patterns because is complementary each other.
-
+6. if the  detected path is a directory or variables of names, please append *.yml at the end of the path.
 Respond with ONLY the path/pattern where workflows are saved, or "NONE" if not found.
 
 Examples:
