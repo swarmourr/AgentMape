@@ -8,14 +8,14 @@
     "llm_backend": {
         "enabled": true,
         "provider": "ollama",
-        "host": "https://vtgzc-2a01-cb11-e2f-4e00-6d5b-6aaf-816b-a3de.a.free.pinggy.link",
+        "host": "https://kexmz-90-101-5-186.a.free.pinggy.link",
         "model": "glm-4.6:cloud",
         "timeout": 60,
-        "temperature": 0.6,
+        "temperature": 0.1,
         "max_tokens": 200000
     },
-    "ollama_url": "https://vtgzc-2a01-cb11-e2f-4e00-6d5b-6aaf-816b-a3de.a.free.pinggy.link/api/generate",
-    "ollama_api_base": "https://vtgzc-2a01-cb11-e2f-4e00-6d5b-6aaf-816b-a3de.a.free.pinggy.link",
+    "ollama_url": "https://kexmz-90-101-5-186.a.free.pinggy.link/api/generate",
+    "ollama_api_base": "https://kexmz-90-101-5-186.a.free.pinggy.link",
     "ollama_model": "glm-4.6:cloud",
     "ollama_check_interval": 30,
     "ollama_timeout": 60,
@@ -52,7 +52,7 @@
     },
     "rule_based_config": {
         "structure": {
-            "required_fields": ["name", "jobs"],  
+            "required_fields": ["name", "jobs"], 
             "check_circular_dependencies": true,
             "check_orphan_jobs": true
         },
@@ -61,14 +61,17 @@
             "check_readable": true,
             "check_executable": true,
             "check_shebang": true,
-            "verify_conda_env": false
+            "verify_conda_env": false,
+            "check_job_input_files": true,
+            "check_transformation_executables": true
         },
         "integrity": {
             "check_file_readability": true,
             "check_file_corruption": true,
             "validate_csv_format": true,
             "check_data_schema": true,
-            "max_file_size_mb": 1000
+            "max_file_size_mb": 1000,
+            "check_job_input_files": true
         },
         "python": {
             "check_imports": true,
@@ -100,6 +103,7 @@
     "fallback_mode": true,
     "python_api_workflow_warnings": {
         "missing_top_level_transformations": true,
-        "embedded_catalogs": true
+        "embedded_catalogs": true,
+        "jobs_missing_transformation_field": true
     }
 }
