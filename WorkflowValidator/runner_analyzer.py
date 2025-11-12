@@ -211,20 +211,34 @@ Examples:
 Response:"""
 
     try:
+        # Log prompt details
+        logger.info(f"Sending prompt to LLM (length: {len(prompt)} chars)")
+        if generator_content:
+            logger.info(f"  Runner content: {len(content[:1500])} chars")
+            logger.info(f"  Generator content: {len(generator_content[:1500])} chars")
+        logger.debug(f"Full prompt:\n{prompt}")
+
         response = llm_backend.generate(prompt, temperature=0.1, max_tokens=100)
+        logger.info(f"LLM response received (length: {len(response)} chars)")
+        logger.debug(f"Raw LLM response: {response}")
+
         response = response.strip().strip('"\'')
 
         if response.upper() == 'NONE' or not response:
+            logger.info("LLM returned NONE or empty response")
             return None
 
         # Clean up response
         response = response.split('\n')[0]  # Take first line only
         response = response.strip()
 
+        logger.info(f"Cleaned LLM response: {response}")
         return response if response else None
 
     except Exception as e:
         logger.error(f"LLM analysis failed: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         return None
 
 
