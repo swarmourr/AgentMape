@@ -24,55 +24,52 @@ def analyze_runner_script(runner_path: str, llm_backend=None, generator_path: Op
         Detected output path/pattern or None
     """
     try:
-        # First, analyze the runner script
+        # Read runner script
         with open(runner_path, 'r') as f:
             runner_content = f.read()
 
         logger.info(f"Analyzing runner script: {runner_path}")
 
-        # Try rule-based detection first (fast)
+        # Read generator script if provided
+        generator_content = None
+        if generator_path and Path(generator_path).exists():
+            try:
+                with open(generator_path, 'r') as f:
+                    generator_content = f.read()
+                logger.info(f"Also reading generator script: {generator_path}")
+            except Exception as e:
+                logger.warning(f"Could not read generator script: {e}")
+
+        # Try rule-based detection on runner first (fast)
         detected = _rule_based_detection(runner_content)
         if detected:
             logger.info(f"Rule-based detection found in runner: {detected}")
             return detected
 
-        # Fallback to LLM if available
-        if llm_backend:
-            logger.info("Using LLM to analyze runner script...")
-            detected = _llm_based_detection(runner_content, llm_backend)
+        # Try rule-based detection on generator if available
+        if generator_content:
+            detected = _rule_based_detection(generator_content)
             if detected:
-                logger.info(f"LLM detection found in runner: {detected}")
+                logger.info(f"Rule-based detection found in generator: {detected}")
                 return detected
 
-        # If nothing found in runner, analyze the generator script
-        if generator_path and Path(generator_path).exists():
-            logger.info(f"No output found in runner, analyzing generator: {generator_path}")
+        # If rule-based failed and LLM is available, use LLM with BOTH scripts
+        if llm_backend:
+            if generator_content:
+                logger.info("Using LLM to analyze BOTH runner and generator together...")
+                detected = _llm_based_detection(runner_content, llm_backend, generator_content=generator_content)
+            else:
+                logger.info("Using LLM to analyze runner script only...")
+                detected = _llm_based_detection(runner_content, llm_backend)
 
-            try:
-                with open(generator_path, 'r') as f:
-                    generator_content = f.read()
-
-                # Try rule-based detection on generator
-                detected = _rule_based_detection(generator_content)
-                if detected:
-                    logger.info(f"Rule-based detection found in generator: {detected}")
-                    return detected
-
-                # Try LLM on generator
-                if llm_backend:
-                    logger.info("Using LLM to analyze generator script...")
-                    detected = _llm_based_detection(generator_content, llm_backend)
-                    if detected:
-                        logger.info(f"LLM detection found in generator: {detected}")
-                        return detected
-
-            except Exception as e:
-                logger.warning(f"Failed to analyze generator script: {e}")
+            if detected:
+                logger.info(f"LLM detection found: {detected}")
+                return detected
 
         return None
 
     except Exception as e:
-        logger.error(f"Failed to analyze runner: {e}")
+        logger.error(f"Failed to analyze scripts: {e}")
         return None
 
 
@@ -145,15 +142,56 @@ def _rule_based_detection(content: str) -> Optional[str]:
     return None
 
 
-def _llm_based_detection(content: str, llm_backend) -> Optional[str]:
+def _llm_based_detection(content: str, llm_backend, generator_content: Optional[str] = None) -> Optional[str]:
     """
     Use LLM to analyze runner script and detect output paths
+    If generator content is provided, analyzes both together for better context
     """
-    prompt = f"""Analyze this script and determine where it saves workflow YAML files.
+    if generator_content:
+        # Analyze both scripts together
+        prompt = f"""You are analyzing a workflow generation system with two scripts:
+
+1. RUNNER SCRIPT (orchestrator that executes the generator):
+```
+{content[:1500]}
+```
+
+2. GENERATOR SCRIPT (creates the workflow YAML):
+```
+{generator_content[:1500]}
+```
+
+TASK: Determine the EXACT path or pattern where the workflow YAML file(s) will be saved.
+
+Look for:
+- Output file paths in generator (e.g., "output/workflow.yml", OUTPUT_FILE = "workflow.yml")
+- Output directories in generator (e.g., OUTPUT_DIR = "output")
+- File redirection in runner (e.g., > output.yml)
+- How runner executes generator (arguments, environment variables)
+- Merge information from both scripts to build complete path
+
+IMPORTANT:
+- If generator has OUTPUT_DIR="output" and OUTPUT_FILE="workflow.yml", respond: "output/workflow.yml"
+- If generator writes to "workflow.yml" and runner redirects > output/, respond: "output/workflow.yml"
+- If generator uses variable paths, look for how runner sets them
+- Combine directory from one script with filename from another
+
+Respond with ONLY the path/pattern where workflows are saved, or "NONE" if cannot determine.
+
+Examples:
+- "output/workflow.yml"
+- "generated_workflows/"
+- "workflows/*.yml"
+- "NONE"
+
+Response:"""
+    else:
+        # Single script analysis
+        prompt = f"""Analyze this script and determine where it saves workflow YAML files.
 
 Script:
 ```
-{content[:2000]}  # First 2000 chars
+{content[:2000]}
 ```
 
 Look for:

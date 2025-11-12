@@ -362,14 +362,20 @@ def validate(workflow, tc, rc, level, mode, output_yaml, format, output, config,
             # Show analysis method
             if llm_available:
                 click.echo(f"   Using: Rule-based + LLM analysis", err=True)
+                if workflow:
+                    click.echo(f"   LLM will analyze BOTH scripts together for better context", err=True)
             else:
                 click.echo(f"   Using: Rule-based analysis only", err=True)
                 click.echo(f"   💡 Tip: Enable LLM in validator_config.json for smarter detection", err=True)
 
-            # Analyze runner script (and generator if needed)
-            click.echo(f"   Analyzing runner: {runner}", err=True)
+            # Analyze runner script and generator together
+            click.echo(f"\n   📄 Runner:    {runner}", err=True)
             if workflow:
-                click.echo(f"   Will also check generator: {workflow}", err=True)
+                click.echo(f"   📄 Generator: {workflow}", err=True)
+                click.echo(f"   🔍 Analyzing both scripts to determine output location...", err=True)
+            else:
+                click.echo(f"   🔍 Analyzing runner script...", err=True)
+
             detected_pattern = analyze_runner_script(runner, llm_backend, generator_path=workflow)
 
             if detected_pattern:
