@@ -27,9 +27,18 @@ VALIDATION TASKS:
    - Verify argument values are reasonable
    - Detect impossible or unusual argument combinations
 
-5. CATALOGS EMBBEDDED
-  - VERIFY IF TRANSFORMATION CATALOG IS ENCLODED
-  - VERIFY IF REPLICAS CATALOGS IS ENCLODED
+5. CATALOGS EMBEDDED
+   - Verify if transformation catalog is embedded
+   - Verify if replica catalog is embedded
+   - IMPORTANT: If the workflow uses Python API catalogs (`transformationCatalog` or `replicaCatalog`), do NOT treat it as an error.  
+     Instead, emit a warning informing the user that the workflow was generated via the Python API and may need flattening for direct CLI execution.
+RULES:
+- Only report an error if the workflow cannot logically or structurally execute.
+- Missing embedded catalogs are allowed; if they are referenced externally, issue a warning only.
+- Python API–generated catalogs (`transformationCatalog`, `replicaCatalog`) should generate a warning, not an error.
+- Always include both "errors" and "improvements" lists, even if empty.
+- JSON keys must appear in this order: errors, improvements.
+- Do not output Markdown, code blocks, or text outside the JSON object.
 
 EXAMPLES OF ISSUES TO DETECT:
 
