@@ -211,21 +211,49 @@ Examples:
 Response:"""
 
     try:
+        # Print separator
+        print("\n" + "=" * 80)
+        print("LLM REQUEST")
+        print("=" * 80)
+
         # Log prompt details
         logger.info(f"Sending prompt to LLM (length: {len(prompt)} chars)")
         if generator_content:
             logger.info(f"  Runner content: {len(content[:1500])} chars")
             logger.info(f"  Generator content: {len(generator_content[:1500])} chars")
+
+        # PRINT THE FULL PROMPT
+        print(prompt)
+        print("=" * 80)
+        print(f"Prompt length: {len(prompt)} chars")
+        print(f"Temperature: 0.1")
+        print(f"Max tokens: 100")
+        print("=" * 80)
+
         logger.debug(f"Full prompt:\n{prompt}")
 
+        # Call LLM
+        print("\nSending to LLM...")
         response = llm_backend.generate(prompt, temperature=0.1, max_tokens=100)
+
+        # PRINT THE RAW RESPONSE
+        print("\n" + "=" * 80)
+        print("LLM RESPONSE")
+        print("=" * 80)
+        print(response)
+        print("=" * 80)
+        print(f"Response length: {len(response)} chars")
+        print("=" * 80)
+
         logger.info(f"LLM response received (length: {len(response)} chars)")
         logger.debug(f"Raw LLM response: {response}")
 
+        # Clean response
         response = response.strip().strip('"\'')
 
         if response.upper() == 'NONE' or not response:
             logger.info("LLM returned NONE or empty response")
+            print("\n❌ LLM could not determine output location (returned NONE)")
             return None
 
         # Clean up response
@@ -233,12 +261,15 @@ Response:"""
         response = response.strip()
 
         logger.info(f"Cleaned LLM response: {response}")
+        print(f"\n✅ LLM detected path: {response}")
         return response if response else None
 
     except Exception as e:
         logger.error(f"LLM analysis failed: {e}")
         import traceback
         logger.error(traceback.format_exc())
+        print(f"\n❌ LLM request failed: {e}")
+        traceback.print_exc()
         return None
 
 
