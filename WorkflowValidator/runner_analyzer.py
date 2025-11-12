@@ -10,34 +10,64 @@ from typing import Optional, List
 logger = logging.getLogger(__name__)
 
 
-def analyze_runner_script(runner_path: str, llm_backend=None) -> Optional[str]:
+def analyze_runner_script(runner_path: str, llm_backend=None, generator_path: Optional[str] = None) -> Optional[str]:
     """
     Analyze runner script to detect where it saves workflow YAML files
+    If not found, also analyzes the generator script
 
     Args:
         runner_path: Path to runner script
         llm_backend: Optional LLM backend for intelligent analysis
+        generator_path: Optional path to generator script (analyzed if runner detection fails)
 
     Returns:
         Detected output path/pattern or None
     """
     try:
+        # First, analyze the runner script
         with open(runner_path, 'r') as f:
-            content = f.read()
+            runner_content = f.read()
+
+        logger.info(f"Analyzing runner script: {runner_path}")
 
         # Try rule-based detection first (fast)
-        detected = _rule_based_detection(content)
+        detected = _rule_based_detection(runner_content)
         if detected:
-            logger.info(f"Rule-based detection found: {detected}")
+            logger.info(f"Rule-based detection found in runner: {detected}")
             return detected
 
         # Fallback to LLM if available
         if llm_backend:
             logger.info("Using LLM to analyze runner script...")
-            detected = _llm_based_detection(content, llm_backend)
+            detected = _llm_based_detection(runner_content, llm_backend)
             if detected:
-                logger.info(f"LLM detection found: {detected}")
+                logger.info(f"LLM detection found in runner: {detected}")
                 return detected
+
+        # If nothing found in runner, analyze the generator script
+        if generator_path and Path(generator_path).exists():
+            logger.info(f"No output found in runner, analyzing generator: {generator_path}")
+
+            try:
+                with open(generator_path, 'r') as f:
+                    generator_content = f.read()
+
+                # Try rule-based detection on generator
+                detected = _rule_based_detection(generator_content)
+                if detected:
+                    logger.info(f"Rule-based detection found in generator: {detected}")
+                    return detected
+
+                # Try LLM on generator
+                if llm_backend:
+                    logger.info("Using LLM to analyze generator script...")
+                    detected = _llm_based_detection(generator_content, llm_backend)
+                    if detected:
+                        logger.info(f"LLM detection found in generator: {detected}")
+                        return detected
+
+            except Exception as e:
+                logger.warning(f"Failed to analyze generator script: {e}")
 
         return None
 
@@ -61,7 +91,7 @@ def _rule_based_detection(content: str) -> Optional[str]:
         r'>\s*(["\']?)([^"\'\s]+\.ya?ml)\1',
 
         # Variable assignment: OUTPUT_DIR="output"
-        r'OUTPUT[_-]?DIR\s*=\s*["\']?([^"\'\s]+)["\']?',
+        r'OUTPUT[_-]?(?:DIR|FILE|PATH)\s*=\s*["\']([^"\']+)["\']',
 
         # Command line arg: -o output/ or --output output/
         r'(?:-o|--output(?:-dir)?)\s+(["\']?)([^"\'\s]+)\1',
@@ -69,11 +99,23 @@ def _rule_based_detection(content: str) -> Optional[str]:
         # Python write: open('output/file.yml', 'w')
         r'open\(["\']([^"\']+\.ya?ml)["\']',
 
+        # Python Path.write_text or write_bytes
+        r'Path\(["\']([^"\']+\.ya?ml)["\']',
+
         # Save function: save_to('output/')
-        r'save[_-]?(?:to|workflow|yaml)\(["\']([^"\']+)["\']',
+        r'(?:save|write|dump)[_-]?(?:to|workflow|yaml|file)?\(["\']([^"\']+)["\']',
 
         # Python3 command redirecting to file
         r'python3?\s+[^\n]+>\s*([^\s]+\.ya?ml)',
+
+        # YAML dump to file: yaml.dump(..., open('file.yml'))
+        r'yaml\.dump\([^)]+,\s*open\(["\']([^"\']+\.ya?ml)["\']',
+
+        # with open(...) as f: pattern
+        r'with\s+open\(["\']([^"\']+\.ya?ml)["\']',
+
+        # f.write pattern with file variable
+        r'([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*["\']([^"\']+\.ya?ml)["\']',
     ]
 
     for i, pattern in enumerate(patterns):

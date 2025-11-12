@@ -366,8 +366,11 @@ def validate(workflow, tc, rc, level, mode, output_yaml, format, output, config,
                 click.echo(f"   Using: Rule-based analysis only", err=True)
                 click.echo(f"   💡 Tip: Enable LLM in validator_config.json for smarter detection", err=True)
 
-            # Analyze runner script
-            detected_pattern = analyze_runner_script(runner, llm_backend)
+            # Analyze runner script (and generator if needed)
+            click.echo(f"   Analyzing runner: {runner}", err=True)
+            if workflow:
+                click.echo(f"   Will also check generator: {workflow}", err=True)
+            detected_pattern = analyze_runner_script(runner, llm_backend, generator_path=workflow)
 
             if detected_pattern:
                 click.echo(f"   ✅ Auto-detected output: {detected_pattern}", err=True)
