@@ -149,16 +149,20 @@ def _llm_based_detection(content: str, llm_backend, generator_content: Optional[
     """
     if generator_content:
         # Analyze both scripts together
+        # Use larger context to ensure we capture output paths
+        runner_truncate = min(len(content), 4000)
+        generator_truncate = min(len(generator_content), 4000)
+
         prompt = f"""You are analyzing a workflow generation system with two scripts:
 
 1. RUNNER SCRIPT (orchestrator that executes the generator):
 ```
-{content[:1500]}
+{content[:runner_truncate]}
 ```
 
 2. GENERATOR SCRIPT (creates the workflow YAML):
 ```
-{generator_content[:1500]}
+{generator_content[:generator_truncate]}
 ```
 
 TASK: Determine the EXACT path or pattern where the workflow YAML file(s) will be saved.
@@ -187,11 +191,14 @@ Examples:
 Response:"""
     else:
         # Single script analysis
+        # Use larger context
+        script_truncate = min(len(content), 5000)
+
         prompt = f"""Analyze this script and determine where it saves workflow YAML files.
 
 Script:
 ```
-{content[:2000]}
+{content[:script_truncate]}
 ```
 
 Look for:
@@ -219,22 +226,31 @@ Response:"""
         # Log prompt details
         logger.info(f"Sending prompt to LLM (length: {len(prompt)} chars)")
         if generator_content:
-            logger.info(f"  Runner content: {len(content[:1500])} chars")
-            logger.info(f"  Generator content: {len(generator_content[:1500])} chars")
+            runner_len = len(content)
+            gen_len = len(generator_content)
+            runner_sent = min(runner_len, 4000)
+            gen_sent = min(gen_len, 4000)
+            logger.info(f"  Runner content: {runner_sent} chars (total: {runner_len})")
+            logger.info(f"  Generator content: {gen_sent} chars (total: {gen_len})")
 
         # PRINT THE FULL PROMPT
         print(prompt)
         print("=" * 80)
         print(f"Prompt length: {len(prompt)} chars")
+        if generator_content:
+            print(f"Runner sent: {min(len(content), 4000)} chars (total: {len(content)} chars)")
+            print(f"Generator sent: {min(len(generator_content), 4000)} chars (total: {len(generator_content)} chars)")
+        else:
+            print(f"Script sent: {min(len(content), 5000)} chars (total: {len(content)} chars)")
         print(f"Temperature: 0.1")
-        print(f"Max tokens: 100")
+        print(f"Max tokens: 500")
         print("=" * 80)
 
         logger.debug(f"Full prompt:\n{prompt}")
 
-        # Call LLM
+        # Call LLM with larger max_tokens to handle longer responses
         print("\nSending to LLM...")
-        response = llm_backend.generate(prompt, temperature=0.1, max_tokens=100)
+        response = llm_backend.generate(prompt, temperature=0.1, max_tokens=500)
 
         # PRINT THE RAW RESPONSE
         print("\n" + "=" * 80)

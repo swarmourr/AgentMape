@@ -91,16 +91,25 @@ except Exception as e:
 
 # Build prompt
 print(f"\nBuilding prompt...")
+
+# Use larger context to capture more of the scripts
+runner_truncate = min(len(runner_content), 4000)
+generator_truncate = min(len(generator_content), 4000)
+
+print(f"  Using context size:")
+print(f"    Runner:    {runner_truncate} / {len(runner_content)} chars")
+print(f"    Generator: {generator_truncate} / {len(generator_content)} chars")
+
 prompt = f"""You are analyzing a workflow generation system with two scripts:
 
 1. RUNNER SCRIPT (orchestrator that executes the generator):
 ```
-{runner_content[:1500]}
+{runner_content[:runner_truncate]}
 ```
 
 2. GENERATOR SCRIPT (creates the workflow YAML):
 ```
-{generator_content[:1500]}
+{generator_content[:generator_truncate]}
 ```
 
 TASK: Determine the EXACT path or pattern where the workflow YAML file(s) will be saved.
@@ -129,8 +138,6 @@ Examples:
 Response:"""
 
 print(f"✓ Prompt built: {len(prompt)} chars")
-print(f"  Runner content sent:    {len(runner_content[:1500])} chars")
-print(f"  Generator content sent: {len(generator_content[:1500])} chars")
 
 # Save prompt to file
 prompt_file = "/tmp/llm_prompt_test.txt"
@@ -145,8 +152,10 @@ print("=" * 80)
 print(prompt)
 print("=" * 80)
 print(f"Prompt length: {len(prompt)} chars")
+print(f"Runner sent: {runner_truncate} chars (total: {len(runner_content)} chars)")
+print(f"Generator sent: {generator_truncate} chars (total: {len(generator_content)} chars)")
 print(f"Temperature: 0.1")
-print(f"Max tokens: 100")
+print(f"Max tokens: 500")
 print("=" * 80)
 
 # Send to LLM
@@ -156,7 +165,7 @@ print(f"   Model: {llm_config.get('model')}")
 print(f"   Please wait...\n")
 
 try:
-    response = backend.generate(prompt, temperature=0.1, max_tokens=100)
+    response = backend.generate(prompt, temperature=0.1, max_tokens=500)
 
     # SHOW THE RESPONSE
     print("=" * 80)
