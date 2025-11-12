@@ -176,12 +176,23 @@ class StructureValidator:
 
             if not has_transformation and context.transformation_catalog:
                 # Check if job name matches a transformation in the catalog
-                transformations = context.transformation_catalog.get('transformations', [])
-                if isinstance(transformations, list):
-                    transformation_names = [t.get('name') for t in transformations if isinstance(t, dict) and 'name' in t]
-                    has_transformation = job_name in transformation_names
-                elif isinstance(transformations, dict):
-                    has_transformation = job_name in transformations
+                # Handle both embedded (transformationCatalog key) and separate catalog (transformations key)
+                transformations = None
+
+                # Try embedded format first (transformationCatalog.transformations)
+                if 'transformationCatalog' in context.transformation_catalog:
+                    tc = context.transformation_catalog['transformationCatalog']
+                    transformations = tc.get('transformations', [])
+                # Try direct transformations key (separate catalog file or old format)
+                elif 'transformations' in context.transformation_catalog:
+                    transformations = context.transformation_catalog.get('transformations', [])
+
+                if transformations:
+                    if isinstance(transformations, list):
+                        transformation_names = [t.get('name') for t in transformations if isinstance(t, dict) and 'name' in t]
+                        has_transformation = job_name in transformation_names
+                    elif isinstance(transformations, dict):
+                        has_transformation = job_name in transformations
 
             if not has_transformation:
                 issues.append(ValidationIssue(
