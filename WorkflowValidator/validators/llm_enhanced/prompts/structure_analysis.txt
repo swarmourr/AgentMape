@@ -26,26 +26,25 @@ VALIDATION TASKS:
    - Identify missing steps in the pipeline
    - Check if workflow has all necessary stages
    - Verify data flow makes sense end-to-end
+   - Treat missing top-level 'transformations' as a warning (not an error) if workflow is Python API–generated
 
 4. ARGUMENT VALIDATION
    - Check if job arguments are consistent
    - Verify argument values are reasonable
    - Detect impossible or unusual argument combinations
    - Detect exposed authentication tokens (e.g., Hugging Face tokens)
+   - Emit a critical error if secrets are hardcoded
 
 5. CATALOGS EMBEDDED
    - Verify if transformation catalog is embedded
    - Verify if replica catalog is embedded
-   - IMPORTANT: If the workflow uses Python API catalogs (`transformationCatalog` or `replicaCatalog`), do NOT treat missing top-level 'transformations' as an error.  
-     Instead, emit a warning informing the user that the workflow was generated via Python API and may need flattening for CLI execution.
+   - If Python API catalogs (`transformationCatalog` or `replicaCatalog`) are used, emit a warning, not an error
 
-RULES:
-- Only report an error if the workflow cannot logically or structurally execute (e.g., exposed secrets, jobs referencing nonexistent transformations).  
-- Missing embedded catalogs are allowed; if they are referenced externally, issue a warning only.  
-- Python API–generated catalogs (`transformationCatalog`, `replicaCatalog`) should generate a warning, not an error.  
-- Missing top-level `transformations` in Python API workflows should be a **warning**, not an error.  
-- Always include both "errors" and "improvements" lists, even if empty.  
-- JSON keys must appear in this order: errors, improvements.  
+VALIDATION INSTRUCTIONS:
+- Only report an error if the workflow cannot logically or structurally execute.
+- Warnings can be used for Python API–specific issues, missing top-level fields, or embedded catalogs.
+- Always include both "errors" and "improvements" lists, even if empty.
+- JSON keys must appear in this order: errors, improvements.
 
 EXAMPLES OF ISSUES TO DETECT:
 
