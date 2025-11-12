@@ -40,11 +40,6 @@ VALIDATION TASKS:
    - Verify if replica catalog is embedded
    - If Python API catalogs (`transformationCatalog` or `replicaCatalog`) are used, emit a warning, not an error
 
-VALIDATION INSTRUCTIONS:
-- Only report an error if the workflow cannot logically or structurally execute.
-- Warnings can be used for Python API–specific issues, missing top-level fields, or embedded catalogs.
-- Always include both "errors" and "improvements" lists, even if empty.
-- JSON keys must appear in this order: errors, improvements.
 
 EXAMPLES OF ISSUES TO DETECT:
 
