@@ -132,6 +132,7 @@ class PathValidator:
 
             # Resolve path relative to workflow directory
             resolved_pfn = self._resolve_path(pfn, base_dir)
+            logger.info(f"Validating transformation: {trans_name} -> {resolved_pfn}")
 
             # Check if file exists
             if self.check_exists and not os.path.exists(resolved_pfn):
@@ -175,6 +176,10 @@ class PathValidator:
                 shebang_issue = self._check_shebang(resolved_pfn, trans_name)
                 if shebang_issue:
                     issues.append(shebang_issue)
+                else:
+                    logger.info(f"✓ Transformation executable OK: {trans_name}")
+            else:
+                logger.info(f"✓ Transformation executable OK: {trans_name}")
 
         return issues, checks
 
@@ -260,6 +265,7 @@ class PathValidator:
             for pfn in pfns_to_check:
                 # Resolve path relative to workflow directory
                 resolved_pfn = self._resolve_path(pfn, base_dir)
+                logger.info(f"Validating replica path: {lfn} -> {resolved_pfn}")
 
                 # Check if file exists
                 if self.check_exists and not os.path.exists(resolved_pfn):
@@ -299,6 +305,8 @@ class PathValidator:
                             suggestion="Check if file is complete or was truncated",
                             detected_by="rule"
                         ))
+                    else:
+                        logger.info(f"✓ Replica file OK: {lfn} ({size} bytes)")
                 except Exception as e:
                     logger.debug(f"Could not check file size for {pfn}: {e}")
 

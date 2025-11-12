@@ -75,6 +75,8 @@ class IntegrityValidator:
                     if not os.path.exists(pfn):
                         continue  # Already caught by path validator
 
+                    logger.info(f"Checking integrity: {lfn} -> {pfn}")
+
                     # Check file size
                     try:
                         size_mb = os.path.getsize(pfn) / (1024 * 1024)
@@ -86,10 +88,12 @@ class IntegrityValidator:
                         continue
 
                     # Check readability
+                    has_issues = False
                     if self.check_readability:
                         issue = self._check_readability(pfn, lfn)
                         if issue:
                             issues.append(issue)
+                            has_issues = True
                         checks_performed += 1
 
                     # Check format for CSV files
@@ -97,7 +101,11 @@ class IntegrityValidator:
                         issue = self._check_csv_format(pfn, lfn)
                         if issue:
                             issues.append(issue)
+                            has_issues = True
                         checks_performed += 1
+
+                    if not has_issues:
+                        logger.info(f"✓ Integrity OK: {lfn}")
 
         # Determine status
         error_count = len([i for i in issues if i.severity in [Severity.CRITICAL, Severity.ERROR]])
