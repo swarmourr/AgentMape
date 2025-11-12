@@ -214,10 +214,17 @@ class PathValidator:
         issues = []
         checks = 0
 
-        if 'replicas' not in rc:
+        # Handle both 'replicaCatalog.replicas' (Pegasus 5.0+) and 'replicas' (older format)
+        replicas = None
+        if 'replicaCatalog' in rc and 'replicas' in rc['replicaCatalog']:
+            replicas = rc['replicaCatalog']['replicas']
+        elif 'replicas' in rc:
+            replicas = rc['replicas']
+
+        if not replicas:
             return issues, checks
 
-        for replica in rc['replicas']:
+        for replica in replicas:
             if 'lfn' not in replica:
                 continue
 

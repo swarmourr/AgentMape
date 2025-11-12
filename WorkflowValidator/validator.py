@@ -286,9 +286,14 @@ class WorkflowValidator:
                 logger.warning(f"Failed to load transformation catalog: {e}")
         else:
             # Try to find transformation catalog in workflow
-            if context.workflow_yaml_content and 'transformations' in context.workflow_yaml_content:
-                context.transformation_catalog = context.workflow_yaml_content
-                logger.debug("Using transformations from workflow YAML")
+            # Check for both 'transformationCatalog' (Pegasus 5.0+) and 'transformations' (older format)
+            if context.workflow_yaml_content:
+                if 'transformationCatalog' in context.workflow_yaml_content:
+                    context.transformation_catalog = context.workflow_yaml_content
+                    logger.debug("Using transformationCatalog from workflow YAML")
+                elif 'transformations' in context.workflow_yaml_content:
+                    context.transformation_catalog = context.workflow_yaml_content
+                    logger.debug("Using transformations from workflow YAML")
 
         # Load replica catalog
         if rc_path:
@@ -301,9 +306,14 @@ class WorkflowValidator:
                 logger.warning(f"Failed to load replica catalog: {e}")
         else:
             # Try to find replica catalog in workflow
-            if context.workflow_yaml_content and 'replicas' in context.workflow_yaml_content:
-                context.replica_catalog = context.workflow_yaml_content
-                logger.debug("Using replicas from workflow YAML")
+            # Check for both 'replicaCatalog' (Pegasus 5.0+) and 'replicas' (older format)
+            if context.workflow_yaml_content:
+                if 'replicaCatalog' in context.workflow_yaml_content:
+                    context.replica_catalog = context.workflow_yaml_content
+                    logger.debug("Using replicaCatalog from workflow YAML")
+                elif 'replicas' in context.workflow_yaml_content:
+                    context.replica_catalog = context.workflow_yaml_content
+                    logger.debug("Using replicas from workflow YAML")
 
         return context
 

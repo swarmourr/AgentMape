@@ -40,8 +40,16 @@ class IntegrityValidator:
         checks_performed = 0
 
         # Validate files from replica catalog
-        if context.replica_catalog and 'replicas' in context.replica_catalog:
-            for replica in context.replica_catalog['replicas']:
+        # Handle both 'replicaCatalog.replicas' (Pegasus 5.0+) and 'replicas' (older format)
+        replicas = None
+        if context.replica_catalog:
+            if 'replicaCatalog' in context.replica_catalog and 'replicas' in context.replica_catalog['replicaCatalog']:
+                replicas = context.replica_catalog['replicaCatalog']['replicas']
+            elif 'replicas' in context.replica_catalog:
+                replicas = context.replica_catalog['replicas']
+
+        if replicas:
+            for replica in replicas:
                 if 'lfn' not in replica or 'pfn' not in replica:
                     continue
 
