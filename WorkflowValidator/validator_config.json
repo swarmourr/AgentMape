@@ -52,7 +52,7 @@
     },
     "rule_based_config": {
         "structure": {
-            "required_fields": ["name", "jobs", "transformations"],
+            "required_fields": ["name", "jobs", ".transformations"],
             "check_circular_dependencies": true,
             "check_orphan_jobs": true
         },
