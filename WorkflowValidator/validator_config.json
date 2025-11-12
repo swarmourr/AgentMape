@@ -52,7 +52,7 @@
     },
     "rule_based_config": {
         "structure": {
-            "required_fields": ["name", "jobs", ".transformations"],
+            "required_fields": ["name", "jobs"],  
             "check_circular_dependencies": true,
             "check_orphan_jobs": true
         },
@@ -87,7 +87,7 @@
         "verbosity": "standard",
         "use_colors": true,
         "show_suggestions": true,
-        "show_llm_reasoning": false
+        "show_llm_reasoning": true
     },
     "log_level": "INFO",
     "log_file": "validator.log",
@@ -97,5 +97,9 @@
     "dashboard_url": "http://localhost:5000",
     "enable_rest_api": true,
     "connection_timeout": 30,
-    "fallback_mode": true
+    "fallback_mode": true,
+    "python_api_workflow_warnings": {
+        "missing_top_level_transformations": true,
+        "embedded_catalogs": true
+    }
 }
