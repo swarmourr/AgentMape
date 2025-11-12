@@ -11,7 +11,7 @@
         "host": "https://vtgzc-2a01-cb11-e2f-4e00-6d5b-6aaf-816b-a3de.a.free.pinggy.link",
         "model": "glm-4.6:cloud",
         "timeout": 60,
-        "temperature": 0.1,
+        "temperature": 0.6,
         "max_tokens": 200000
     },
     "ollama_url": "https://vtgzc-2a01-cb11-e2f-4e00-6d5b-6aaf-816b-a3de.a.free.pinggy.link/api/generate",
