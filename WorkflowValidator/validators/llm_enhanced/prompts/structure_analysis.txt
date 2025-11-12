@@ -26,7 +26,7 @@ VALIDATION TASKS:
    - Identify missing steps in the pipeline
    - Check if workflow has all necessary stages
    - Verify data flow makes sense end-to-end
-   - Treat missing top-level 'transformations' as a warning (not an error) if workflow is Python API–generated
+   - If workflow is Python API–generated and top-level 'transformations' field is missing, treat this as a **warning**, not an error
 
 4. ARGUMENT VALIDATION
    - Check if job arguments are consistent
