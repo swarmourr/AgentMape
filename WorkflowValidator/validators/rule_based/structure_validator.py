@@ -68,7 +68,7 @@ class StructureValidator:
 
         # Check 2: Job structure
         if 'jobs' in workflow:
-            issues.extend(self._check_jobs(workflow['jobs'], context.workflow_yaml_path))
+            issues.extend(self._check_jobs(workflow['jobs'], context.workflow_yaml_path, context))
             checks_performed += 1
 
             # Check 3: Dependencies
@@ -122,7 +122,7 @@ class StructureValidator:
 
         return issues
 
-    def _check_jobs(self, jobs: List[Dict], file_path: str) -> List[ValidationIssue]:
+    def _check_jobs(self, jobs: List[Dict], file_path: str, context: WorkflowContext = None) -> List[ValidationIssue]:
         """Check job definitions"""
         issues = []
 
@@ -170,13 +170,27 @@ class StructureValidator:
                 job_names.add(job_name)
 
             # Check transformation field
-            if 'transformation' not in job:
+            # First check if transformation is defined in the job itself
+            # If not, check if it's defined in the transformation catalog
+            has_transformation = 'transformation' in job
+
+            if not has_transformation and context.transformation_catalog:
+                # Check if job name matches a transformation in the catalog
+                transformations = context.transformation_catalog.get('transformations', [])
+                if isinstance(transformations, list):
+                    transformation_names = [t.get('name') for t in transformations if isinstance(t, dict) and 'name' in t]
+                    has_transformation = job_name in transformation_names
+                elif isinstance(transformations, dict):
+                    has_transformation = job_name in transformations
+
+            if not has_transformation:
                 issues.append(ValidationIssue(
                     severity=Severity.ERROR,
                     category=Category.STRUCTURE,
                     message=f"Job '{job_name}' missing 'transformation' field",
                     location=f"{file_path}:job[{idx}]",
-                    suggestion="Add 'transformation' field specifying which transformation to use",
+                    explanation="Job must specify which transformation to execute, either in the job definition or transformation catalog",
+                    suggestion="Add 'transformation' field in job, OR define transformation in transformation catalog with same name as job",
                     detected_by="rule"
                 ))
 
