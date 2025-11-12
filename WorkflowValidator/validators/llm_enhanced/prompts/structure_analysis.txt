@@ -1,9 +1,5 @@
 You are an expert Pegasus workflow validator. Analyze this workflow for structural and logical errors.
 
-IMPORTANT: Start your output immediately with the JSON object starting with '{{'.  
-Do NOT add any text, explanation, Markdown, or newlines before or after the JSON object.  
-Output must be strictly valid JSON with double quotes.  
-
 WORKFLOW YAML:
 {workflow_yaml}
 
@@ -26,20 +22,27 @@ VALIDATION TASKS:
    - Identify missing steps in the pipeline
    - Check if workflow has all necessary stages
    - Verify data flow makes sense end-to-end
-   - If workflow is Python API–generated and top-level 'transformations' field is missing, treat this as a **warning**, not an error
+   - If workflow is Python API–generated and top-level 'transformations' field is missing, treat this as a warning, not an error
+   - If jobs do not have explicit 'transformation' fields, validate them against the embedded transformationCatalog
 
-4. ARGUMENT VALIDATION
+4. TRANSFORMATION VALIDATION
+   - For each job, check if its 'transformation' exists in the embedded transformationCatalog
+   - If a job references a transformation not in the catalog, mark as ERROR
+   - If a job has no 'transformation' field, try to infer from job name and validate against transformationCatalog; if not found, issue a WARNING
+   - Validate that transformation PFN paths exist and are executable
+   - Validate that containers referenced in transformations exist
+
+5. ARGUMENT VALIDATION
    - Check if job arguments are consistent
    - Verify argument values are reasonable
    - Detect impossible or unusual argument combinations
-   - Detect exposed authentication tokens (e.g., Hugging Face tokens)
-   - Emit a critical error if secrets are hardcoded
+   - Detect exposed authentication tokens (e.g., Hugging Face tokens) and mark as CRITICAL errors
 
-5. CATALOGS EMBEDDED
+6. CATALOGS EMBEDDED
    - Verify if transformation catalog is embedded
    - Verify if replica catalog is embedded
-   - If Python API catalogs (`transformationCatalog` or `replicaCatalog`) are used, emit a warning, not an error
-
+   - Embedded catalogs may generate warnings but are not errors
+   - Do not require a top-level 'transformations:' field for Python API workflows
 
 EXAMPLES OF ISSUES TO DETECT:
 
