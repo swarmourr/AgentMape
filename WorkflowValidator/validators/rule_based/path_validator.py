@@ -231,61 +231,75 @@ class PathValidator:
             lfn = replica['lfn']
             checks += 1
 
-            # Get PFN
-            pfn = replica.get('pfn')
-            if not pfn:
+            # Get PFN - handle both 'pfn' (old format) and 'pfns' (Pegasus 5.0+ array format)
+            pfns_to_check = []
+
+            if 'pfn' in replica:
+                # Old format: single pfn
+                pfns_to_check.append(replica['pfn'])
+            elif 'pfns' in replica:
+                # New format: array of pfns with site info
+                for pfn_entry in replica['pfns']:
+                    if isinstance(pfn_entry, dict) and 'pfn' in pfn_entry:
+                        pfns_to_check.append(pfn_entry['pfn'])
+                    elif isinstance(pfn_entry, str):
+                        pfns_to_check.append(pfn_entry)
+
+            if not pfns_to_check:
                 issues.append(ValidationIssue(
                     severity=Severity.WARNING,
                     category=Category.PATHS,
                     message=f"Replica '{lfn}' has no PFN specified",
                     location=f"replica:{lfn}",
-                    suggestion="Add 'pfn' field with physical file path",
+                    suggestion="Add 'pfn' field or 'pfns' array with physical file path(s)",
                     detected_by="rule"
                 ))
                 continue
 
-            # Resolve path relative to workflow directory
-            resolved_pfn = self._resolve_path(pfn, base_dir)
+            # Check each PFN (usually just one)
+            for pfn in pfns_to_check:
+                # Resolve path relative to workflow directory
+                resolved_pfn = self._resolve_path(pfn, base_dir)
 
-            # Check if file exists
-            if self.check_exists and not os.path.exists(resolved_pfn):
-                issues.append(ValidationIssue(
-                    severity=Severity.ERROR,
-                    category=Category.PATHS,
-                    message=f"Input file not found: {pfn}",
-                    location=f"replica:{lfn}",
-                    explanation=f"File does not exist at specified path (resolved to: {resolved_pfn})",
-                    impact="Workflow will fail when trying to access this file",
-                    suggestion=f"Create file at {pfn} or update PFN in replica catalog",
-                    detected_by="rule"
-                ))
-                continue
-
-            # Check if readable
-            if self.check_readable and not os.access(resolved_pfn, os.R_OK):
-                issues.append(ValidationIssue(
-                    severity=Severity.ERROR,
-                    category=Category.PATHS,
-                    message=f"Input file not readable: {pfn}",
-                    location=f"replica:{lfn}",
-                    suggestion=f"Fix file permissions: chmod +r {resolved_pfn}",
-                    detected_by="rule"
-                ))
-
-            # Check file size (warn if empty)
-            try:
-                size = os.path.getsize(resolved_pfn)
-                if size == 0:
+                # Check if file exists
+                if self.check_exists and not os.path.exists(resolved_pfn):
                     issues.append(ValidationIssue(
-                        severity=Severity.WARNING,
+                        severity=Severity.ERROR,
                         category=Category.PATHS,
-                        message=f"Input file is empty: {pfn}",
+                        message=f"Input file not found: {pfn}",
                         location=f"replica:{lfn}",
-                        explanation="File exists but has zero bytes",
-                        suggestion="Check if file is complete or was truncated",
+                        explanation=f"File does not exist at specified path (resolved to: {resolved_pfn})",
+                        impact="Workflow will fail when trying to access this file",
+                        suggestion=f"Create file at {pfn} or update PFN in replica catalog",
                         detected_by="rule"
                     ))
-            except Exception as e:
-                logger.debug(f"Could not check file size for {pfn}: {e}")
+                    continue
+
+                # Check if readable
+                if self.check_readable and not os.access(resolved_pfn, os.R_OK):
+                    issues.append(ValidationIssue(
+                        severity=Severity.ERROR,
+                        category=Category.PATHS,
+                        message=f"Input file not readable: {pfn}",
+                        location=f"replica:{lfn}",
+                        suggestion=f"Fix file permissions: chmod +r {resolved_pfn}",
+                        detected_by="rule"
+                    ))
+
+                # Check file size (warn if empty)
+                try:
+                    size = os.path.getsize(resolved_pfn)
+                    if size == 0:
+                        issues.append(ValidationIssue(
+                            severity=Severity.WARNING,
+                            category=Category.PATHS,
+                            message=f"Input file is empty: {pfn}",
+                            location=f"replica:{lfn}",
+                            explanation="File exists but has zero bytes",
+                            suggestion="Check if file is complete or was truncated",
+                            detected_by="rule"
+                        ))
+                except Exception as e:
+                    logger.debug(f"Could not check file size for {pfn}: {e}")
 
         return issues, checks

@@ -50,38 +50,54 @@ class IntegrityValidator:
 
         if replicas:
             for replica in replicas:
-                if 'lfn' not in replica or 'pfn' not in replica:
+                if 'lfn' not in replica:
                     continue
 
                 lfn = replica['lfn']
-                pfn = replica['pfn']
 
-                if not os.path.exists(pfn):
-                    continue  # Already caught by path validator
+                # Get PFN - handle both 'pfn' (old format) and 'pfns' (Pegasus 5.0+ array format)
+                pfns_to_check = []
 
-                # Check file size
-                try:
-                    size_mb = os.path.getsize(pfn) / (1024 * 1024)
-                    if size_mb > self.max_file_size_mb:
-                        logger.info(f"Skipping integrity check for large file: {pfn} ({size_mb:.1f} MB)")
-                        continue
-                except Exception as e:
-                    logger.debug(f"Could not get file size for {pfn}: {e}")
+                if 'pfn' in replica:
+                    pfns_to_check.append(replica['pfn'])
+                elif 'pfns' in replica:
+                    for pfn_entry in replica['pfns']:
+                        if isinstance(pfn_entry, dict) and 'pfn' in pfn_entry:
+                            pfns_to_check.append(pfn_entry['pfn'])
+                        elif isinstance(pfn_entry, str):
+                            pfns_to_check.append(pfn_entry)
+
+                if not pfns_to_check:
                     continue
 
-                # Check readability
-                if self.check_readability:
-                    issue = self._check_readability(pfn, lfn)
-                    if issue:
-                        issues.append(issue)
-                    checks_performed += 1
+                # Check each PFN
+                for pfn in pfns_to_check:
+                    if not os.path.exists(pfn):
+                        continue  # Already caught by path validator
 
-                # Check format for CSV files
-                if self.validate_csv and pfn.endswith('.csv'):
-                    issue = self._check_csv_format(pfn, lfn)
-                    if issue:
-                        issues.append(issue)
-                    checks_performed += 1
+                    # Check file size
+                    try:
+                        size_mb = os.path.getsize(pfn) / (1024 * 1024)
+                        if size_mb > self.max_file_size_mb:
+                            logger.info(f"Skipping integrity check for large file: {pfn} ({size_mb:.1f} MB)")
+                            continue
+                    except Exception as e:
+                        logger.debug(f"Could not get file size for {pfn}: {e}")
+                        continue
+
+                    # Check readability
+                    if self.check_readability:
+                        issue = self._check_readability(pfn, lfn)
+                        if issue:
+                            issues.append(issue)
+                        checks_performed += 1
+
+                    # Check format for CSV files
+                    if self.validate_csv and pfn.endswith('.csv'):
+                        issue = self._check_csv_format(pfn, lfn)
+                        if issue:
+                            issues.append(issue)
+                        checks_performed += 1
 
         # Determine status
         error_count = len([i for i in issues if i.severity in [Severity.CRITICAL, Severity.ERROR]])
