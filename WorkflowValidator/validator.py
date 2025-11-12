@@ -6,7 +6,7 @@ import yaml
 import json
 import logging
 from pathlib import Path
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple, List
 from datetime import datetime
 
 from models import ValidationReport, ValidationStatus, WorkflowContext
@@ -75,7 +75,9 @@ class WorkflowValidator:
         replica_catalog_path: Optional[str] = None,
         level: str = 'standard',
         mode: str = 'hybrid',
-        output_yaml_path: Optional[str] = None
+        output_yaml_path: Optional[str] = None,
+        workflow_dir: Optional[str] = None,
+        workflow_args: Optional[List[str]] = None
     ) -> Tuple[ValidationReport, Optional[str]]:
         """
         Validate a Pegasus workflow
@@ -85,9 +87,13 @@ class WorkflowValidator:
             transformation_catalog_path: Path to transformation catalog (optional)
             replica_catalog_path: Path to replica catalog (optional)
             level: Validation level ('quick', 'standard', 'full')
+            mode: Generation mode for .py files ('hybrid', 'offline')
+            output_yaml_path: Output path for generated YAML (optional)
+            workflow_dir: Working directory for the workflow (where relative paths resolve from)
+            workflow_args: Arguments to pass to workflow script (for execution context)
 
         Returns:
-            ValidationReport with all results
+            Tuple of (ValidationReport, generated_yaml_path)
         """
         import time
         start_time = time.time()
@@ -101,6 +107,8 @@ class WorkflowValidator:
         logger.info(f"Input file: {workflow_path}")
         logger.info(f"File type: {file_ext}")
         logger.info(f"Validation level: {level}")
+        if workflow_args:
+            logger.info(f"Workflow arguments: {' '.join(workflow_args)}")
 
         # CASE 1: Python descriptor input (.py file)
         if file_ext == '.py':
@@ -167,7 +175,8 @@ class WorkflowValidator:
         context = self._build_context(
             workflow_path,
             transformation_catalog_path,
-            replica_catalog_path
+            replica_catalog_path,
+            workflow_dir
         )
 
         # Determine which validators to run based on level
@@ -237,13 +246,21 @@ class WorkflowValidator:
         self,
         workflow_path: str,
         tc_path: Optional[str],
-        rc_path: Optional[str]
+        rc_path: Optional[str],
+        workflow_dir: Optional[str] = None
     ) -> WorkflowContext:
         """Build workflow context by loading all necessary files"""
 
         # Get absolute path and base directory of workflow file
         workflow_abs_path = Path(workflow_path).resolve()
-        base_dir = str(workflow_abs_path.parent)
+
+        # Use provided workflow_dir if given, otherwise use workflow file's parent directory
+        if workflow_dir:
+            base_dir = str(Path(workflow_dir).resolve())
+            logger.info(f"Using provided workflow directory: {base_dir}")
+        else:
+            base_dir = str(workflow_abs_path.parent)
+            logger.debug(f"Using workflow file's directory: {base_dir}")
 
         context = WorkflowContext(
             workflow_yaml_path=str(workflow_abs_path),
