@@ -336,8 +336,8 @@ def validate(workflow, tc, rc, level, mode, output_yaml, format, output, config,
                 if validator_config_path.exists():
                     import json
                     with open(validator_config_path) as f:
-                        config = json.load(f)
-                        llm_config = config.get('llm_backend', {})
+                        validator_config = json.load(f)
+                        llm_config = validator_config.get('llm_backend', {})
                         if llm_config.get('enabled', False):
                             llm_backend = OllamaBackend(llm_config)
                             if llm_backend.is_available():
