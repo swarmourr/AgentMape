@@ -330,6 +330,7 @@ def validate(workflow, tc, rc, level, mode, output_yaml, format, output, config,
 
             # Initialize LLM backend for analysis (if available)
             llm_backend = None
+            llm_available = False
             try:
                 from validators.llm_enhanced.llm_backends import OllamaBackend
                 validator_config_path = Path(__file__).parent / 'validator_config.json'
@@ -341,10 +342,29 @@ def validate(workflow, tc, rc, level, mode, output_yaml, format, output, config,
                         if llm_config.get('enabled', False):
                             llm_backend = OllamaBackend(llm_config)
                             if llm_backend.is_available():
-                                click.echo(f"   LLM backend available for analysis", err=True)
+                                llm_available = True
+                                click.echo(f"   ✓ LLM backend available for intelligent analysis", err=True)
+                            else:
+                                if verbose:
+                                    click.echo(f"   ⚠️  LLM backend configured but not available", err=True)
+                        else:
+                            if verbose:
+                                click.echo(f"   ⚠️  LLM backend disabled in config", err=True)
+                else:
+                    if verbose:
+                        click.echo(f"   ⚠️  Config file not found: {validator_config_path}", err=True)
             except Exception as e:
                 if verbose:
-                    click.echo(f"   LLM backend not available: {e}", err=True)
+                    click.echo(f"   ⚠️  LLM backend initialization failed: {e}", err=True)
+                    import traceback
+                    traceback.print_exc()
+
+            # Show analysis method
+            if llm_available:
+                click.echo(f"   Using: Rule-based + LLM analysis", err=True)
+            else:
+                click.echo(f"   Using: Rule-based analysis only", err=True)
+                click.echo(f"   💡 Tip: Enable LLM in validator_config.json for smarter detection", err=True)
 
             # Analyze runner script
             detected_pattern = analyze_runner_script(runner, llm_backend)
@@ -354,7 +374,22 @@ def validate(workflow, tc, rc, level, mode, output_yaml, format, output, config,
                 generated_workflows = detected_pattern
             else:
                 click.echo(f"   ⚠️  Could not auto-detect output location", err=True)
-                click.echo(f"   Trying standard output (stdout) capture...", err=True)
+
+                # Ask user for the output location
+                click.echo(f"\n❓ Where does the runner save workflow YAML files?", err=True)
+                click.echo(f"   Examples:", err=True)
+                click.echo(f"   - output/workflow.yml  (single file)", err=True)
+                click.echo(f"   - output/             (directory)", err=True)
+                click.echo(f"   - output/*.yml        (glob pattern)", err=True)
+                click.echo(f"   - [press Enter to capture stdout instead]", err=True)
+
+                user_input = input("\n   Output location: ").strip()
+
+                if user_input:
+                    click.echo(f"   ✓ Using user-specified location: {user_input}", err=True)
+                    generated_workflows = user_input
+                else:
+                    click.echo(f"   Falling back to stdout capture...", err=True)
 
             # Build command to run the runner
             cmd = []

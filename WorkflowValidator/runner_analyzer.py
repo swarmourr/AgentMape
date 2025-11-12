@@ -71,23 +71,34 @@ def _rule_based_detection(content: str) -> Optional[str]:
 
         # Save function: save_to('output/')
         r'save[_-]?(?:to|workflow|yaml)\(["\']([^"\']+)["\']',
+
+        # Python3 command redirecting to file
+        r'python3?\s+[^\n]+>\s*([^\s]+\.ya?ml)',
     ]
 
-    for pattern in patterns:
+    for i, pattern in enumerate(patterns):
         match = re.search(pattern, content, re.IGNORECASE)
         if match:
             # Get the last captured group (the path)
             path = match.group(match.lastindex)
+            logger.debug(f"Pattern {i} matched: {path}")
             if path and ('output' in path.lower() or '.yml' in path or '.yaml' in path):
                 return path
 
-    # Check for common output directories
-    common_dirs = ['output', 'generated', 'workflows', 'yaml']
-    for dir_name in common_dirs:
-        if f'mkdir.*{dir_name}' in content or f'{dir_name}/' in content:
-            # Found directory creation or usage
-            # Return pattern to match all YAML files in it
-            return f'{dir_name}/*.yml'
+    # Check for common output directories with more specific patterns
+    common_dir_patterns = [
+        r'mkdir\s+-p\s+["\']?([^"\'\s]+)["\']?',  # mkdir -p output
+        r'(?:cd|pushd)\s+([^;\n]+)',  # cd output
+    ]
+
+    for pattern in common_dir_patterns:
+        match = re.search(pattern, content, re.IGNORECASE)
+        if match:
+            dir_path = match.group(1).strip()
+            logger.debug(f"Found directory: {dir_path}")
+            # Check if YAML files are written to this directory
+            if '.yml' in content or '.yaml' in content:
+                return f'{dir_path}/*.yml'
 
     return None
 
