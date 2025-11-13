@@ -193,7 +193,7 @@ Return JSON:
   ]
 }}"""
 
-        response = self._call_llm_and_log(prompt, validator_name)
+        response = self._call_llm_and_log(prompt, "llm_paths")
         issues = self._parse_llm_response(response, "llm_paths")
 
         return ValidatorResult(
@@ -232,7 +232,7 @@ Return JSON:
   ]
 }}"""
 
-        response = self._call_llm_and_log(prompt, validator_name)
+        response = self._call_llm_and_log(prompt, "llm_resources")
         issues = self._parse_llm_response(response, "llm_resources")
 
         return ValidatorResult(
@@ -267,7 +267,7 @@ Return JSON:
   ]
 }}"""
 
-        response = self._call_llm_and_log(prompt, validator_name)
+        response = self._call_llm_and_log(prompt, "llm_integrity")
         issues = self._parse_llm_response(response, "llm_integrity")
 
         return ValidatorResult(
@@ -302,7 +302,7 @@ Return JSON:
   ]
 }}"""
 
-        response = self._call_llm_and_log(prompt, validator_name)
+        response = self._call_llm_and_log(prompt, "llm_security")
         issues = self._parse_llm_response(response, "llm_security")
 
         return ValidatorResult(
@@ -338,7 +338,7 @@ Return JSON:
   ]
 }}"""
 
-        response = self._call_llm_and_log(prompt, validator_name)
+        response = self._call_llm_and_log(prompt, "llm_best_practices")
         issues = self._parse_llm_response(response, "llm_best_practices")
 
         return ValidatorResult(
