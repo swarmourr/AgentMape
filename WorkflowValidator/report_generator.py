@@ -4,6 +4,7 @@ Report generator for validation results
 import json
 from typing import Dict, Any
 from models import ValidationReport, Severity, ValidationStatus
+from llm_response_aggregator import LLMResponseAggregator
 
 
 class ReportGenerator:
@@ -14,6 +15,8 @@ class ReportGenerator:
         self.use_colors = self.config.get('use_colors', True)
         self.verbosity = self.config.get('verbosity', 'standard')
         self.show_suggestions = self.config.get('show_suggestions', True)
+        self.llm_report_mode = self.config.get('llm_report_mode', 'consolidated')
+        self.show_raw_llm_responses = self.config.get('show_raw_llm_responses', False)
 
     def generate(self, report: ValidationReport, format: str = None) -> str:
         """
@@ -112,18 +115,90 @@ class ReportGenerator:
                         if len(validated_files) > 5:
                             lines.append(f"      ... and {len(validated_files) - 5} more files")
 
-            # Show complete LLM analysis if available
-            if 'llm_response' in result.metadata and result.metadata['llm_response']:
-                lines.append("")
-                lines.append("   🤖 COMPLETE LLM ANALYSIS:")
-                lines.append("   " + "─" * 75)
-                # Split response into lines and indent each one
-                llm_response = result.metadata['llm_response']
-                for line in llm_response.split('\n'):
-                    lines.append(f"   {line}")
-                lines.append("   " + "─" * 75)
-
             lines.append("")
+
+        # Consolidated LLM Analysis
+        llm_results = [r for r in report.validator_results if r.name.startswith('llm_')]
+        if llm_results and any('llm_response' in r.metadata for r in llm_results):
+            lines.append("─" * 80)
+            lines.append("🤖 CONSOLIDATED LLM ANALYSIS")
+            lines.append("─" * 80)
+            lines.append("")
+
+            if self.llm_report_mode == 'consolidated':
+                # Aggregate all LLM responses
+                aggregator = LLMResponseAggregator()
+                for result in llm_results:
+                    if 'llm_response' in result.metadata:
+                        aggregator.add_response(result.name, result.metadata['llm_response'])
+
+                consolidated = aggregator.aggregate()
+
+                # Executive Summary
+                lines.append("📋 EXECUTIVE SUMMARY")
+                lines.append("")
+                lines.extend(consolidated['executive_summary'].split('\n'))
+                lines.append("")
+
+                # Questions (if any)
+                if consolidated.get('questions'):
+                    lines.append("❓ CLARIFICATION NEEDED")
+                    lines.append("")
+                    for q in consolidated['questions'][:5]:
+                        lines.append(f"   • {q}")
+                    lines.append("")
+
+                # Top Recommendations
+                if consolidated.get('top_recommendations'):
+                    lines.append("💡 TOP RECOMMENDATIONS (Prioritized)")
+                    lines.append("")
+                    for i, rec in enumerate(consolidated['top_recommendations'][:10], 1):
+                        lines.append(f"   {i}. {rec}")
+                    lines.append("")
+
+                # Key Strengths
+                if consolidated.get('top_strengths'):
+                    lines.append("💪 KEY STRENGTHS")
+                    lines.append("")
+                    for strength in consolidated['top_strengths']:
+                        lines.append(f"   ✓ {strength}")
+                    lines.append("")
+
+                # Issues by Category (summary)
+                if consolidated.get('issues_by_category'):
+                    lines.append("📊 ISSUES BY CATEGORY")
+                    lines.append("")
+                    for category, issues in consolidated['issues_by_category'].items():
+                        lines.append(f"   • {category.upper()}: {len(issues)} issue(s)")
+                    lines.append("")
+
+                # Optionally show raw responses
+                if self.show_raw_llm_responses:
+                    lines.append("─" * 80)
+                    lines.append("📄 RAW LLM RESPONSES (Debug Mode)")
+                    lines.append("─" * 80)
+                    lines.append("")
+                    for result in llm_results:
+                        if 'llm_response' in result.metadata:
+                            lines.append(f"🔹 {result.name.upper()}")
+                            lines.append("   " + "─" * 75)
+                            llm_response = result.metadata['llm_response']
+                            for line in llm_response.split('\n'):
+                                lines.append(f"   {line}")
+                            lines.append("   " + "─" * 75)
+                            lines.append("")
+
+            else:
+                # Show individual responses (old behavior)
+                for result in llm_results:
+                    if 'llm_response' in result.metadata:
+                        lines.append(f"🔹 {result.name.upper()}")
+                        lines.append("   " + "─" * 75)
+                        llm_response = result.metadata['llm_response']
+                        for line in llm_response.split('\n'):
+                            lines.append(f"   {line}")
+                        lines.append("   " + "─" * 75)
+                        lines.append("")
 
         # Detailed issues
         if report.total_issues > 0:
@@ -258,7 +333,7 @@ class ReportGenerator:
     <h2>Validator Results</h2>
 """
 
-        # Add validator results with LLM analysis
+        # Add validator results (without individual LLM responses)
         for result in report.validator_results:
             status_class = result.status.value
             html += f"""
@@ -268,14 +343,57 @@ class ReportGenerator:
         <p><strong>Duration:</strong> {result.duration_seconds:.2f}s</p>
         <p><strong>Checks:</strong> {result.checks_performed}</p>
         <p><strong>Issues:</strong> {result.error_count} errors, {result.warning_count} warnings</p>
+    </div>
 """
 
-            # Add complete LLM analysis if available
-            if 'llm_response' in result.metadata and result.metadata['llm_response']:
-                llm_response = result.metadata['llm_response'].replace('<', '&lt;').replace('>', '&gt;')
-                html += f"""
-        <h4>🤖 Complete LLM Analysis</h4>
-        <div class="llm-analysis">{llm_response}</div>
+        # Consolidated LLM Analysis
+        llm_results = [r for r in report.validator_results if r.name.startswith('llm_')]
+        if llm_results and any('llm_response' in r.metadata for r in llm_results):
+            aggregator = LLMResponseAggregator()
+            for result in llm_results:
+                if 'llm_response' in result.metadata:
+                    aggregator.add_response(result.name, result.metadata['llm_response'])
+
+            consolidated = aggregator.aggregate()
+
+            html += """
+    <h2>🤖 Consolidated LLM Analysis</h2>
+    <div class="validator-result">
+        <h3>📋 Executive Summary</h3>
+        <pre style="white-space: pre-wrap; font-family: inherit;">""" + consolidated['executive_summary'] + """</pre>
+"""
+
+            if consolidated.get('top_recommendations'):
+                html += """
+        <h3>💡 Top Priority Recommendations</h3>
+        <ol>
+"""
+                for rec in consolidated['top_recommendations'][:10]:
+                    html += f"            <li>{rec}</li>\n"
+                html += """
+        </ol>
+"""
+
+            if consolidated.get('top_strengths'):
+                html += """
+        <h3>💪 Key Strengths</h3>
+        <ul>
+"""
+                for strength in consolidated['top_strengths']:
+                    html += f"            <li>{strength}</li>\n"
+                html += """
+        </ul>
+"""
+
+            if consolidated.get('questions'):
+                html += """
+        <h3>❓ Clarification Needed</h3>
+        <ul>
+"""
+                for q in consolidated['questions'][:5]:
+                    html += f"            <li>{q}</li>\n"
+                html += """
+        </ul>
 """
 
             html += """

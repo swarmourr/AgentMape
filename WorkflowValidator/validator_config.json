@@ -105,7 +105,9 @@
         "verbosity": "standard",
         "use_colors": true,
         "show_suggestions": true,
-        "show_llm_reasoning": true
+        "show_llm_reasoning": true,
+        "llm_report_mode": "consolidated",
+        "show_raw_llm_responses": false
     },
     "log_level": "INFO",
     "log_file": "validator.log",
