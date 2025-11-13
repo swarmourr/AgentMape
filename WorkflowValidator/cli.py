@@ -622,7 +622,6 @@ def validate(workflow, tc, rc, level, mode, output_yaml, format, output, config,
         # Override verbosity from CLI if specified
         if verbosity or verbose:
             import json
-            from pathlib import Path
 
             config_path = Path(config) if config else (Path(__file__).parent / 'validator_config.json')
             if config_path.exists():
@@ -677,7 +676,6 @@ def validate(workflow, tc, rc, level, mode, output_yaml, format, output, config,
 
         # Clean up temp config if created
         if (verbosity or verbose) and config and '.validator_config_temp.json' in config:
-            from pathlib import Path
             temp_path = Path(config)
             if temp_path.exists():
                 temp_path.unlink()
@@ -696,7 +694,6 @@ def validate(workflow, tc, rc, level, mode, output_yaml, format, output, config,
     except Exception as e:
         # Clean up temp config on error
         if (verbosity or verbose) and config and '.validator_config_temp.json' in config:
-            from pathlib import Path
             temp_path = Path(config)
             if temp_path.exists():
                 temp_path.unlink()
