@@ -45,7 +45,7 @@
         },
         "full": {
             "enabled": true,
-            "validators": ["syntax", "required_fields", "dependencies", "paths", "integrity"],
+            "validators": ["syntax", "required_fields", "dependencies", "paths", "integrity", "job_inputs", "resources", "dag"],
             "use_llm": true,
             "llm_checks": ["structure", "code_deep", "resources", "data_quality", "cross_component"]
         }
@@ -78,6 +78,21 @@
             "check_syntax": true,
             "check_structure": true,
             "allowed_imports": ["pegasus", "Pegasus", "os", "sys", "pathlib", "typing"]
+        },
+        "job_inputs": {
+            "check_input_files": true,
+            "check_output_conflicts": true
+        },
+        "resources": {
+            "max_memory_gb": 512,
+            "max_cpus": 128,
+            "max_disk_gb": 10000,
+            "warn_memory_gb": 256,
+            "warn_cpus": 64
+        },
+        "dag": {
+            "check_cycles": true,
+            "check_missing_parents": true
         }
     },
     "prompts_config": {

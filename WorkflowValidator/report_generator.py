@@ -21,7 +21,7 @@ class ReportGenerator:
 
         Args:
             report: ValidationReport object
-            format: Output format ('terminal', 'json', 'html')
+            format: Output format ('terminal', 'json', 'html', 'html-interactive')
 
         Returns:
             Formatted report string
@@ -31,6 +31,11 @@ class ReportGenerator:
 
         if format == 'json':
             return self._generate_json(report)
+        elif format == 'html-interactive':
+            # Use enhanced interactive HTML
+            from report_generator_html import InteractiveHTMLReportGenerator
+            html_gen = InteractiveHTMLReportGenerator(self.config)
+            return html_gen.generate(report)
         elif format == 'html':
             return self._generate_html(report)
         else:  # terminal
