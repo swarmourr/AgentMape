@@ -80,6 +80,33 @@ class ReportGenerator:
             lines.append(f"{status_symbol} {result.name.upper()} ({result.duration_seconds:.2f}s)")
             lines.append(f"   Checks performed: {result.checks_performed}")
             lines.append(f"   Errors: {result.error_count}, Warnings: {result.warning_count}")
+
+            # Show validated files details for integrity and path validators
+            if result.name in ['integrity', 'paths'] and 'validated_files' in result.metadata:
+                validated_files = result.metadata['validated_files']
+                if validated_files:
+                    lines.append(f"   Files validated: {len(validated_files)}")
+                    if self.verbosity in ['standard', 'verbose']:
+                        for file_info in validated_files[:5]:  # Show first 5
+                            lfn = file_info.get('lfn', 'unknown')
+                            size_bytes = file_info.get('size_bytes', 0)
+                            checks = file_info.get('checks', [])
+                            status = file_info.get('status', 'OK')
+
+                            # Format size
+                            if size_bytes < 1024:
+                                size_str = f"{size_bytes}B"
+                            elif size_bytes < 1024 * 1024:
+                                size_str = f"{size_bytes / 1024:.1f}KB"
+                            else:
+                                size_str = f"{size_bytes / (1024 * 1024):.1f}MB"
+
+                            checks_str = ", ".join(checks) if checks else "existence"
+                            lines.append(f"      ✓ {lfn} ({size_str}) - {checks_str}")
+
+                        if len(validated_files) > 5:
+                            lines.append(f"      ... and {len(validated_files) - 5} more files")
+
             lines.append("")
 
         # Detailed issues

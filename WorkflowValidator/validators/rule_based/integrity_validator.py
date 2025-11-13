@@ -38,6 +38,7 @@ class IntegrityValidator:
 
         issues = []
         checks_performed = 0
+        validated_files = []  # Track which files were validated
 
         # Validate files from replica catalog
         # Handle both 'replicaCatalog.replicas' (Pegasus 5.0+) and 'replicas' (older format)
@@ -78,8 +79,10 @@ class IntegrityValidator:
                     logger.info(f"Checking integrity: {lfn} -> {pfn}")
 
                     # Check file size
+                    file_size_bytes = 0
                     try:
-                        size_mb = os.path.getsize(pfn) / (1024 * 1024)
+                        file_size_bytes = os.path.getsize(pfn)
+                        size_mb = file_size_bytes / (1024 * 1024)
                         if size_mb > self.max_file_size_mb:
                             logger.info(f"Skipping integrity check for large file: {pfn} ({size_mb:.1f} MB)")
                             continue
@@ -89,11 +92,15 @@ class IntegrityValidator:
 
                     # Check readability
                     has_issues = False
+                    checks_list = []
+
                     if self.check_readability:
                         issue = self._check_readability(pfn, lfn)
                         if issue:
                             issues.append(issue)
                             has_issues = True
+                        else:
+                            checks_list.append("readable")
                         checks_performed += 1
 
                     # Check format for CSV files
@@ -102,10 +109,19 @@ class IntegrityValidator:
                         if issue:
                             issues.append(issue)
                             has_issues = True
+                        else:
+                            checks_list.append("valid_csv")
                         checks_performed += 1
 
                     if not has_issues:
                         logger.info(f"✓ Integrity OK: {lfn}")
+                        validated_files.append({
+                            "lfn": lfn,
+                            "pfn": pfn,
+                            "size_bytes": file_size_bytes,
+                            "checks": checks_list,
+                            "status": "OK"
+                        })
 
         # Determine status
         error_count = len([i for i in issues if i.severity in [Severity.CRITICAL, Severity.ERROR]])
@@ -123,7 +139,8 @@ class IntegrityValidator:
             status=status,
             duration_seconds=duration,
             issues=issues,
-            checks_performed=checks_performed
+            checks_performed=checks_performed,
+            metadata={"validated_files": validated_files}
         )
 
     def _check_readability(self, file_path: str, lfn: str) -> ValidationIssue:

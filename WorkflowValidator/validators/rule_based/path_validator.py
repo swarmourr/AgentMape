@@ -62,21 +62,24 @@ class PathValidator:
 
         issues = []
         checks_performed = 0
+        validated_files = []  # Track validated files
 
         # Get base directory for resolving relative paths
         base_dir = context.base_directory
 
         # Validate transformation executables
         if context.transformation_catalog:
-            trans_issues, trans_checks = self._validate_transformations(context.transformation_catalog, base_dir)
+            trans_issues, trans_checks, trans_files = self._validate_transformations(context.transformation_catalog, base_dir)
             issues.extend(trans_issues)
             checks_performed += trans_checks
+            validated_files.extend(trans_files)
 
         # Validate input files from replica catalog
         if context.replica_catalog:
-            replica_issues, replica_checks = self._validate_replicas(context.replica_catalog, base_dir)
+            replica_issues, replica_checks, replica_files = self._validate_replicas(context.replica_catalog, base_dir)
             issues.extend(replica_issues)
             checks_performed += replica_checks
+            validated_files.extend(replica_files)
 
         # Determine status
         error_count = len([i for i in issues if i.severity in [Severity.CRITICAL, Severity.ERROR]])
@@ -94,16 +97,18 @@ class PathValidator:
             status=status,
             duration_seconds=duration,
             issues=issues,
-            checks_performed=checks_performed
+            checks_performed=checks_performed,
+            metadata={"validated_files": validated_files}
         )
 
     def _validate_transformations(self, tc: Dict, base_dir: str = None) -> tuple:
         """Validate transformation executable paths"""
         issues = []
         checks = 0
+        validated_files = []
 
         if 'transformations' not in tc:
-            return issues, checks
+            return issues, checks, validated_files
 
         for trans in tc['transformations']:
             if 'name' not in trans:
@@ -172,16 +177,33 @@ class PathValidator:
                 ))
 
             # Check shebang for scripts
+            checks_list = ["exists", "readable", "executable"]
             if self.check_shebang and resolved_pfn.endswith(('.py', '.sh', '.pl', '.rb')):
                 shebang_issue = self._check_shebang(resolved_pfn, trans_name)
                 if shebang_issue:
                     issues.append(shebang_issue)
                 else:
+                    checks_list.append("valid_shebang")
                     logger.info(f"✓ Transformation executable OK: {trans_name}")
             else:
                 logger.info(f"✓ Transformation executable OK: {trans_name}")
 
-        return issues, checks
+            # Track validated file
+            if os.path.exists(resolved_pfn):
+                try:
+                    size_bytes = os.path.getsize(resolved_pfn)
+                    validated_files.append({
+                        "lfn": trans_name,
+                        "pfn": resolved_pfn,
+                        "size_bytes": size_bytes,
+                        "checks": checks_list,
+                        "status": "OK",
+                        "type": "transformation"
+                    })
+                except:
+                    pass
+
+        return issues, checks, validated_files
 
     def _check_shebang(self, file_path: str, trans_name: str) -> ValidationIssue:
         """Check if script has proper shebang line"""
@@ -218,6 +240,7 @@ class PathValidator:
         """Validate replica catalog file paths"""
         issues = []
         checks = 0
+        validated_files = []
 
         # Handle both 'replicaCatalog.replicas' (Pegasus 5.0+) and 'replicas' (older format)
         replicas = None
@@ -227,7 +250,7 @@ class PathValidator:
             replicas = rc['replicas']
 
         if not replicas:
-            return issues, checks
+            return issues, checks, validated_files
 
         for replica in replicas:
             if 'lfn' not in replica:
@@ -307,7 +330,15 @@ class PathValidator:
                         ))
                     else:
                         logger.info(f"✓ Replica file OK: {lfn} ({size} bytes)")
+                        validated_files.append({
+                            "lfn": lfn,
+                            "pfn": resolved_pfn,
+                            "size_bytes": size,
+                            "checks": ["exists", "readable", "non-empty"],
+                            "status": "OK",
+                            "type": "replica"
+                        })
                 except Exception as e:
                     logger.debug(f"Could not check file size for {pfn}: {e}")
 
-        return issues, checks
+        return issues, checks, validated_files
