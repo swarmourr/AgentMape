@@ -12,6 +12,9 @@ from datetime import datetime
 from models import ValidationReport, ValidationStatus, WorkflowContext
 from validators.rule_based import StructureValidator, PathValidator, IntegrityValidator
 from validators.rule_based.python_validator import PythonValidator
+from validators.rule_based.job_input_validator import JobInputValidator
+from validators.rule_based.resource_validator import ResourceValidator
+from validators.rule_based.dag_validator import DAGValidator
 from validators.llm_enhanced import LLMValidator
 from report_generator import ReportGenerator
 from yaml_generator import YAMLGenerator
@@ -47,6 +50,9 @@ class WorkflowValidator:
         self.path_validator = PathValidator(self.config)
         self.integrity_validator = IntegrityValidator(self.config)
         self.python_validator = PythonValidator(self.config)
+        self.job_input_validator = JobInputValidator(self.config)
+        self.resource_validator = ResourceValidator(self.config)
+        self.dag_validator = DAGValidator(self.config)
         self.llm_validator = LLMValidator(self.config)
 
         # Initialize YAML generator
@@ -192,29 +198,88 @@ class WorkflowValidator:
         # Run validators
         results = []
 
+        # Log validation timeline header
+        logger.info("")
+        logger.info("=" * 80)
+        logger.info("⏱️  VALIDATION TIMELINE (Multi-Prompt Architecture)")
+        logger.info("=" * 80)
+        prompt_num = 0
+
         # Always run structure validator (includes syntax, required fields, dependencies)
         if any(v in validator_names for v in ['syntax', 'required_fields', 'dependencies']):
-            logger.info("Running structure validator...")
+            prompt_num += 1
+            logger.info(f"🔍 [PROMPT {prompt_num}] Running structure validator...")
+            prompt_start = time.time()
             result = self.structure_validator.validate(context)
             results.append(result)
+            logger.info(f"✓ Structure validation completed in {time.time() - prompt_start:.3f}s")
+            logger.info("-" * 80)
 
         # Run path validator
         if 'paths' in validator_names:
-            logger.info("Running path validator...")
+            prompt_num += 1
+            logger.info(f"🔍 [PROMPT {prompt_num}] Running path validator...")
+            prompt_start = time.time()
             result = self.path_validator.validate(context)
             results.append(result)
+            logger.info(f"✓ Path validation completed in {time.time() - prompt_start:.3f}s")
+            logger.info("-" * 80)
 
         # Run integrity validator
         if 'integrity' in validator_names:
-            logger.info("Running integrity validator...")
+            prompt_num += 1
+            logger.info(f"🔍 [PROMPT {prompt_num}] Running integrity validator...")
+            prompt_start = time.time()
             result = self.integrity_validator.validate(context)
             results.append(result)
+            logger.info(f"✓ Integrity validation completed in {time.time() - prompt_start:.3f}s")
+            logger.info("-" * 80)
+
+        # Run job input validator
+        if 'job_inputs' in validator_names:
+            prompt_num += 1
+            logger.info(f"🔍 [PROMPT {prompt_num}] Running job input validator...")
+            prompt_start = time.time()
+            result = self.job_input_validator.validate(context)
+            results.append(result)
+            logger.info(f"✓ Job input validation completed in {time.time() - prompt_start:.3f}s")
+            logger.info("-" * 80)
+
+        # Run resource validator
+        if 'resources' in validator_names:
+            prompt_num += 1
+            logger.info(f"🔍 [PROMPT {prompt_num}] Running resource validator...")
+            prompt_start = time.time()
+            result = self.resource_validator.validate(context)
+            results.append(result)
+            logger.info(f"✓ Resource validation completed in {time.time() - prompt_start:.3f}s")
+            logger.info("-" * 80)
+
+        # Run DAG validator
+        if 'dag' in validator_names:
+            prompt_num += 1
+            logger.info(f"🔍 [PROMPT {prompt_num}] Running DAG validator...")
+            prompt_start = time.time()
+            result = self.dag_validator.validate(context)
+            results.append(result)
+            logger.info(f"✓ DAG validation completed in {time.time() - prompt_start:.3f}s")
+            logger.info("-" * 80)
 
         # Run LLM validator if enabled
         if use_llm and llm_checks:
-            logger.info("Running LLM validator...")
+            prompt_num += 1
+            logger.info(f"🔍 [PROMPT {prompt_num}] Running LLM validator...")
+            prompt_start = time.time()
             result = self.llm_validator.validate(context, checks=llm_checks)
             results.append(result)
+            logger.info(f"✓ LLM validation completed in {time.time() - prompt_start:.3f}s")
+            logger.info("-" * 80)
+
+        # Timeline summary
+        logger.info("=" * 80)
+        logger.info(f"⏱️  TOTAL VALIDATORS RUN: {prompt_num} prompts")
+        logger.info("=" * 80)
+        logger.info("")
 
         # Determine overall status
         has_errors = any(r.status == ValidationStatus.FAILED for r in results)
