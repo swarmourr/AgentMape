@@ -112,11 +112,14 @@ class LLMResponseAggregator:
         }
 
     def _deduplicate_issues(self, issues: List[Dict]) -> List[Dict]:
-        """Deduplicate similar issues"""
+        """Deduplicate similar issues and calibrate severity"""
         seen = {}
         deduped = []
 
         for issue in issues:
+            # First, calibrate severity based on execution blocking
+            issue = self._calibrate_severity(issue)
+
             # Create key based on message and location
             message = issue.get('message', '').lower()
             location = issue.get('location', '')
@@ -143,6 +146,76 @@ class LLMResponseAggregator:
         deduped.sort(key=lambda x: severity_order.get(x.get('severity', 'info'), 1), reverse=True)
 
         return deduped
+
+    def _calibrate_severity(self, issue: Dict) -> Dict:
+        """
+        Calibrate severity based on whether it actually blocks execution
+        Uses the 'will_block_execution' field from LLM reasoning
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+
+        message_lower = issue.get('message', '').lower()
+        current_severity = issue.get('severity', 'warning')
+        will_block = issue.get('will_block_execution', None)
+
+        # If LLM explicitly said it won't block, downgrade severity
+        if will_block is False:
+            if current_severity in ['critical', 'error']:
+                issue['severity'] = 'warning'
+                issue['message'] = issue['message'] + " (not a blocker)"
+                logger.debug(f"Downgraded: {message_lower[:50]}... (won't block)")
+
+        # Common false-positive patterns - downgrade even if LLM missed it
+        false_critical_patterns = {
+            'missing memory': 'warning',
+            'missing cpu': 'warning',
+            'no memory specification': 'warning',
+            'no cpu specification': 'warning',
+            'missing resource': 'warning',
+            'no error handling': 'info',
+            'missing documentation': 'info',
+            'no checksum': 'info',
+            'naming convention': 'info',
+            'could be optimized': 'info',
+            'consider adding': 'info',
+            'recommend': 'info',
+            'suggestion': 'info'
+        }
+
+        for pattern, correct_severity in false_critical_patterns.items():
+            if pattern in message_lower:
+                severity_order = {'critical': 4, 'error': 3, 'warning': 2, 'info': 1}
+                if severity_order.get(current_severity, 0) > severity_order.get(correct_severity, 0):
+                    issue['severity'] = correct_severity
+                    logger.debug(f"Calibrated '{pattern}': {current_severity} → {correct_severity}")
+                break
+
+        # Patterns that ARE genuinely critical - upgrade if needed
+        real_critical_patterns = [
+            'file not found',
+            'file does not exist',
+            'cannot find file',
+            'missing required file',
+            'circular dependency',
+            'deadlock',
+            'infinite loop',
+            'invalid reference',
+            'corrupted',
+            'permission denied',
+            'syntax error',
+            'parse error'
+        ]
+
+        for pattern in real_critical_patterns:
+            if pattern in message_lower:
+                if will_block is not False:
+                    if issue['severity'] not in ['critical', 'error']:
+                        issue['severity'] = 'error'
+                        logger.debug(f"Upgraded for pattern '{pattern}'")
+                break
+
+        return issue
 
     def _deduplicate_list(self, items: List[str]) -> List[str]:
         """Deduplicate list while preserving order"""

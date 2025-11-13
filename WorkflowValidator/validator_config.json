@@ -8,14 +8,14 @@
     "llm_backend": {
         "enabled": true,
         "provider": "ollama",
-        "host": "http://bycmb-2001-863-251-fa2d-19b-b83b-74d5-cc5c.a.free.pinggy.link",
+        "host": "https://gbcwz-2001-863-251-fa2d-19b-b83b-74d5-cc5c.a.free.pinggy.link",
         "model": "glm-4.6:cloud",
         "timeout": 60,
         "temperature": 0.1,
         "max_tokens": 200000
     },
-    "ollama_url": "http://bycmb-2001-863-251-fa2d-19b-b83b-74d5-cc5c.a.free.pinggy.link/api/generate",
-    "ollama_api_base": "http://bycmb-2001-863-251-fa2d-19b-b83b-74d5-cc5c.a.free.pinggy.link",
+    "ollama_url": "https://gbcwz-2001-863-251-fa2d-19b-b83b-74d5-cc5c.a.free.pinggy.link/api/generate",
+    "ollama_api_base": "https://gbcwz-2001-863-251-fa2d-19b-b83b-74d5-cc5c.a.free.pinggy.link",
     "ollama_model": "glm-4.6:cloud",
     "ollama_check_interval": 30,
     "ollama_timeout": 60,

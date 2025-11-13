@@ -108,55 +108,59 @@ class LLMMultiPromptValidator:
 
         prompt = f"""You are an expert Pegasus Workflow Management System validator with deep knowledge of:
 - Pegasus 5.0+ architecture and best practices
-- Scientific workflow design patterns
-- Distributed computing environments
-- Data provenance and reproducibility
+- Pegasus runtime behavior and defaults
+- What actually blocks execution vs what's just suboptimal
 
-Analyze this COMPLETE Pegasus workflow and provide a comprehensive validation report:
+Analyze this COMPLETE Pegasus workflow:
 
 ```yaml
 {workflow_str}
 ```
 
-Your analysis should cover:
+IMPORTANT: Before assigning severity, THINK about execution impact:
 
-1. STRUCTURAL INTEGRITY:
-   - Verify all required fields (name, jobs, pegasus version)
-   - Validate job definitions (name, transformation, arguments, uses)
-   - Check catalog structure (transformationCatalog, replicaCatalog format)
-   - Ensure Pegasus 5.0+ format compliance
+CRITICAL = Workflow CANNOT run (100% will fail)
+  Examples: Missing required file, circular dependency, invalid syntax
+  NOT: Missing optional field with working default
 
-2. SEMANTIC CORRECTNESS:
-   - Do jobs reference valid transformations?
-   - Are input files declared in replica catalog?
-   - Are arguments properly structured?
-   - Are there any logical inconsistencies?
+ERROR = Workflow WILL LIKELY fail (>80% chance)
+  Examples: File doesn't exist, invalid reference, corrupted data
+  NOT: Suboptimal resource allocation
 
-3. DESIGN QUALITY:
-   - Is the workflow well-organized?
-   - Are naming conventions clear and consistent?
-   - Is there proper documentation?
-   - Are there any code smells or anti-patterns?
+WARNING = May cause issues OR best practice violation
+  Examples: Missing memory spec (uses default), no error handling, poor naming
 
-If you need MORE INFORMATION to complete your analysis, include in your response:
-- "needs_clarification": true
-- "questions": ["specific question 1", "specific question 2"]
+INFO = Suggestion for improvement
+  Examples: Add documentation, use checksums, optimize structure
+
+PEGASUS DEFAULTS YOU MUST KNOW:
+- Missing memory/CPU spec → Scheduler provides defaults (workflow runs fine)
+- No error handling → Pegasus has built-in retry (not critical)
+- Missing checksums → Not required (just recommended)
+- No documentation → Doesn't affect execution
+
+For EACH issue you find, THINK FIRST:
+1. Will Pegasus actually fail to execute this workflow? (Yes → critical/error)
+2. Will it run but with problems? (Yes → warning)
+3. Is this just a best practice? (Yes → info)
 
 Return JSON format:
 {{
-  "analysis_summary": "Brief overview of your findings",
+  "analysis_summary": "Brief overview",
   "issues": [
     {{
       "severity": "critical|error|warning|info",
       "category": "structure|semantics|design|performance|security",
-      "message": "Clear description of the issue",
-      "location": "Exact location (e.g., 'job:TrainModel', 'line 45')",
-      "explanation": "Why this is a problem",
-      "impact": "What will happen if not fixed",
-      "suggestion": "How to fix it with specific code example if possible"
+      "message": "Clear description",
+      "location": "Exact location",
+      "will_block_execution": true/false,
+      "reasoning": "Why you chose this severity - explain your thinking",
+      "pegasus_behavior": "What Pegasus will actually do at runtime",
+      "impact": "Real impact on execution",
+      "suggestion": "How to fix"
     }}
   ],
-  "strengths": ["Things done well in this workflow"],
+  "strengths": ["Things done well"],
   "needs_clarification": false,
   "questions": []
 }}"""
@@ -371,72 +375,62 @@ Return JSON:
 
         jobs = workflow.get('jobs', [])
 
-        prompt = f"""You are a High-Performance Computing (HPC) resource allocation expert with knowledge of:
-- Job scheduling systems (HTCondor, Slurm, PBS)
-- Memory and CPU allocation strategies
-- Resource contention and optimization
-- Cost estimation for cloud and HPC resources
+        prompt = f"""You are an HPC resource allocation expert. Your goal: Identify what BLOCKS execution vs what's just suboptimal.
 
-Perform DETAILED RESOURCE ANALYSIS for all jobs:
+Analyze resource specifications for these jobs:
 
 ```python
 {str(jobs)}
 ```
 
-Your analysis must evaluate:
+THINK FIRST - SEVERITY DECISION TREE:
 
-1. RESOURCE FEASIBILITY:
-   - Are memory requests realistic for the execution environment?
-   - Are CPU requests achievable on target systems?
-   - Are disk/storage requirements reasonable?
-   - Do resource combinations make sense?
+CRITICAL/ERROR: Only if job WILL FAIL at runtime
+  ✓ Memory request exceeds cluster max (will never schedule)
+  ✓ CPU count > available cores (impossible to run)
+  ✗ NO memory spec (scheduler uses default - runs fine)
+  ✗ High memory request (expensive but runs)
 
-2. RESOURCE EFFICIENCY:
-   - Are resources over-provisioned (waste)?
-   - Are resources under-provisioned (will fail)?
-   - Is there opportunity for resource consolidation?
-   - Can jobs share resources better?
+WARNING: Job runs but with issues
+  ✓ Memory likely insufficient for workload (may OOM)
+  ✓ Over-provisioned resources (wastes money)
+  ✓ Missing resource spec (unpredictable but works)
 
-3. COST IMPLICATIONS:
-   - High-cost resource allocations
-   - Long-running jobs with expensive resources
-   - Opportunities to reduce costs without performance loss
+INFO: Optimization suggestion
+  ✓ Could use less memory
+  ✓ Could request more CPUs for speed
+  ✓ Cost optimization opportunity
 
-4. SCHEDULING IMPACT:
-   - Will these requests cause long queue times?
-   - Are there jobs that block others due to large requests?
-   - Fair-share policy compliance?
+SCHEDULER BEHAVIOR YOU MUST KNOW:
+- NO memory spec → Uses scheduler default (typically 2-4GB) → Job runs
+- NO CPU spec → Gets 1 CPU → Job runs (just slower)
+- High memory request → May wait longer but WILL run
+- Missing disk spec → Uses default → Usually fine
 
-If you need MORE CONTEXT about:
-- Available hardware specifications
-- Budget constraints
-- Queue policies and limits
-- Historical job performance data
+For EACH issue, ask yourself:
+1. Will the scheduler reject this job? (Yes → critical/error)
+2. Will it run but likely fail? (Yes → error)
+3. Will it run but be inefficient? (Yes → warning)
+4. Could it be optimized? (Yes → info)
 
-Set "needs_clarification": true.
-
-Return JSON:
+Return JSON with REASONING:
 {{
-  "analysis_summary": "Resource allocation analysis",
-  "resource_totals": {{
-    "total_memory_gb": <number>,
-    "total_cpus": <number>,
-    "peak_concurrent_load": "estimate"
-  }},
+  "analysis_summary": "Brief overview",
   "issues": [
     {{
       "severity": "critical|error|warning|info",
       "category": "excessive|insufficient|inefficient|costly",
       "message": "Issue description",
       "location": "job:name",
-      "current_allocation": "current resource specs",
-      "explanation": "Why this is problematic",
-      "impact": "Effect on execution/cost/time",
-      "suggestion": "Recommended allocation with justification"
+      "will_block_execution": true/false,
+      "reasoning": "Why this severity - explain your decision process",
+      "scheduler_behavior": "What will actually happen at runtime",
+      "current_allocation": "what's specified",
+      "impact": "real execution impact",
+      "suggestion": "how to fix"
     }}
   ],
-  "cost_analysis": "Estimated cost impact if available",
-  "optimization_opportunities": ["Specific recommendations"],
+  "optimization_opportunities": ["suggestions only, not blockers"],
   "needs_clarification": false,
   "questions": []
 }}"""
