@@ -116,7 +116,7 @@ Return JSON:
   ]
 }}"""
 
-        response = self.llm_backend.generate(prompt, temperature=self.temperature, max_tokens=1000)
+        response = self._call_llm_and_log(prompt, "llm_structure")
         issues = self._parse_llm_response(response, "llm_structure")
 
         return ValidatorResult(
@@ -124,7 +124,8 @@ Return JSON:
             status=self._determine_status(issues),
             duration_seconds=time.time() - start_time,
             issues=issues,
-            checks_performed=1
+            checks_performed=1,
+            metadata={"llm_response": response}
         )
 
     def _validate_dependencies(self, context: WorkflowContext) -> ValidatorResult:
@@ -155,7 +156,7 @@ Return JSON:
   ]
 }}"""
 
-        response = self.llm_backend.generate(prompt, temperature=self.temperature, max_tokens=1000)
+        response = self._call_llm_and_log(prompt, "llm_dependencies")
         issues = self._parse_llm_response(response, "llm_dependencies")
 
         return ValidatorResult(
@@ -192,7 +193,7 @@ Return JSON:
   ]
 }}"""
 
-        response = self.llm_backend.generate(prompt, temperature=self.temperature, max_tokens=1000)
+        response = self._call_llm_and_log(prompt, validator_name)
         issues = self._parse_llm_response(response, "llm_paths")
 
         return ValidatorResult(
@@ -231,7 +232,7 @@ Return JSON:
   ]
 }}"""
 
-        response = self.llm_backend.generate(prompt, temperature=self.temperature, max_tokens=1000)
+        response = self._call_llm_and_log(prompt, validator_name)
         issues = self._parse_llm_response(response, "llm_resources")
 
         return ValidatorResult(
@@ -266,7 +267,7 @@ Return JSON:
   ]
 }}"""
 
-        response = self.llm_backend.generate(prompt, temperature=self.temperature, max_tokens=1000)
+        response = self._call_llm_and_log(prompt, validator_name)
         issues = self._parse_llm_response(response, "llm_integrity")
 
         return ValidatorResult(
@@ -301,7 +302,7 @@ Return JSON:
   ]
 }}"""
 
-        response = self.llm_backend.generate(prompt, temperature=self.temperature, max_tokens=1000)
+        response = self._call_llm_and_log(prompt, validator_name)
         issues = self._parse_llm_response(response, "llm_security")
 
         return ValidatorResult(
@@ -337,7 +338,7 @@ Return JSON:
   ]
 }}"""
 
-        response = self.llm_backend.generate(prompt, temperature=self.temperature, max_tokens=1000)
+        response = self._call_llm_and_log(prompt, validator_name)
         issues = self._parse_llm_response(response, "llm_best_practices")
 
         return ValidatorResult(
@@ -347,6 +348,17 @@ Return JSON:
             issues=issues,
             checks_performed=1
         )
+
+    def _call_llm_and_log(self, prompt: str, validator_name: str) -> str:
+        """Call LLM and log the response"""
+        response = self.llm_backend.generate(prompt, temperature=self.temperature, max_tokens=1000)
+
+        # Log the LLM response
+        logger.info("📝 LLM Analysis:")
+        logger.info(response[:800] if len(response) > 800 else response)
+        logger.info("")
+
+        return response
 
     def _parse_llm_response(self, response: str, validator_name: str) -> List[ValidationIssue]:
         """Parse LLM JSON response into ValidationIssues"""
