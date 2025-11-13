@@ -66,6 +66,10 @@
             "check_transformation_executables": true
         },
         "integrity": {
+            "use_pegasus_integrity": true,
+            "use_baseline": true,
+            "baseline_path": ".workflow_integrity.json",
+            "create_baseline_if_missing": true,
             "check_file_readability": true,
             "check_file_corruption": true,
             "validate_csv_format": true,
