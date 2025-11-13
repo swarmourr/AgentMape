@@ -16,6 +16,7 @@ from validators.rule_based.job_input_validator import JobInputValidator
 from validators.rule_based.resource_validator import ResourceValidator
 from validators.rule_based.dag_validator import DAGValidator
 from validators.llm_enhanced import LLMValidator
+from validators.llm_enhanced.llm_multi_prompt_validator import LLMMultiPromptValidator
 from report_generator import ReportGenerator
 from yaml_generator import YAMLGenerator
 
@@ -54,6 +55,12 @@ class WorkflowValidator:
         self.resource_validator = ResourceValidator(self.config)
         self.dag_validator = DAGValidator(self.config)
         self.llm_validator = LLMValidator(self.config)
+
+        # Initialize LLM multi-prompt validator
+        self.llm_multi_prompt_validator = LLMMultiPromptValidator(
+            self.llm_validator.backend,
+            self.config
+        )
 
         # Initialize YAML generator
         self.yaml_generator = YAMLGenerator(self.config)
@@ -265,17 +272,19 @@ class WorkflowValidator:
             logger.info(f"✓ DAG validation completed in {time.time() - prompt_start:.3f}s")
             logger.info("-" * 80)
 
-        # Run LLM validator if enabled
-        if use_llm and llm_checks:
-            prompt_num += 1
-            logger.info(f"🔍 [PROMPT {prompt_num}] Running LLM validator...")
-            prompt_start = time.time()
-            result = self.llm_validator.validate(context, checks=llm_checks)
-            results.append(result)
-            logger.info(f"✓ LLM validation completed in {time.time() - prompt_start:.3f}s")
-            logger.info("-" * 80)
+        # Run LLM multi-prompt validator if enabled
+        if use_llm:
+            logger.info("")
+            logger.info("=" * 80)
+            logger.info("🤖 LLM MULTI-PROMPT VALIDATION")
+            logger.info("=" * 80)
+
+            llm_results = self.llm_multi_prompt_validator.validate(context)
+            results.extend(llm_results)
+            prompt_num += len(llm_results)
 
         # Timeline summary
+        logger.info("")
         logger.info("=" * 80)
         logger.info(f"⏱️  TOTAL VALIDATORS RUN: {prompt_num} prompts")
         logger.info("=" * 80)
