@@ -146,8 +146,12 @@ def _detect_generator_metadata(file_path):
               help='Path to generated YAML file(s) or directory. Use glob patterns like "output/*.yml" or single file "output/workflow.yml"')
 @click.option('--verbose', '-v',
               is_flag=True,
-              help='Verbose output')
-def validate(workflow, tc, rc, level, mode, output_yaml, format, output, config, workflow_dir, workflow_args, from_generator, runner, generated_workflows, verbose):
+              help='Verbose output (deprecated, use --verbosity detailed)')
+@click.option('--verbosity',
+              type=click.Choice(['brief', 'standard', 'detailed'], case_sensitive=False),
+              default=None,
+              help='Output verbosity level: brief (minimal), standard (balanced), detailed (full)')
+def validate(workflow, tc, rc, level, mode, output_yaml, format, output, config, workflow_dir, workflow_args, from_generator, runner, generated_workflows, verbose, verbosity):
     """
     Validate a Pegasus workflow before submission.
 
@@ -615,6 +619,29 @@ def validate(workflow, tc, rc, level, mode, output_yaml, format, output, config,
 
         click.echo(f"\n🔍 Validating workflow (level: {level})...\n", err=True)
 
+        # Override verbosity from CLI if specified
+        if verbosity or verbose:
+            import json
+            from pathlib import Path
+
+            config_path = Path(config) if config else (Path(__file__).parent / 'validator_config.json')
+            if config_path.exists():
+                with open(config_path) as f:
+                    config_data = json.load(f)
+
+                # Set verbosity level
+                if verbosity:
+                    config_data.setdefault('output_config', {})['verbosity'] = verbosity
+                elif verbose:
+                    # Legacy --verbose flag maps to 'detailed'
+                    config_data.setdefault('output_config', {})['verbosity'] = 'detailed'
+
+                # Write back temporarily
+                temp_config = config_path.parent / '.validator_config_temp.json'
+                with open(temp_config, 'w') as f:
+                    json.dump(config_data, f, indent=2)
+                config = str(temp_config)
+
         # Initialize validator
         validator = WorkflowValidator(config_path=config)
 
@@ -648,6 +675,13 @@ def validate(workflow, tc, rc, level, mode, output_yaml, format, output, config,
         else:
             click.echo(report_text)
 
+        # Clean up temp config if created
+        if (verbosity or verbose) and config and '.validator_config_temp.json' in config:
+            from pathlib import Path
+            temp_path = Path(config)
+            if temp_path.exists():
+                temp_path.unlink()
+
         # Summary
         if report.overall_status == ValidationStatus.PASSED:
             click.echo(f"\n✅ Validation PASSED - Workflow is ready to submit!", err=True)
@@ -660,6 +694,13 @@ def validate(workflow, tc, rc, level, mode, output_yaml, format, output, config,
             sys.exit(0)
 
     except Exception as e:
+        # Clean up temp config on error
+        if (verbosity or verbose) and config and '.validator_config_temp.json' in config:
+            from pathlib import Path
+            temp_path = Path(config)
+            if temp_path.exists():
+                temp_path.unlink()
+
         click.echo(f"\n❌ Validation failed: {e}", err=True)
         if verbose:
             import traceback

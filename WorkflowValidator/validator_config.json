@@ -102,12 +102,16 @@
     },
     "output_config": {
         "default_format": "terminal",
-        "verbosity": "standard",
+        "verbosity": "brief",
         "use_colors": true,
         "show_suggestions": true,
         "show_llm_reasoning": true,
         "llm_report_mode": "consolidated",
-        "show_raw_llm_responses": false
+        "show_raw_llm_responses": false,
+        "max_issues_shown": 10,
+        "max_recommendations": 5,
+        "show_validator_details": false,
+        "show_strengths": true
     },
     "log_level": "INFO",
     "log_file": "validator.log",
