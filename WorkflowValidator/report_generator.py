@@ -112,6 +112,17 @@ class ReportGenerator:
                         if len(validated_files) > 5:
                             lines.append(f"      ... and {len(validated_files) - 5} more files")
 
+            # Show complete LLM analysis if available
+            if 'llm_response' in result.metadata and result.metadata['llm_response']:
+                lines.append("")
+                lines.append("   🤖 COMPLETE LLM ANALYSIS:")
+                lines.append("   " + "─" * 75)
+                # Split response into lines and indent each one
+                llm_response = result.metadata['llm_response']
+                for line in llm_response.split('\n'):
+                    lines.append(f"   {line}")
+                lines.append("   " + "─" * 75)
+
             lines.append("")
 
         # Detailed issues
@@ -232,6 +243,8 @@ class ReportGenerator:
         .issue {{ border-left: 4px solid #ddd; padding-left: 10px; margin: 10px 0; }}
         .critical {{ border-color: red; }}
         .error {{ border-color: orange; }}
+        .validator-result {{ margin: 20px 0; padding: 15px; background: #f9f9f9; border-radius: 5px; }}
+        .llm-analysis {{ background: #fff; padding: 15px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; font-family: monospace; white-space: pre-wrap; }}
     </style>
 </head>
 <body>
@@ -242,6 +255,34 @@ class ReportGenerator:
         <p><strong>Issues:</strong> {report.total_errors} errors, {report.total_warnings} warnings</p>
     </div>
 
+    <h2>Validator Results</h2>
+"""
+
+        # Add validator results with LLM analysis
+        for result in report.validator_results:
+            status_class = result.status.value
+            html += f"""
+    <div class="validator-result">
+        <h3>{result.name.upper()}</h3>
+        <p><strong>Status:</strong> <span class="{status_class}">{result.status.value}</span></p>
+        <p><strong>Duration:</strong> {result.duration_seconds:.2f}s</p>
+        <p><strong>Checks:</strong> {result.checks_performed}</p>
+        <p><strong>Issues:</strong> {result.error_count} errors, {result.warning_count} warnings</p>
+"""
+
+            # Add complete LLM analysis if available
+            if 'llm_response' in result.metadata and result.metadata['llm_response']:
+                llm_response = result.metadata['llm_response'].replace('<', '&lt;').replace('>', '&gt;')
+                html += f"""
+        <h4>🤖 Complete LLM Analysis</h4>
+        <div class="llm-analysis">{llm_response}</div>
+"""
+
+            html += """
+    </div>
+"""
+
+        html += """
     <h2>Issues</h2>
 """
 

@@ -260,7 +260,8 @@ Return JSON:
             status=self._determine_status(issues),
             duration_seconds=time.time() - start_time,
             issues=issues,
-            checks_performed=1
+            checks_performed=1,
+            metadata={"llm_response": response}
         )
 
     def _validate_paths(self, context: WorkflowContext) -> ValidatorResult:
@@ -355,7 +356,8 @@ Return JSON:
             status=self._determine_status(issues),
             duration_seconds=time.time() - start_time,
             issues=issues,
-            checks_performed=1
+            checks_performed=1,
+            metadata={"llm_response": response}
         )
 
     def _validate_resources(self, context: WorkflowContext) -> ValidatorResult:
@@ -447,7 +449,8 @@ Return JSON:
             status=self._determine_status(issues),
             duration_seconds=time.time() - start_time,
             issues=issues,
-            checks_performed=1
+            checks_performed=1,
+            metadata={"llm_response": response}
         )
 
     def _validate_integrity(self, context: WorkflowContext) -> ValidatorResult:
@@ -536,7 +539,8 @@ Return JSON:
             status=self._determine_status(issues),
             duration_seconds=time.time() - start_time,
             issues=issues,
-            checks_performed=1
+            checks_performed=1,
+            metadata={"llm_response": response}
         )
 
     def _validate_security(self, context: WorkflowContext) -> ValidatorResult:
@@ -634,7 +638,8 @@ Return JSON:
             status=self._determine_status(issues),
             duration_seconds=time.time() - start_time,
             issues=issues,
-            checks_performed=1
+            checks_performed=1,
+            metadata={"llm_response": response}
         )
 
     def _validate_best_practices(self, context: WorkflowContext) -> ValidatorResult:
@@ -747,7 +752,8 @@ Return JSON:
             status=self._determine_status(issues),
             duration_seconds=time.time() - start_time,
             issues=issues,
-            checks_performed=1
+            checks_performed=1,
+            metadata={"llm_response": response}
         )
 
     def _validate_structure_chunked(self, context: WorkflowContext, workflow_str: str, start_time: float) -> ValidatorResult:
@@ -806,9 +812,9 @@ Return JSON:
         """Call LLM and log the response"""
         response = self.llm_backend.generate(prompt, temperature=self.temperature, max_tokens=self.max_tokens)
 
-        # Log the LLM response
+        # Log the COMPLETE LLM response (no truncation)
         logger.info("📝 LLM Analysis:")
-        logger.info(response[:800] if len(response) > 800 else response)
+        logger.info(response)
         logger.info("")
 
         return response
