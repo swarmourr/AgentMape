@@ -32,6 +32,12 @@ class LLMMultiPromptValidator:
         """
         results = []
 
+        # Check if LLM backend is available
+        if self.llm_backend is None:
+            logger.warning("LLM backend not available - skipping LLM validation")
+            logger.warning("Continuing with rule-based validation only")
+            return []  # Return empty list, rule-based validators will still run
+
         # PROMPT 1: Structure validation
         logger.info("🤖 [LLM PROMPT 1/7] Validating workflow structure...")
         start = time.time()

@@ -1,0 +1,170 @@
+{
+  "agent_identity": {
+    "id": "validator_001",
+    "name": "Validator",
+    "type": "validator",
+    "description": "Pre-submission workflow validation agent"
+  },
+  "llm_backend": {
+    "enabled": true,
+    "provider": "ollama",
+    "host": "https://vfaqd-2607-fb91-1be1-7bcf-1459-5e8-8603-d39a.a.free.pinggy.link",
+    "model": "glm-4.6:cloud",
+    "timeout": 60,
+    "temperature": 0.1,
+    "max_tokens": 131072
+  },
+  "ollama_url": "https://vfaqd-2607-fb91-1be1-7bcf-1459-5e8-8603-d39a.a.free.pinggy.link/api/generate",
+  "ollama_api_base": "https://vfaqd-2607-fb91-1be1-7bcf-1459-5e8-8603-d39a.a.free.pinggy.link",
+  "ollama_model": "glm-4.6:cloud",
+  "ollama_check_interval": 30,
+  "ollama_timeout": 60,
+  "ollama_temperature": 0.3,
+  "ollama_max_tokens": 131072,
+  "validation_config": {
+    "run_rules_first": true,
+    "llm_only_if_rules_pass": false,
+    "fail_fast": false,
+    "enable_caching": true,
+    "cache_ttl_seconds": 3600,
+    "parallel_validation": true,
+    "max_workers": 4
+  },
+  "validation_levels": {
+    "quick": {
+      "enabled": true,
+      "validators": [
+        "syntax",
+        "required_fields"
+      ],
+      "use_llm": false,
+      "llm_checks": []
+    },
+    "standard": {
+      "enabled": true,
+      "validators": [
+        "syntax",
+        "required_fields",
+        "dependencies",
+        "paths"
+      ],
+      "use_llm": true,
+      "llm_checks": [
+        "structure",
+        "code_basic"
+      ]
+    },
+    "full": {
+      "enabled": true,
+      "validators": [
+        "syntax",
+        "required_fields",
+        "dependencies",
+        "paths",
+        "integrity",
+        "job_inputs",
+        "resources",
+        "dag"
+      ],
+      "use_llm": true,
+      "llm_checks": [
+        "structure",
+        "code_deep",
+        "resources",
+        "data_quality",
+        "cross_component"
+      ]
+    }
+  },
+  "rule_based_config": {
+    "structure": {
+      "required_fields": [
+        "name",
+        "jobs"
+      ],
+      "check_circular_dependencies": true,
+      "check_orphan_jobs": true
+    },
+    "paths": {
+      "check_file_exists": true,
+      "check_readable": true,
+      "check_executable": true,
+      "check_shebang": true,
+      "verify_conda_env": false,
+      "check_job_input_files": true,
+      "check_transformation_executables": true
+    },
+    "integrity": {
+      "use_pegasus_integrity": true,
+      "use_baseline": true,
+      "baseline_path": ".workflow_integrity.json",
+      "create_baseline_if_missing": true,
+      "check_file_readability": true,
+      "check_file_corruption": true,
+      "validate_csv_format": true,
+      "check_data_schema": true,
+      "max_file_size_mb": 1000,
+      "check_job_input_files": true
+    },
+    "python": {
+      "check_imports": true,
+      "check_syntax": true,
+      "check_structure": true,
+      "allowed_imports": [
+        "pegasus",
+        "Pegasus",
+        "os",
+        "sys",
+        "pathlib",
+        "typing"
+      ]
+    },
+    "job_inputs": {
+      "check_input_files": true,
+      "check_output_conflicts": true
+    },
+    "resources": {
+      "max_memory_gb": 512,
+      "max_cpus": 128,
+      "max_disk_gb": 10000,
+      "warn_memory_gb": 256,
+      "warn_cpus": 64
+    },
+    "dag": {
+      "check_cycles": true,
+      "check_missing_parents": true
+    }
+  },
+  "prompts_config": {
+    "use_examples": true,
+    "use_cot": true,
+    "enforce_json_output": true
+  },
+  "output_config": {
+    "default_format": "terminal",
+    "verbosity": "detailed",
+    "use_colors": true,
+    "show_suggestions": true,
+    "show_llm_reasoning": true,
+    "llm_report_mode": "consolidated",
+    "show_raw_llm_responses": false,
+    "max_issues_shown": 10,
+    "max_recommendations": 5,
+    "show_validator_details": false,
+    "show_strengths": true
+  },
+  "log_level": "INFO",
+  "log_file": "validator.log",
+  "log_to_console": true,
+  "http_port": 8084,
+  "monitor_url": "http://localhost:8080",
+  "dashboard_url": "http://localhost:5000",
+  "enable_rest_api": true,
+  "connection_timeout": 30,
+  "fallback_mode": true,
+  "python_api_workflow_warnings": {
+    "missing_top_level_transformations": true,
+    "embedded_catalogs": true,
+    "jobs_missing_transformation_field": true
+  }
+}

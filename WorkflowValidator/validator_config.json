@@ -8,19 +8,19 @@
     "llm_backend": {
         "enabled": true,
         "provider": "ollama",
-        "host": "https://aymcq-128-9-16-23.a.free.pinggy.link",
+        "host": "https://vfaqd-2607-fb91-1be1-7bcf-1459-5e8-8603-d39a.a.free.pinggy.link",
         "model": "glm-4.6:cloud",
         "timeout": 60,
         "temperature": 0.1,
-        "max_tokens": 200000
+        "max_tokens": 131072
     },
-    "ollama_url": "https://aymcq-128-9-16-23.a.free.pinggy.link/api/generate",
-    "ollama_api_base": "https://aymcq-128-9-16-23.a.free.pinggy.link",
+    "ollama_url": "https://vfaqd-2607-fb91-1be1-7bcf-1459-5e8-8603-d39a.a.free.pinggy.link/api/generate",
+    "ollama_api_base": "https://vfaqd-2607-fb91-1be1-7bcf-1459-5e8-8603-d39a.a.free.pinggy.link",
     "ollama_model": "glm-4.6:cloud",
     "ollama_check_interval": 30,
     "ollama_timeout": 60,
     "ollama_temperature": 0.3,
-    "ollama_max_tokens": 200000,
+    "ollama_max_tokens": 131072,
     "validation_config": {
         "run_rules_first": true,
         "llm_only_if_rules_pass": false,

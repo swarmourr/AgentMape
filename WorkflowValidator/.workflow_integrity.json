@@ -1,0 +1,12 @@
+{
+  "version": "1.0",
+  "created_at": "2026-01-08T15:15:28.153527",
+  "workflow": "/Users/hamzasafri/Desktop/AgentMape/WorkflowValidator/examples/example_workflow.yml",
+  "files": {},
+  "executables": {},
+  "statistics": {
+    "total_files": 0,
+    "total_size_bytes": 0,
+    "total_executables": 0
+  }
+}
