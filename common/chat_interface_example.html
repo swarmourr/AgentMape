@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Interaction Chat Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .controls {
+            padding: 20px;
+            background-color: #fafafa;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .controls input,
+        .controls select,
+        .controls button {
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .controls input {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .controls button {
+            background-color: #667eea;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color 0.3s;
+        }
+
+        .controls button:hover {
+            background-color: #5568d3;
+        }
+
+        .stats {
+            padding: 20px;
+            background-color: #f9f9f9;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .stat-card {
+            flex: 1;
+            min-width: 150px;
+            padding: 15px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .stat-card .label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-card .value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            margin-top: 5px;
+        }
+
+        .chat-container {
+            padding: 20px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .chat-message {
+            margin: 15px 0;
+            padding: 15px;
+            border-radius: 10px;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .chat-message.user {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            margin-right: 15%;
+            border-left: 4px solid #2196F3;
+        }
+
+        .chat-message.assistant {
+            background: linear-gradient(135deg, #f5f5f5 0%, #eeeeee 100%);
+            margin-left: 15%;
+            border-left: 4px solid #4CAF50;
+        }
+
+        .chat-message.system {
+            background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+            border-left: 4px solid #FF9800;
+            font-style: italic;
+        }
+
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+        }
+
+        .agent-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .agent-badge.analyzer {
+            background-color: #2196F3;
+            color: white;
+        }
+
+        .agent-badge.planner {
+            background-color: #9C27B0;
+            color: white;
+        }
+
+        .agent-badge.llm {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .timestamp {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .message-content {
+            color: #333;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .message-content.truncated {
+            max-height: 200px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .message-content.truncated::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 40px;
+            background: linear-gradient(transparent, white);
+        }
+
+        .expand-btn {
+            margin-top: 10px;
+            padding: 5px 10px;
+            background-color: #667eea;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .metadata {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: rgba(0,0,0,0.05);
+            border-radius: 6px;
+            font-size: 12px;
+        }
+
+        .metadata-item {
+            display: inline-block;
+            margin-right: 15px;
+            color: #666;
+        }
+
+        .metadata-item strong {
+            color: #333;
+        }
+
+        .latency {
+            display: inline-block;
+            padding: 3px 8px;
+            background-color: #4CAF50;
+            color: white;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .latency.slow {
+            background-color: #FF9800;
+        }
+
+        .latency.very-slow {
+            background-color: #F44336;
+        }
+
+        .error-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            background-color: #F44336;
+            color: white;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-state svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 LLM Interaction Chat Viewer</h1>
+            <p>View agent and LLM interactions in real-time</p>
+        </div>
+
+        <div class="controls">
+            <input type="text" id="workflowId" placeholder="Enter Workflow ID..." />
+            <select id="agentFilter">
+                <option value="">All Agents</option>
+                <option value="Analyzer">Analyzer</option>
+                <option value="Planner">Planner</option>
+            </select>
+            <button onclick="loadConversation()">Load Conversation</button>
+            <button onclick="loadLatest()">Load Latest</button>
+            <button onclick="loadStatistics()">Refresh Stats</button>
+        </div>
+
+        <div class="stats" id="stats" style="display: none;">
+            <div class="stat-card">
+                <div class="label">Total Interactions</div>
+                <div class="value" id="totalInteractions">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Success Rate</div>
+                <div class="value" id="successRate">0%</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Avg Latency</div>
+                <div class="value" id="avgLatency">0ms</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Workflows</div>
+                <div class="value" id="uniqueWorkflows">0</div>
+            </div>
+        </div>
+
+        <div class="chat-container" id="chatContainer">
+            <div class="empty-state">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                <p>No conversations loaded</p>
+                <p style="font-size: 14px; margin-top: 10px;">Enter a Workflow ID or load latest interactions</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin; // Adjust if API is on different port
+
+        async function loadConversation() {
+            const workflowId = document.getElementById('workflowId').value.trim();
+            if (!workflowId) {
+                alert('Please enter a Workflow ID');
+                return;
+            }
+
+            showLoading();
+
+            try {
+                const response = await fetch(`${API_BASE}/api/interactions/workflow/${workflowId}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    renderMessages(data.messages);
+                } else {
+                    showError(data.error || 'Failed to load conversation');
+                }
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+
+        async function loadLatest() {
+            const agentFilter = document.getElementById('agentFilter').value;
+
+            showLoading();
+
+            try {
+                let url = `${API_BASE}/api/interactions/latest?limit=50`;
+                if (agentFilter) {
+                    url += `&agent=${agentFilter}`;
+                }
+
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (data.success) {
+                    renderMessages(data.interactions.map(formatInteraction));
+                } else {
+                    showError(data.error || 'Failed to load interactions');
+                }
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+
+        async function loadStatistics() {
+            try {
+                const response = await fetch(`${API_BASE}/api/interactions/statistics`);
+                const data = await response.json();
+
+                if (data.success) {
+                    const stats = data.statistics;
+                    document.getElementById('totalInteractions').textContent = stats.total_interactions;
+                    document.getElementById('successRate').textContent = stats.success_rate.toFixed(1) + '%';
+                    document.getElementById('avgLatency').textContent = stats.average_latency_ms.toFixed(0) + 'ms';
+                    document.getElementById('uniqueWorkflows').textContent = stats.unique_workflows;
+                    document.getElementById('stats').style.display = 'flex';
+                }
+            } catch (error) {
+                console.error('Failed to load statistics:', error);
+            }
+        }
+
+        function formatInteraction(interaction) {
+            // Convert raw interaction to chat message format
+            const direction = interaction.direction || 'request';
+
+            if (direction === 'request') {
+                return {
+                    id: interaction.interaction_id,
+                    timestamp: interaction.timestamp,
+                    role: 'user',
+                    agent: interaction.agent,
+                    type: interaction.interaction_type,
+                    content: interaction.prompt || '',
+                    metadata: interaction.metadata || {},
+                    has_response: interaction.response !== null,
+                    success: interaction.success,
+                    latency_ms: interaction.latency_ms
+                };
+            } else {
+                return {
+                    id: interaction.interaction_id,
+                    timestamp: interaction.completed_at || interaction.timestamp,
+                    role: 'assistant',
+                    agent: 'LLM',
+                    type: interaction.interaction_type,
+                    content: interaction.response || '',
+                    metadata: interaction.metadata || {},
+                    success: interaction.success,
+                    latency_ms: interaction.latency_ms
+                };
+            }
+        }
+
+        function renderMessages(messages) {
+            const container = document.getElementById('chatContainer');
+            container.innerHTML = '';
+
+            if (!messages || messages.length === 0) {
+                container.innerHTML = '<div class="empty-state"><p>No messages found</p></div>';
+                return;
+            }
+
+            messages.forEach(msg => {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `chat-message ${msg.role}`;
+
+                const timestamp = new Date(msg.timestamp).toLocaleString();
+                const agentClass = msg.agent.toLowerCase();
+
+                let latencyBadge = '';
+                if (msg.latency_ms) {
+                    let latencyClass = '';
+                    if (msg.latency_ms > 5000) latencyClass = 'very-slow';
+                    else if (msg.latency_ms > 2000) latencyClass = 'slow';
+
+                    latencyBadge = `<span class="latency ${latencyClass}">⏱️ ${msg.latency_ms.toFixed(0)}ms</span>`;
+                }
+
+                let errorBadge = '';
+                if (msg.success === false) {
+                    errorBadge = '<span class="error-badge">❌ Failed</span>';
+                }
+
+                let content = msg.content || '';
+                const isTruncated = content.length > 500;
+                const displayContent = isTruncated ? content.substring(0, 500) + '...' : content;
+
+                messageDiv.innerHTML = `
+                    <div class="message-header">
+                        <div>
+                            <span class="agent-badge ${agentClass}">${msg.agent}</span>
+                            ${latencyBadge}
+                            ${errorBadge}
+                        </div>
+                        <span class="timestamp">${timestamp}</span>
+                    </div>
+                    <div class="message-content ${isTruncated ? 'truncated' : ''}" id="content-${msg.id}">
+                        ${escapeHtml(displayContent)}
+                    </div>
+                    ${isTruncated ? `<button class="expand-btn" onclick="expandMessage('${msg.id}', ${JSON.stringify(content).replace(/'/g, "&apos;")})">Show Full Content</button>` : ''}
+                    ${renderMetadata(msg)}
+                `;
+
+                container.appendChild(messageDiv);
+            });
+
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function renderMetadata(msg) {
+            const meta = msg.metadata || {};
+            const items = [];
+
+            if (msg.type) items.push(`<span class="metadata-item"><strong>Type:</strong> ${msg.type}</span>`);
+            if (msg.workflow_id) items.push(`<span class="metadata-item"><strong>Workflow:</strong> ${msg.workflow_id.substring(0, 8)}...</span>`);
+            if (meta.analysis_type) items.push(`<span class="metadata-item"><strong>Analysis:</strong> ${meta.analysis_type}</span>`);
+            if (meta.stage) items.push(`<span class="metadata-item"><strong>Stage:</strong> ${meta.stage}</span>`);
+
+            if (items.length === 0) return '';
+
+            return `<div class="metadata">${items.join('')}</div>`;
+        }
+
+        function expandMessage(id, fullContent) {
+            const contentDiv = document.getElementById(`content-${id}`);
+            contentDiv.innerHTML = escapeHtml(fullContent);
+            contentDiv.classList.remove('truncated');
+            contentDiv.nextElementSibling.remove(); // Remove button
+        }
+
+        function showLoading() {
+            const container = document.getElementById('chatContainer');
+            container.innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading...</p></div>';
+        }
+
+        function showError(message) {
+            const container = document.getElementById('chatContainer');
+            container.innerHTML = `<div class="empty-state"><p style="color: #F44336;">Error: ${escapeHtml(message)}</p></div>`;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Auto-load statistics on page load
+        window.addEventListener('load', () => {
+            loadStatistics();
+        });
+
+        // Enable Enter key to submit
+        document.getElementById('workflowId').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                loadConversation();
+            }
+        });
+    </script>
+</body>
+</html>
