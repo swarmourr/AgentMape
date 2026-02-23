@@ -22,6 +22,7 @@ import aiohttp
 
 # Import replica helper
 from replica_helper import ReplicaHelper
+from workflow_interaction_logger import get_workflow_logger, close_workflow_logger
 
 # Configuration
 HTTP_PORT = int(os.getenv("HTTP_PORT", "8082"))
@@ -102,8 +103,12 @@ class OllamaManager:
             self.is_healthy = False
             return False
 
-    def call_llm(self, prompt: str, system_prompt: str = "") -> Optional[Dict[str, Any]]:
-        """Call Ollama LLM for plan generation"""
+    def call_llm(self, prompt: str, workflow_id: str, plan_type: str = "repair", system_prompt: str = "") -> Optional[Dict[str, Any]]:
+        """Call Ollama LLM for plan generation + WORKFLOW LOGGING"""
+
+        # GET WORKFLOW LOGGER
+        wf_logger = get_workflow_logger(workflow_id)
+
         if not self.is_healthy:
             self.check_health()
 
@@ -127,6 +132,21 @@ class OllamaManager:
 
         try:
             logger.info(f"Calling Ollama with prompt length: {len(full_prompt)} chars")
+
+            # LOG LLM REQUEST
+            interaction_id = wf_logger.log_llm_request(
+                prompt=full_prompt,
+                metadata={
+                    "ollama_model": self.ollama_model,
+                    "plan_type": plan_type,
+                    "prompt_length": len(full_prompt),
+                    "temperature": 0.1,
+                    "format": "json"
+                }
+            )
+
+            import time
+            start_time = time.time()
 
             # Use streaming to avoid timeout on long responses
             response = requests.post(
@@ -164,17 +184,54 @@ class OllamaManager:
                 print(f"\r  {TerminalColor.GREEN.apply('✓ LLM response received:')} {len(full_response):,} chars                    ")
                 logger.info(f"Ollama response length: {len(full_response)} chars")
 
+                # Calculate latency
+                latency_ms = (time.time() - start_time) * 1000
+
+                # LOG SUCCESSFUL LLM RESPONSE
+                wf_logger.log_llm_response(
+                    interaction_id=interaction_id,
+                    response=full_response,
+                    success=True,
+                    latency_ms=latency_ms
+                )
+
                 # Return in same format as non-streaming
                 return {
                     "response": full_response,
                     "done": done
                 }
             else:
+                # Calculate latency for failed request
+                latency_ms = (time.time() - start_time) * 1000
+                error_msg = f"HTTP {response.status_code}: {response.text[:200]}"
+
+                # LOG FAILED LLM RESPONSE
+                wf_logger.log_llm_response(
+                    interaction_id=interaction_id,
+                    response="",
+                    success=False,
+                    latency_ms=latency_ms,
+                    error=error_msg
+                )
+
                 logger.error(f"Ollama API error: {response.status_code}")
                 logger.error(f"Response body: {response.text[:500]}")
                 return None
 
         except Exception as e:
+            # Calculate latency for exception
+            latency_ms = (time.time() - start_time) * 1000 if 'start_time' in locals() else 0
+            error_msg = str(e)
+
+            # LOG EXCEPTION
+            wf_logger.log_llm_response(
+                interaction_id=interaction_id,
+                response="",
+                success=False,
+                latency_ms=latency_ms,
+                error=error_msg
+            )
+
             logger.error(f"Ollama call failed: {e}")
             import traceback
             logger.error(f"Traceback: {traceback.format_exc()}")
@@ -1202,6 +1259,13 @@ class LLMPlanner:
         workflow_id = workflow_context.get('workflow_id')
         logger.info(f"Generating plan for workflow {workflow_id}")
 
+        # INITIALIZE WORKFLOW LOGGER
+        wf_logger = get_workflow_logger(workflow_id)
+        wf_logger.log_event("planning_started", {
+            "use_multi_stage": use_multi_stage,
+            "has_additional_files": bool(additional_files)
+        })
+
         # Check if multi-stage approach should be used
         if use_multi_stage and not additional_files:
             logger.info("Using multi-stage LLM approach to reduce prompt size")
@@ -1261,8 +1325,8 @@ class LLMPlanner:
         # Build prompt
         prompt = self.prompt_builder.build_planner_prompt(analysis_result, catalogs, workflow_context)
 
-        # Call LLM
-        llm_response = self.ollama_manager.call_llm(prompt, self.prompt_builder.SYSTEM_PROMPT)
+        # Call LLM with workflow logging
+        llm_response = self.ollama_manager.call_llm(prompt, workflow_id, "repair", self.prompt_builder.SYSTEM_PROMPT)
 
         if llm_response:
             try:
@@ -1290,13 +1354,35 @@ class LLMPlanner:
                 # Print plan summary
                 self.print_plan_summary(plan)
 
+                # LOG COMPLETION
+                wf_logger.log_event("planning_completed", {
+                    "status": "success",
+                    "llm_used": True,
+                    "plan_id": plan["plan_id"]
+                })
+                close_workflow_logger(workflow_id)
+
                 return plan
 
             except Exception as e:
                 logger.error(f"Error parsing LLM response: {e}")
+
+                # LOG ERROR
+                wf_logger.log_event("planning_error", {"error": str(e), "fallback": True})
+                close_workflow_logger(workflow_id)
+
                 return self.generate_fallback_plan(analysis_result, workflow_context)
         else:
             logger.warning("LLM not available, using fallback planning")
+
+            # LOG FALLBACK
+            wf_logger.log_event("planning_completed", {
+                "status": "fallback",
+                "llm_used": False,
+                "reason": "LLM not available"
+            })
+            close_workflow_logger(workflow_id)
+
             return self.generate_fallback_plan(analysis_result, workflow_context)
 
     async def generate_plan_multi_stage(
@@ -1334,7 +1420,7 @@ class LLMPlanner:
             return await self.generate_plan_with_llm(analysis_result, catalogs, workflow_context, use_multi_stage=False)
 
         try:
-            stage1_response = self.ollama_manager.call_llm(stage1_prompt, "You are a Pegasus workflow debugging assistant. Identify which files are needed to fix errors.")
+            stage1_response = self.ollama_manager.call_llm(stage1_prompt, workflow_id, "multi_stage_1", "You are a Pegasus workflow debugging assistant. Identify which files are needed to fix errors.")
         except Exception as e:
             logger.error(f"Stage 1 LLM call failed: {e}")
             print(f"{TerminalColor.RED.apply('✗ Error:')} LLM call failed: {str(e)}")
@@ -2206,6 +2292,11 @@ class PlannerHTTPServer:
         self.app.router.add_post('/api/plans/{plan_id}/approve', self.handle_approve_plan)
         self.app.router.add_get('/api/plans', self.handle_list_plans)
 
+        # Workflow interaction logs endpoints
+        self.app.router.add_get('/api/workflow-logs', self.handle_get_workflow_logs_list)
+        self.app.router.add_get('/api/workflow-logs/{workflow_id}', self.handle_get_workflow_logs)
+        self.app.router.add_get('/api/workflow-logs/{workflow_id}/download', self.handle_download_workflow_logs)
+
     async def handle_health(self, request):
         """Health check endpoint"""
         return web.json_response({
@@ -2582,6 +2673,115 @@ class PlannerHTTPServer:
                 "plans": plans,
                 "total": len(plans)
             })
+        except Exception as e:
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def handle_get_workflow_logs_list(self, request):
+        """Get list of all workflows with interaction logs"""
+        try:
+            import os
+            logs_base_dir = "workflow_logs"
+
+            if not os.path.exists(logs_base_dir):
+                return web.json_response({
+                    "workflows": [],
+                    "total": 0,
+                    "message": "No workflow logs directory found"
+                })
+
+            workflows = []
+            for workflow_id in os.listdir(logs_base_dir):
+                workflow_dir = os.path.join(logs_base_dir, workflow_id)
+                db_path = os.path.join(workflow_dir, "interactions.json")
+
+                if os.path.isdir(workflow_dir) and os.path.exists(db_path):
+                    # Get basic stats
+                    db = TinyDB(db_path)
+
+                    workflows.append({
+                        "workflow_id": workflow_id,
+                        "db_path": db_path,
+                        "llm_interactions": len(db.table('llm_interactions').all()),
+                        "outputs": len(db.table('outputs').all()),
+                        "events": len(db.table('events').all()),
+                        "last_modified": datetime.fromtimestamp(os.path.getmtime(db_path)).isoformat()
+                    })
+
+                    db.close()
+
+            return web.json_response({
+                "workflows": workflows,
+                "total": len(workflows),
+                "timestamp": datetime.now().isoformat()
+            })
+
+        except Exception as e:
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def handle_get_workflow_logs(self, request):
+        """Get all interaction logs for a specific workflow"""
+        try:
+            workflow_id = request.match_info['workflow_id']
+            logs_base_dir = "workflow_logs"
+            db_path = os.path.join(logs_base_dir, workflow_id, "interactions.json")
+
+            if not os.path.exists(db_path):
+                return web.json_response({
+                    "error": f"No logs found for workflow {workflow_id}"
+                }, status=404)
+
+            db = TinyDB(db_path)
+
+            data = {
+                "workflow_id": workflow_id,
+                "llm_interactions": db.table('llm_interactions').all(),
+                "outputs": db.table('outputs').all(),
+                "events": db.table('events').all(),
+                "timestamp": datetime.now().isoformat()
+            }
+
+            db.close()
+
+            return web.json_response(data)
+
+        except Exception as e:
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def handle_download_workflow_logs(self, request):
+        """Download interaction logs as JSON file"""
+        try:
+            workflow_id = request.match_info['workflow_id']
+            logs_base_dir = "workflow_logs"
+            db_path = os.path.join(logs_base_dir, workflow_id, "interactions.json")
+
+            if not os.path.exists(db_path):
+                return web.json_response({
+                    "error": f"No logs found for workflow {workflow_id}"
+                }, status=404)
+
+            db = TinyDB(db_path)
+
+            data = {
+                "workflow_id": workflow_id,
+                "llm_interactions": db.table('llm_interactions').all(),
+                "outputs": db.table('outputs').all(),
+                "events": db.table('events').all(),
+                "exported_at": datetime.now().isoformat()
+            }
+
+            db.close()
+
+            # Return as downloadable file
+            import json
+            response = web.Response(
+                body=json.dumps(data, indent=2),
+                content_type='application/json',
+                headers={
+                    'Content-Disposition': f'attachment; filename="workflow_{workflow_id}_planner_logs.json"'
+                }
+            )
+            return response
+
         except Exception as e:
             return web.json_response({"error": str(e)}, status=500)
 
