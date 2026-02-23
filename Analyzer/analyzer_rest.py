@@ -3586,7 +3586,7 @@ def main():
     try:
         asyncio.run(agent.start_servers())
     except KeyboardInterrupt:
-        print(f"\n{TerminalColor.YELLOW.apply('👋')} Enhanced Analyzer Agent shutting down...")
+        print(f"\n{TerminalColor.YELLOW.apply('👋')} Enhanced Analyzer Agent V1 shutting down...")
     except Exception as e:
         print(f"{TerminalColor.RED.apply('❌')} Error: {e}")
 
