@@ -25,6 +25,7 @@ import aiohttp
 from aiohttp import web, ClientSession
 import uuid
 from missing_file_helper import MissingFileHelper
+from workflow_interaction_logger import get_workflow_logger, close_workflow_logger
 
 class TerminalColor(Enum):
     BLACK = '\033[30m'
@@ -1199,8 +1200,16 @@ class EnhancedAnalyzerAgent:
         # All analyses endpoint for dashboard
         self.app.router.add_get('/api/analyses/all', self.handle_get_all_analyses)
 
+        # Workflow interaction logs endpoints
+        self.app.router.add_get('/api/workflow-logs', self.handle_get_workflow_logs_list)
+        self.app.router.add_get('/api/workflow-logs/{workflow_id}', self.handle_get_workflow_logs)
+        self.app.router.add_get('/api/workflow-logs/{workflow_id}/download', self.handle_download_workflow_logs)
+
     def send_logs_and_workflow_to_llm_enhanced(self, logs: str, workflow: Dict[str, Any], analysis_type: str = "failed", hold_reason: str = "", stderr_summary: str = "") -> Optional[Dict[str, Any]]:
         """Enhanced LLM communication with better error handling and fallback"""
+
+        # Extract workflow_id for logging
+        workflow_id = workflow.get('workflow', {}).get('wf_id', 'unknown')
 
         # First, check if Ollama is healthy
         if not self.ollama_manager.quick_health_check():
@@ -1217,23 +1226,26 @@ class EnhancedAnalyzerAgent:
 
         # Try with JSON format first (if supported)
         if self.config.get("use_json_format", True):
-            result = self._try_llm_request(prompt, use_json_format=True)
+            result = self._try_llm_request(prompt, workflow_id, analysis_type, use_json_format=True)
             if result:
                 return result
-            
+
             self.logger.info("JSON format failed, trying without format parameter")
-        
+
         # Fallback: try without JSON format
-        result = self._try_llm_request(prompt, use_json_format=False)
+        result = self._try_llm_request(prompt, workflow_id, analysis_type, use_json_format=False)
         if result:
             return result
-        
+
         self.logger.error("All LLM request attempts failed")
         return None
 
-    def _try_llm_request(self, prompt: str, use_json_format: bool = True) -> Optional[Dict[str, Any]]:
-        """Try a single LLM request with detailed error handling"""
-        
+    def _try_llm_request(self, prompt: str, workflow_id: str, analysis_type: str, use_json_format: bool = True) -> Optional[Dict[str, Any]]:
+        """Try a single LLM request with detailed error handling + WORKFLOW LOGGING"""
+
+        # GET WORKFLOW LOGGER
+        wf_logger = get_workflow_logger(workflow_id)
+
         payload = {
             "model": self.ollama_manager.ollama_model,
             "prompt": prompt,
@@ -1254,13 +1266,29 @@ class EnhancedAnalyzerAgent:
         for attempt in range(max_retries):
             try:
                 self.logger.info(f"LLM request attempt {attempt + 1}/{max_retries} (JSON format: {use_json_format})")
-                
+
+                # LOG LLM REQUEST
+                interaction_id = wf_logger.log_llm_request(
+                    prompt=prompt,
+                    metadata={
+                        "attempt": attempt + 1,
+                        "max_retries": max_retries,
+                        "ollama_model": self.ollama_manager.ollama_model,
+                        "analysis_type": analysis_type,
+                        "use_json_format": use_json_format
+                    }
+                )
+
+                start_time = time.time()
+
                 response = requests.post(
-                    self.ollama_manager.ollama_url, 
-                    json=payload, 
+                    self.ollama_manager.ollama_url,
+                    json=payload,
                     timeout=generation_timeout,
                     headers={'User-Agent': 'PegasusAnalyzerAgent/1.0'}
                 )
+
+                latency_ms = (time.time() - start_time) * 1000
                 
                 if response.status_code == 200:
                     ollama_response = response.json()
@@ -1274,7 +1302,15 @@ class EnhancedAnalyzerAgent:
                     self.ollama_manager.is_healthy = True
                     self.ollama_manager.last_error = None
                     self.ollama_manager.log_connection_attempt("generate", True)
-                    
+
+                    # LOG SUCCESSFUL LLM RESPONSE
+                    wf_logger.log_llm_response(
+                        interaction_id=interaction_id,
+                        response=response_text,
+                        success=True,
+                        latency_ms=latency_ms
+                    )
+
                     return {
                         "choices": [{
                             "message": {
@@ -1320,7 +1356,16 @@ class EnhancedAnalyzerAgent:
         # Mark as unhealthy after all retries failed
         self.ollama_manager.is_healthy = False
         self.ollama_manager.last_error = "All generation attempts failed"
-        
+
+        # LOG FAILED LLM RESPONSE (after all retries exhausted)
+        wf_logger.log_llm_response(
+            interaction_id=interaction_id,
+            response="",
+            success=False,
+            latency_ms=latency_ms,
+            error="All generation attempts failed after retries"
+        )
+
         return None
 
     def extract_workflow_info_enhanced(self, json_payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -1687,6 +1732,10 @@ class EnhancedAnalyzerAgent:
         """Analyze a failed workflow using enhanced LLM integration"""
         self.logger.info(f"Analyzing failed workflow: {workflow_id}")
 
+        # INITIALIZE WORKFLOW LOGGER
+        wf_logger = get_workflow_logger(workflow_id)
+        wf_logger.log_event("analysis_started", {"analysis_type": "failed"})
+
         if job_out_files is None:
             job_out_files = []
 
@@ -1800,6 +1849,14 @@ class EnhancedAnalyzerAgent:
                 print(f"│     {conf_text}")
             print(f"└{'─'*78}\n")
 
+            # LOG COMPLETION
+            wf_logger.log_event("analysis_completed", {
+                "status": "success",
+                "llm_used": bool(llm_response),
+                "fallback_mode": "fallback_mode" in analysis_result
+            })
+            close_workflow_logger(workflow_id)
+
             return {
                 "status": "success",
                 "message": f"Analysis completed for workflow {workflow_id}",
@@ -1810,11 +1867,15 @@ class EnhancedAnalyzerAgent:
                 "fallback_mode": "fallback_mode" in analysis_result,
                 "ollama_healthy": self.ollama_manager.is_healthy
             }
-            
+
         except Exception as e:
             error_msg = f"Error analyzing workflow {workflow_id}: {str(e)}"
             self.logger.error(error_msg)
-            
+
+            # LOG ERROR
+            wf_logger.log_event("analysis_error", {"error": error_msg})
+            close_workflow_logger(workflow_id)
+
             fallback_result = self.generate_fallback_analysis(workflow_id, workflow_dir, "", "failed")
             return {
                 "status": "partial_success",
@@ -1829,6 +1890,10 @@ class EnhancedAnalyzerAgent:
     async def analyze_held_workflow(self, workflow_id: str, workflow_dir: str, hold_reason: str = "", job_out_files: List = None) -> Dict[str, Any]:
         """Analyze a held workflow with enhanced LLM integration"""
         self.logger.info(f"Analyzing held workflow: {workflow_id}")
+
+        # INITIALIZE WORKFLOW LOGGER
+        wf_logger = get_workflow_logger(workflow_id)
+        wf_logger.log_event("analysis_started", {"analysis_type": "held", "hold_reason": hold_reason})
 
         if job_out_files is None:
             job_out_files = []
@@ -1931,6 +1996,14 @@ class EnhancedAnalyzerAgent:
                 print(f"  {confidence.get('explanation', 'N/A')}")
             print(f"{'='*80}\n")
 
+            # LOG COMPLETION
+            wf_logger.log_event("analysis_completed", {
+                "status": "success",
+                "llm_used": analysis_record["llm_available"],
+                "fallback_mode": analysis_result.get("fallback_mode", False)
+            })
+            close_workflow_logger(workflow_id)
+
             return {
                 "status": "success",
                 "message": f"Hold analysis completed for workflow {workflow_id}",
@@ -1939,11 +2012,15 @@ class EnhancedAnalyzerAgent:
                 "llm_used": analysis_record["llm_available"],
                 "fallback_mode": analysis_result.get("fallback_mode", False)
             }
-            
+
         except Exception as e:
             error_msg = f"Error analyzing held workflow {workflow_id}: {str(e)}"
             self.logger.error(error_msg)
-            
+
+            # LOG ERROR
+            wf_logger.log_event("analysis_error", {"error": error_msg})
+            close_workflow_logger(workflow_id)
+
             fallback_result = self.generate_fallback_analysis(workflow_id, workflow_dir, "", "held")
             return {
                 "status": "partial_success",
@@ -1992,10 +2069,10 @@ class EnhancedAnalyzerAgent:
             
             # Use LLM to analyze patterns
             prompt = self.prompt_manager.get_error_pattern_analysis_prompt(error_logs[:20])  # Limit to prevent token overflow
-            
-            llm_response = self._try_llm_request(prompt, use_json_format=True)
+
+            llm_response = self._try_llm_request(prompt, "pattern_analysis", "pattern", use_json_format=True)
             if not llm_response:
-                llm_response = self._try_llm_request(prompt, use_json_format=False)
+                llm_response = self._try_llm_request(prompt, "pattern_analysis", "pattern", use_json_format=False)
             
             pattern_analysis = None
             if llm_response:
@@ -2079,11 +2156,11 @@ class EnhancedAnalyzerAgent:
             
             # Generate optimization prompt
             prompt = self.prompt_manager.get_workflow_optimization_prompt(workflow_data, performance_data)
-            
+
             # Try LLM analysis
-            llm_response = self._try_llm_request(prompt, use_json_format=True)
+            llm_response = self._try_llm_request(prompt, workflow_id, "optimization", use_json_format=True)
             if not llm_response:
-                llm_response = self._try_llm_request(prompt, use_json_format=False)
+                llm_response = self._try_llm_request(prompt, workflow_id, "optimization", use_json_format=False)
             
             optimization_result = None
             if llm_response:
@@ -2591,6 +2668,115 @@ class EnhancedAnalyzerAgent:
                 "total": len(analyses_summary),
                 "timestamp": datetime.now().isoformat()
             })
+        except Exception as e:
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def handle_get_workflow_logs_list(self, request):
+        """Get list of all workflows with interaction logs"""
+        try:
+            import os
+            logs_base_dir = "workflow_logs"
+
+            if not os.path.exists(logs_base_dir):
+                return web.json_response({
+                    "workflows": [],
+                    "total": 0,
+                    "message": "No workflow logs directory found"
+                })
+
+            workflows = []
+            for workflow_id in os.listdir(logs_base_dir):
+                workflow_dir = os.path.join(logs_base_dir, workflow_id)
+                db_path = os.path.join(workflow_dir, "interactions.json")
+
+                if os.path.isdir(workflow_dir) and os.path.exists(db_path):
+                    # Get basic stats
+                    db = TinyDB(db_path)
+
+                    workflows.append({
+                        "workflow_id": workflow_id,
+                        "db_path": db_path,
+                        "llm_interactions": len(db.table('llm_interactions').all()),
+                        "outputs": len(db.table('outputs').all()),
+                        "events": len(db.table('events').all()),
+                        "last_modified": datetime.fromtimestamp(os.path.getmtime(db_path)).isoformat()
+                    })
+
+                    db.close()
+
+            return web.json_response({
+                "workflows": workflows,
+                "total": len(workflows),
+                "timestamp": datetime.now().isoformat()
+            })
+
+        except Exception as e:
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def handle_get_workflow_logs(self, request):
+        """Get all interaction logs for a specific workflow"""
+        try:
+            workflow_id = request.match_info['workflow_id']
+            logs_base_dir = "workflow_logs"
+            db_path = os.path.join(logs_base_dir, workflow_id, "interactions.json")
+
+            if not os.path.exists(db_path):
+                return web.json_response({
+                    "error": f"No logs found for workflow {workflow_id}"
+                }, status=404)
+
+            db = TinyDB(db_path)
+
+            data = {
+                "workflow_id": workflow_id,
+                "llm_interactions": db.table('llm_interactions').all(),
+                "outputs": db.table('outputs').all(),
+                "events": db.table('events').all(),
+                "timestamp": datetime.now().isoformat()
+            }
+
+            db.close()
+
+            return web.json_response(data)
+
+        except Exception as e:
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def handle_download_workflow_logs(self, request):
+        """Download interaction logs as JSON file"""
+        try:
+            workflow_id = request.match_info['workflow_id']
+            logs_base_dir = "workflow_logs"
+            db_path = os.path.join(logs_base_dir, workflow_id, "interactions.json")
+
+            if not os.path.exists(db_path):
+                return web.json_response({
+                    "error": f"No logs found for workflow {workflow_id}"
+                }, status=404)
+
+            db = TinyDB(db_path)
+
+            data = {
+                "workflow_id": workflow_id,
+                "llm_interactions": db.table('llm_interactions').all(),
+                "outputs": db.table('outputs').all(),
+                "events": db.table('events').all(),
+                "exported_at": datetime.now().isoformat()
+            }
+
+            db.close()
+
+            # Return as downloadable file
+            import json
+            response = web.Response(
+                body=json.dumps(data, indent=2),
+                content_type='application/json',
+                headers={
+                    'Content-Disposition': f'attachment; filename="workflow_{workflow_id}_logs.json"'
+                }
+            )
+            return response
+
         except Exception as e:
             return web.json_response({"error": str(e)}, status=500)
 

@@ -36,18 +36,61 @@ class WorkflowInteractionLogger:
         self.workflow_id = workflow_id
         self.base_dir = base_dir
 
+        # Print debug information
+        print(f"\n{'='*80}")
+        print(f"🔧 WORKFLOW INTERACTION LOGGER INITIALIZATION")
+        print(f"{'='*80}")
+        print(f"Workflow ID: {workflow_id}")
+        print(f"Base directory: {base_dir}")
+
         # Create directory structure: workflow_logs/{workflow_id}/
         self.workflow_dir = os.path.join(base_dir, workflow_id)
-        os.makedirs(self.workflow_dir, exist_ok=True)
+
+        print(f"\n📁 Creating directory structure...")
+        print(f"   Target directory: {self.workflow_dir}")
+
+        # Check if directory already exists
+        if os.path.exists(self.workflow_dir):
+            print(f"   ✓ Directory already exists")
+        else:
+            print(f"   → Creating new directory...")
+            os.makedirs(self.workflow_dir, exist_ok=True)
+
+            # Verify creation
+            if os.path.exists(self.workflow_dir):
+                print(f"   ✓ Directory created successfully!")
+            else:
+                print(f"   ✗ ERROR: Failed to create directory!")
+
+        # Get absolute path
+        abs_path = os.path.abspath(self.workflow_dir)
+        print(f"   Absolute path: {abs_path}")
 
         # Database file: workflow_logs/{workflow_id}/interactions.json
         self.db_path = os.path.join(self.workflow_dir, "interactions.json")
+
+        print(f"\n💾 Creating database...")
+        print(f"   Database path: {self.db_path}")
+        print(f"   Absolute path: {os.path.abspath(self.db_path)}")
+
         self.db = TinyDB(self.db_path)
 
+        # Verify database file was created
+        if os.path.exists(self.db_path):
+            file_size = os.path.getsize(self.db_path)
+            print(f"   ✓ Database file created successfully!")
+            print(f"   File size: {file_size} bytes")
+        else:
+            print(f"   ✗ ERROR: Database file not found!")
+
         # Tables
+        print(f"\n📊 Creating tables...")
         self.llm_interactions = self.db.table('llm_interactions')
+        print(f"   ✓ llm_interactions table")
         self.outputs = self.db.table('outputs')
+        print(f"   ✓ outputs table")
         self.events = self.db.table('events')
+        print(f"   ✓ events table")
 
         # Session tracking
         self.session_id = str(uuid.uuid4())
@@ -56,15 +99,28 @@ class WorkflowInteractionLogger:
         # Output capture
         self.captured_outputs = []
 
+        print(f"\n✨ Session Information:")
+        print(f"   Session ID: {self.session_id}")
+        print(f"   Start time: {self.session_start}")
+
         logger.info(f"WorkflowInteractionLogger initialized for workflow: {workflow_id}")
         logger.info(f"Database: {self.db_path}")
 
         # Log session start
+        print(f"\n📝 Logging session start event...")
         self.log_event("session_start", {
             "session_id": self.session_id,
             "workflow_id": self.workflow_id,
             "start_time": self.session_start
         })
+
+        # Verify event was logged
+        event_count = len(self.events.all())
+        print(f"   ✓ Session start event logged (total events: {event_count})")
+
+        print(f"\n{'='*80}")
+        print(f"✅ WORKFLOW LOGGER READY!")
+        print(f"{'='*80}\n")
 
     def log_llm_request(
         self,
@@ -105,6 +161,12 @@ class WorkflowInteractionLogger:
         self.llm_interactions.insert(record)
         logger.debug(f"Logged LLM request: {interaction_id}")
 
+        # Print confirmation
+        print(f"📤 LLM Request Logged:")
+        print(f"   Interaction ID: {interaction_id}")
+        print(f"   Prompt length: {len(prompt)} chars")
+        print(f"   Total interactions in DB: {len(self.llm_interactions.all())}")
+
         return interaction_id
 
     def log_llm_response(
@@ -142,6 +204,17 @@ class WorkflowInteractionLogger:
 
         self.llm_interactions.update(update_data, Query_.interaction_id == interaction_id)
         logger.debug(f"Logged LLM response: {interaction_id} (success={success})")
+
+        # Print confirmation
+        status_icon = "✅" if success else "❌"
+        print(f"📥 {status_icon} LLM Response Logged:")
+        print(f"   Interaction ID: {interaction_id}")
+        print(f"   Success: {success}")
+        print(f"   Latency: {latency_ms:.2f}ms")
+        if response:
+            print(f"   Response length: {len(response)} chars")
+        if error:
+            print(f"   Error: {error}")
 
     def log_print(self, message: str, level: str = "info", context: Dict[str, Any] = None):
         """
@@ -294,6 +367,22 @@ class WorkflowInteractionLogger:
 
         logger.info(f"Session ended for workflow {self.workflow_id}")
         logger.info(f"Summary: {summary['counts']}")
+
+        # Print final summary
+        print(f"\n{'='*80}")
+        print(f"📊 WORKFLOW LOGGER SESSION SUMMARY")
+        print(f"{'='*80}")
+        print(f"Workflow ID: {self.workflow_id}")
+        print(f"Database: {self.db_path}")
+        print(f"\nCounts:")
+        print(f"   LLM Interactions: {summary['counts']['llm_interactions']}")
+        print(f"   Outputs: {summary['counts']['outputs']}")
+        print(f"   Events: {summary['counts']['events']}")
+        print(f"\nLLM Stats:")
+        print(f"   Success Rate: {summary['llm_stats']['success_rate']:.1f}%")
+        print(f"   Avg Latency: {summary['llm_stats']['average_latency_ms']:.2f}ms")
+        print(f"\n💾 Database saved to: {os.path.abspath(self.db_path)}")
+        print(f"{'='*80}\n")
 
         self.db.close()
 
