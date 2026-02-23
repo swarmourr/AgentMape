@@ -1205,7 +1205,7 @@ class EnhancedAnalyzerAgent:
         self.app.router.add_get('/api/workflow-logs/{workflow_id}', self.handle_get_workflow_logs)
         self.app.router.add_get('/api/workflow-logs/{workflow_id}/download', self.handle_download_workflow_logs)
 
-    def send_logs_and_workflow_to_llm_enhanced(self, logs: str, workflow: Dict[str, Any], analysis_type: str = "failed", hold_reason: str = "", stderr_summary: str = "") -> Optional[Dict[str, Any]]:
+    def send_logs_and_workflow_to_llm_enhanced(self, logs: str, workflow: Dict[str, Any], analysis_type: str = "failed", hold_reason: str = "", stderr_summary: str = "", wf_logger=None) -> Optional[Dict[str, Any]]:
         """Enhanced LLM communication with better error handling and fallback"""
 
         # Extract workflow_id for logging
@@ -1226,25 +1226,26 @@ class EnhancedAnalyzerAgent:
 
         # Try with JSON format first (if supported)
         if self.config.get("use_json_format", True):
-            result = self._try_llm_request(prompt, workflow_id, analysis_type, use_json_format=True)
+            result = self._try_llm_request(prompt, workflow_id, analysis_type, use_json_format=True, wf_logger=wf_logger)
             if result:
                 return result
 
             self.logger.info("JSON format failed, trying without format parameter")
 
         # Fallback: try without JSON format
-        result = self._try_llm_request(prompt, workflow_id, analysis_type, use_json_format=False)
+        result = self._try_llm_request(prompt, workflow_id, analysis_type, use_json_format=False, wf_logger=wf_logger)
         if result:
             return result
 
         self.logger.error("All LLM request attempts failed")
         return None
 
-    def _try_llm_request(self, prompt: str, workflow_id: str, analysis_type: str, use_json_format: bool = True) -> Optional[Dict[str, Any]]:
+    def _try_llm_request(self, prompt: str, workflow_id: str, analysis_type: str, use_json_format: bool = True, wf_logger=None) -> Optional[Dict[str, Any]]:
         """Try a single LLM request with detailed error handling + WORKFLOW LOGGING"""
 
-        # GET WORKFLOW LOGGER
-        wf_logger = get_workflow_logger(workflow_id)
+        # GET WORKFLOW LOGGER (use passed logger or get new one)
+        if wf_logger is None:
+            wf_logger = get_workflow_logger(workflow_id)
 
         payload = {
             "model": self.ollama_manager.ollama_model,
@@ -1760,7 +1761,7 @@ class EnhancedAnalyzerAgent:
                 print(f"    • ⚠ No stderr data available - using pegasus-analyzer only")
 
             analysis_result = None
-            llm_response = self.send_logs_and_workflow_to_llm_enhanced(logs, workflow_data, "failed", stderr_summary=stderr_summary)
+            llm_response = self.send_logs_and_workflow_to_llm_enhanced(logs, workflow_data, "failed", stderr_summary=stderr_summary, wf_logger=wf_logger)
             
             if llm_response:
                 analysis_result = self.extract_workflow_info_enhanced(llm_response)
@@ -1813,9 +1814,23 @@ class EnhancedAnalyzerAgent:
             print(f"║ {TerminalColor.CYAN.apply('LLM Used:'):20} {llm_status:54} ║")
             print(f"╚{'═'*78}╝\n")
 
+            # LOG ANALYSIS COMPLETION SUMMARY
+            wf_logger.log_print(
+                message=f"✅ WORKFLOW ANALYSIS COMPLETED - Workflow: {workflow_id}, Type: Failed Workflow, LLM Used: {bool(llm_response)}",
+                level="info",
+                context={"workflow_id": workflow_id, "analysis_type": "failed", "llm_used": bool(llm_response)}
+            )
+
             print(f"┌─ {TerminalColor.BRIGHT_YELLOW.apply('PROBLEMS & SOLUTIONS')} {'─'*55}")
             problems = analysis_result.get("problems_and_solutions", [])
             if problems:
+                # LOG ALL PROBLEMS AS JSON
+                wf_logger.log_json(
+                    data={"problems_and_solutions": problems},
+                    label="Analysis Problems & Solutions",
+                    context={"total_problems": len(problems)}
+                )
+
                 for idx, problem in enumerate(problems, 1):
                     print(f"│")
                     print(f"│  {TerminalColor.BRIGHT_WHITE.apply(f'Issue #{idx}:')}")
@@ -1836,8 +1851,16 @@ class EnhancedAnalyzerAgent:
                         if len(file_path) > 60:
                             file_path = '...' + file_path[-57:]
                         print(f"│    {TerminalColor.CYAN.apply('File:')} {file_path}")
+
+                    # LOG EACH PROBLEM
+                    wf_logger.log_print(
+                        message=f"Issue #{idx}: {problem.get('problem', 'N/A')[:100]}",
+                        level="warning",
+                        context={"issue_number": idx, "priority": problem.get('priority'), "file": problem.get('file_path')}
+                    )
             else:
                 print(f"│  {TerminalColor.YELLOW.apply('⚠ No specific problems identified')}")
+                wf_logger.log_print("⚠ No specific problems identified", level="warning")
 
             confidence = analysis_result.get("confidence_score", {})
             if confidence:
@@ -1906,7 +1929,7 @@ class EnhancedAnalyzerAgent:
                 workflow_data = self.load_workflow_yaml(yaml_path)
             
             analysis_result = None
-            llm_response = self.send_logs_and_workflow_to_llm_enhanced(logs, workflow_data, "held", hold_reason)
+            llm_response = self.send_logs_and_workflow_to_llm_enhanced(logs, workflow_data, "held", hold_reason, wf_logger=wf_logger)
             
             if llm_response:
                 # For held workflows, we need different extraction logic
