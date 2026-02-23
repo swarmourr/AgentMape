@@ -2454,6 +2454,19 @@ class PlannerHTTPServer:
                 print(f"  {TerminalColor.GREEN.apply('✓')} Generator Script: {gs.get('filename')} ({gs.get('size')} bytes)")
             print(f"{TerminalColor.YELLOW.apply('Problems to solve:')} {len(analysis_result.get('problems_and_solutions', []))}")
 
+            # LOG STEP 1 RECEPTION
+            wf_logger = get_workflow_logger(workflow_id)
+            wf_logger.log_print(
+                message=f"📥 STEP 1: RECEIVED ANALYSIS FROM ANALYZER - Workflow: {workflow_id}, Catalogs: {catalog_count}, Problems: {len(analysis_result.get('problems_and_solutions', []))}",
+                level="info",
+                context={
+                    "workflow_id": workflow_id,
+                    "catalog_count": catalog_count,
+                    "problem_count": len(analysis_result.get('problems_and_solutions', [])),
+                    "step": "analysis_reception"
+                }
+            )
+
             # ENHANCED: Display parent error analysis if available
             if parent_error_analysis and parent_error_analysis.get('parent_error'):
                 print(f"\n{TerminalColor.BRIGHT_MAGENTA.apply('🔍 INTELLIGENT ROOT CAUSE ANALYSIS:')}")
@@ -2482,12 +2495,26 @@ class PlannerHTTPServer:
 
             logger.info(f"Received analysis completion for workflow {workflow_id}")
 
+            # LOG ALL PROBLEMS AS JSON
+            wf_logger.log_json(
+                data={"problems_from_analyzer": analysis_result.get('problems_and_solutions', [])},
+                label="Problems Received from Analyzer",
+                context={"total_problems": len(analysis_result.get('problems_and_solutions', []))}
+            )
+
             # STEP 2: Generate plan with LLM
             print(f"{'='*80}")
             print(f"{TerminalColor.BRIGHT_MAGENTA.apply('🤖 STEP 2: GENERATING REPAIR PLAN WITH LLM')}")
             print(f"{'='*80}")
             print(f"{TerminalColor.CYAN.apply('→')} Building catalog-aware prompt...")
             print(f"{TerminalColor.CYAN.apply('→')} Calling Ollama LLM ({self.planner.ollama_manager.ollama_model})...")
+
+            # LOG STEP 2 START
+            wf_logger.log_print(
+                message=f"🤖 STEP 2: GENERATING REPAIR PLAN WITH LLM - Model: {self.planner.ollama_manager.ollama_model}",
+                level="info",
+                context={"step": "plan_generation", "ollama_model": self.planner.ollama_manager.ollama_model}
+            )
 
             plan = await self.planner.generate_plan_with_llm(
                 analysis_result,
@@ -2498,10 +2525,44 @@ class PlannerHTTPServer:
             print(f"{TerminalColor.GREEN.apply('✓')} Plan generated successfully")
             print(f"{'='*80}\n")
 
+            # LOG PLAN GENERATION SUCCESS
+            wf_logger.log_print(
+                message=f"✓ Plan generated successfully - Plan ID: {plan.get('plan_id', 'unknown')}",
+                level="info",
+                context={
+                    "plan_id": plan.get('plan_id'),
+                    "llm_used": plan.get('llm_used', False),
+                    "step": "plan_complete"
+                }
+            )
+
+            # LOG PLAN DETAILS AS JSON
+            wf_logger.log_json(
+                data={
+                    "plan_summary": {
+                        "plan_id": plan.get('plan_id'),
+                        "workflow_id": plan.get('workflow_id'),
+                        "total_steps": len(plan.get('plan_steps', [])),
+                        "llm_used": plan.get('llm_used'),
+                        "created_at": plan.get('created_at')
+                    },
+                    "plan_steps": plan.get('plan_steps', [])
+                },
+                label="Generated Repair Plan",
+                context={"total_steps": len(plan.get('plan_steps', []))}
+            )
+
             # STEP 3: Validation and risk assessment
             print(f"{'='*80}")
             print(f"{TerminalColor.BRIGHT_YELLOW.apply('🔍 STEP 3: VALIDATING PLAN & ASSESSING RISK')}")
             print(f"{'='*80}")
+
+            # LOG STEP 3 START
+            wf_logger.log_print(
+                message="🔍 STEP 3: VALIDATING PLAN & ASSESSING RISK",
+                level="info",
+                context={"step": "validation"}
+            )
 
             validation = plan.get("validation_result", {})
             risk = validation.get("risk_assessment", {})
@@ -2545,6 +2606,33 @@ class PlannerHTTPServer:
             print(f"{'='*80}")
             print(f"{TerminalColor.BRIGHT_GREEN.apply('✅ PLANNING WORKFLOW COMPLETED SUCCESSFULLY')}")
             print(f"{'='*80}\n")
+
+            # LOG COMPLETION
+            wf_logger.log_print(
+                message=f"✅ PLANNING WORKFLOW COMPLETED SUCCESSFULLY - Plan ID: {plan.get('plan_id')}, Risk: {plan.get('risk_level')}",
+                level="info",
+                context={
+                    "plan_id": plan.get('plan_id'),
+                    "risk_level": plan.get('risk_level'),
+                    "auto_execute": risk.get('auto_execute', False),
+                    "requires_approval": plan.get('requires_approval', True)
+                }
+            )
+
+            # LOG VALIDATION RESULTS AS JSON
+            wf_logger.log_json(
+                data={
+                    "validation_result": validation,
+                    "risk_assessment": risk,
+                    "risk_level": plan.get('risk_level'),
+                    "auto_execute": risk.get('auto_execute', False)
+                },
+                label="Plan Validation & Risk Assessment",
+                context={"valid": validation.get("valid", False)}
+            )
+
+            # CLOSE LOGGER
+            close_workflow_logger(workflow_id)
 
             # Write to shared log
             plan_summary = f"Plan ID: {plan.get('plan_id')}\n"
