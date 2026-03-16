@@ -1370,6 +1370,93 @@ class LLMPlanner:
             logger.error(f"Error loading config: {e}")
             return {}
 
+    def save_model_results(
+        self,
+        workflow_id: str,
+        prompt: str,
+        analysis_input: Dict[str, Any],
+        all_responses: Dict[str, Optional[Dict[str, Any]]],
+        all_model_plans: Dict[str, Any],
+        primary_plan: Optional[Dict[str, Any]],
+        parse_errors: Dict[str, str],
+        catalogs: Dict[str, Any] = None,
+        workflow_context: Dict[str, Any] = None
+    ) -> str:
+        """
+        Persist a detailed JSON record of every model's request + result for this planning run.
+        Saved to: model_results/{workflow_id}/{timestamp}.json
+        Returns the path of the written file.
+        """
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        base_dir = os.path.join(os.path.dirname(__file__), "model_results", workflow_id)
+        os.makedirs(base_dir, exist_ok=True)
+        file_path = os.path.join(base_dir, f"{timestamp}.json")
+
+        # Extract raw Analyzer payload from workflow_context if present
+        analyzer_raw_payload = None
+        workflow_context_clean = {}
+        if workflow_context:
+            analyzer_raw_payload = workflow_context.get("_analyzer_raw_payload")
+            workflow_context_clean = {k: v for k, v in workflow_context.items() if not k.startswith("_")}
+
+        # Build per-model detail section
+        models_detail = {}
+        for label, raw_response in all_responses.items():
+            provider, model_name = label.split("/", 1)
+            entry = {
+                "label": label,
+                "provider": provider,
+                "model_name": model_name,
+                "status": "no_response" if raw_response is None else (
+                    "parse_error" if label in parse_errors else "success"
+                ),
+                "is_primary": (primary_plan is not None and primary_plan.get("_source_model") == label),
+                "raw_response": raw_response.get("response") if raw_response else None,
+                "parsed_plan": all_model_plans.get(label),
+                "parse_error": parse_errors.get(label)
+            }
+            models_detail[label] = entry
+
+        record = {
+            "workflow_id": workflow_id,
+            "timestamp": datetime.now().isoformat(),
+            "plan_id": primary_plan.get("plan_id") if primary_plan else None,
+            "primary_model": primary_plan.get("_source_model") if primary_plan else None,
+            "models_queried": list(all_responses.keys()),
+
+            # ── Analyzer input ────────────────────────────────────────────
+            "analyzer_payload": {
+                "raw": analyzer_raw_payload,
+                "analysis_result": analysis_input,
+                "catalogs": catalogs,
+                "workflow_files": workflow_context_clean.get("workflow_files"),
+                "parent_error_analysis": workflow_context_clean.get("parent_error_analysis"),
+                "workflow_dir": workflow_context_clean.get("workflow_dir")
+            },
+
+            # ── Prompt sent to all models ─────────────────────────────────
+            "prompt_sent": prompt,
+
+            # ── Per-model results ─────────────────────────────────────────
+            "models": models_detail,
+
+            # ── Final chosen plan ─────────────────────────────────────────
+            "final_plan": {
+                k: v for k, v in primary_plan.items() if not k.startswith("_")
+            } if primary_plan else None,
+            "validation_result": primary_plan.get("validation_result") if primary_plan else None
+        }
+
+        try:
+            with open(file_path, "w", encoding="utf-8") as f:
+                json.dump(record, f, indent=2, default=str)
+            print(f"  {TerminalColor.GREEN.apply('💾 Model results saved:')} {file_path}")
+            logger.info(f"Model results saved to {file_path}")
+        except Exception as e:
+            logger.error(f"Failed to save model results: {e}")
+
+        return file_path
+
     def call_llm_all_models(self, prompt: str, workflow_id: str, plan_type: str = "repair", system_prompt: str = "") -> Dict[str, Optional[Dict[str, Any]]]:
         """Call all configured Ollama + OpenAI models in parallel, return {model_name: response}"""
         from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -1496,6 +1583,7 @@ class LLMPlanner:
 
         # Collect all parsed plans from each model
         all_model_plans = {}
+        parse_errors = {}
         primary_plan = None
         file_request_plan = None
 
@@ -1515,6 +1603,7 @@ class LLMPlanner:
                     primary_plan["_source_model"] = model_name
                 logger.info(f"Model {model_name} plan parsed successfully")
             except Exception as e:
+                parse_errors[model_name] = str(e)
                 logger.error(f"Error parsing response from model {model_name}: {e}")
 
         # Handle file request if all models asked for more info
@@ -1538,6 +1627,19 @@ class LLMPlanner:
                     m: ("parsed" if m in all_model_plans else "failed")
                     for m in all_responses.keys()
                 }
+
+                # Save detailed per-model results to JSON file
+                self.save_model_results(
+                    workflow_id=workflow_id,
+                    prompt=prompt,
+                    analysis_input=analysis_result,
+                    all_responses=all_responses,
+                    all_model_plans=all_model_plans,
+                    primary_plan=primary_plan,
+                    parse_errors=parse_errors,
+                    catalogs=catalogs,
+                    workflow_context=workflow_context
+                )
 
                 # Store plan
                 self.plans_table.insert(primary_plan)
@@ -1564,6 +1666,19 @@ class LLMPlanner:
                 return self.generate_fallback_plan(analysis_result, workflow_context)
         else:
             logger.warning("No models returned a usable response, using fallback planning")
+
+            # Save whatever we got (all failures) for debugging
+            self.save_model_results(
+                workflow_id=workflow_id,
+                prompt=prompt,
+                analysis_input=analysis_result,
+                all_responses=all_responses,
+                all_model_plans=all_model_plans,
+                primary_plan=None,
+                parse_errors=parse_errors,
+                catalogs=catalogs,
+                workflow_context=workflow_context
+            )
 
             # LOG FALLBACK
             wf_logger.log_event("planning_completed", {
@@ -2570,7 +2685,8 @@ class PlannerHTTPServer:
                 "workflow_dir": data.get("workflow_dir"),
                 "state": "failed",
                 "workflow_files": workflow_files,  # ENHANCED: Include workflow files in context
-                "parent_error_analysis": parent_error_analysis  # ENHANCED: Include root cause analysis
+                "parent_error_analysis": parent_error_analysis,  # ENHANCED: Include root cause analysis
+                "_analyzer_raw_payload": data  # Full raw payload from Analyzer for audit logging
             }
 
             # Write to shared log
