@@ -86,6 +86,7 @@ class OllamaManager:
         self.ollama_url = config.get("ollama_url")
         self.ollama_api_base = config.get("ollama_api_base")
         self.ollama_model = config.get("ollama_model", "llama3:latest")
+        self.ollama_models = config.get("ollama_models", [self.ollama_model])
         self.connection_timeout = config.get("connection_timeout", 120)
         self.is_healthy = False
         self.last_check = 0
@@ -103,7 +104,7 @@ class OllamaManager:
             self.is_healthy = False
             return False
 
-    def call_llm(self, prompt: str, workflow_id: str, plan_type: str = "repair", system_prompt: str = "") -> Optional[Dict[str, Any]]:
+    def call_llm(self, prompt: str, workflow_id: str, plan_type: str = "repair", system_prompt: str = "", model: str = None) -> Optional[Dict[str, Any]]:
         """Call Ollama LLM for plan generation + WORKFLOW LOGGING"""
 
         # GET WORKFLOW LOGGER
@@ -118,8 +119,10 @@ class OllamaManager:
 
         full_prompt = f"{system_prompt}\n\n{prompt}" if system_prompt else prompt
 
+        active_model = model if model else self.ollama_model
+
         payload = {
-            "model": self.ollama_model,
+            "model": active_model,
             "prompt": full_prompt,
             "stream": True,  # Enable streaming to avoid timeout on long responses
             "format": "json",
@@ -137,7 +140,7 @@ class OllamaManager:
             interaction_id = wf_logger.log_llm_request(
                 prompt=full_prompt,
                 metadata={
-                    "ollama_model": self.ollama_model,
+                    "ollama_model": active_model,
                     "plan_type": plan_type,
                     "prompt_length": len(full_prompt),
                     "temperature": 0.1,
@@ -235,6 +238,126 @@ class OllamaManager:
             logger.error(f"Ollama call failed: {e}")
             import traceback
             logger.error(f"Traceback: {traceback.format_exc()}")
+            return None
+
+
+
+class OpenAIManager:
+    """Manages OpenAI API connection for plan generation"""
+
+    def __init__(self, config: Dict[str, Any]):
+        self.api_key = config.get("openai_api_key", "")
+        self.api_base = config.get("openai_api_base", "https://api.openai.com/v1")
+        self.openai_models = config.get("openai_models", [])
+        self.connection_timeout = config.get("connection_timeout", 120)
+        self.is_enabled = bool(self.api_key and self.openai_models)
+
+    def check_health(self) -> bool:
+        """Check if OpenAI API is reachable with the provided key"""
+        if not self.api_key:
+            return False
+        try:
+            response = requests.get(
+                f"{self.api_base}/models",
+                headers={"Authorization": f"Bearer {self.api_key}"},
+                timeout=10
+            )
+            return response.status_code == 200
+        except Exception as e:
+            logger.debug(f"OpenAI not available: {e}")
+            return False
+
+    def call_llm(self, prompt: str, workflow_id: str, plan_type: str = "repair", system_prompt: str = "", model: str = None) -> Optional[Dict[str, Any]]:
+        """Call OpenAI chat completions API + WORKFLOW LOGGING"""
+        if not self.api_key:
+            logger.warning("OpenAI API key not configured")
+            return None
+
+        active_model = model if model else (self.openai_models[0] if self.openai_models else "gpt-4o")
+        wf_logger = get_workflow_logger(workflow_id)
+
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+
+        payload = {
+            "model": active_model,
+            "messages": messages,
+            "temperature": 0.1,
+            "response_format": {"type": "json_object"},
+            "max_tokens": 16000
+        }
+
+        try:
+            logger.info(f"[OpenAI] Calling model {active_model}, prompt length: {len(prompt)} chars")
+
+            interaction_id = wf_logger.log_llm_request(
+                prompt=prompt,
+                metadata={
+                    "provider": "openai",
+                    "ollama_model": active_model,
+                    "plan_type": plan_type,
+                    "prompt_length": len(prompt),
+                    "temperature": 0.1,
+                    "format": "json"
+                }
+            )
+
+            import time
+            start_time = time.time()
+
+            print(f"  {TerminalColor.CYAN.apply('⏳ Waiting for OpenAI response...')}", end='', flush=True)
+
+            response = requests.post(
+                f"{self.api_base}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json"
+                },
+                json=payload,
+                timeout=self.connection_timeout
+            )
+
+            latency_ms = (time.time() - start_time) * 1000
+
+            if response.status_code == 200:
+                data = response.json()
+                content = data["choices"][0]["message"]["content"]
+                print(f"\r  {TerminalColor.GREEN.apply('✓ OpenAI response received:')} {len(content):,} chars                    ")
+                logger.info(f"OpenAI response length: {len(content)} chars")
+
+                wf_logger.log_llm_response(
+                    interaction_id=interaction_id,
+                    response=content,
+                    success=True,
+                    latency_ms=latency_ms
+                )
+
+                return {"response": content, "done": True}
+            else:
+                error_msg = f"HTTP {response.status_code}: {response.text[:200]}"
+                print(f"\r  {TerminalColor.RED.apply('✗ OpenAI error:')} {error_msg}")
+                wf_logger.log_llm_response(
+                    interaction_id=interaction_id,
+                    response="",
+                    success=False,
+                    latency_ms=latency_ms,
+                    error=error_msg
+                )
+                logger.error(f"OpenAI API error: {response.status_code} — {response.text[:500]}")
+                return None
+
+        except Exception as e:
+            latency_ms = (time.time() - start_time) * 1000 if 'start_time' in locals() else 0
+            wf_logger.log_llm_response(
+                interaction_id=interaction_id,
+                response="",
+                success=False,
+                latency_ms=latency_ms,
+                error=str(e)
+            )
+            logger.error(f"OpenAI call failed: {e}")
             return None
 
 
@@ -1216,6 +1339,7 @@ class LLMPlanner:
     def __init__(self, config_file: str = "planner_config.json"):
         self.config = self.load_config(config_file)
         self.ollama_manager = OllamaManager(self.config)
+        self.openai_manager = OpenAIManager(self.config)
         self.prompt_builder = PromptBuilder()
         self.validator = PlanValidator()
 
@@ -1245,6 +1369,47 @@ class LLMPlanner:
         except Exception as e:
             logger.error(f"Error loading config: {e}")
             return {}
+
+    def call_llm_all_models(self, prompt: str, workflow_id: str, plan_type: str = "repair", system_prompt: str = "") -> Dict[str, Optional[Dict[str, Any]]]:
+        """Call all configured Ollama + OpenAI models in parallel, return {model_name: response}"""
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        # Build task list: (label, callable)
+        tasks = []
+        for model in self.ollama_manager.ollama_models:
+            tasks.append((f"ollama/{model}", lambda m=model: self.ollama_manager.call_llm(prompt, workflow_id, plan_type, system_prompt, model=m)))
+        for model in self.openai_manager.openai_models:
+            tasks.append((f"openai/{model}", lambda m=model: self.openai_manager.call_llm(prompt, workflow_id, plan_type, system_prompt, model=m)))
+
+        if not tasks:
+            logger.warning("No models configured, falling back to default Ollama model")
+            tasks = [(f"ollama/{self.ollama_manager.ollama_model}",
+                      lambda: self.ollama_manager.call_llm(prompt, workflow_id, plan_type, system_prompt))]
+
+        provider_counts = {}
+        for label, _ in tasks:
+            provider = label.split("/")[0]
+            provider_counts[provider] = provider_counts.get(provider, 0) + 1
+        summary = ", ".join(f"{v} {k}" for k, v in provider_counts.items())
+        print(f"\n  {TerminalColor.BRIGHT_CYAN.apply('🔀 MULTI-MODEL MODE')} — querying {len(tasks)} model(s) in parallel ({summary})")
+        for label, _ in tasks:
+            print(f"    • {TerminalColor.CYAN.apply(label)}")
+
+        results = {}
+        with ThreadPoolExecutor(max_workers=len(tasks)) as executor:
+            futures = {executor.submit(fn): label for label, fn in tasks}
+            for future in as_completed(futures):
+                label = futures[future]
+                try:
+                    response = future.result()
+                except Exception as e:
+                    logger.error(f"Model {label} raised exception: {e}")
+                    response = None
+                results[label] = response
+                status = TerminalColor.GREEN.apply("✓") if response else TerminalColor.RED.apply("✗")
+                print(f"  {status} {TerminalColor.CYAN.apply(label)}: {'received response' if response else 'no response'}")
+
+        return results
 
     async def generate_plan_with_llm(
         self,
@@ -1326,60 +1491,86 @@ class LLMPlanner:
         prompt = self.prompt_builder.build_planner_prompt(analysis_result, catalogs, workflow_context)
 
         # Call LLM with workflow logging
-        llm_response = self.ollama_manager.call_llm(prompt, workflow_id, "repair", self.prompt_builder.SYSTEM_PROMPT)
+        # Call all configured models in parallel
+        all_responses = self.call_llm_all_models(prompt, workflow_id, "repair", self.prompt_builder.SYSTEM_PROMPT)
 
-        if llm_response:
+        # Collect all parsed plans from each model
+        all_model_plans = {}
+        primary_plan = None
+        file_request_plan = None
+
+        for model_name, llm_response in all_responses.items():
+            if not llm_response:
+                logger.warning(f"Model {model_name} returned no response")
+                continue
             try:
-                # Parse LLM output
-                plan = self.parse_llm_response(llm_response)
+                parsed = self.parse_llm_response(llm_response)
+                all_model_plans[model_name] = parsed
+                # Capture first file-request plan so we can handle it after
+                if parsed.get('needs_more_information') and file_request_plan is None:
+                    file_request_plan = parsed
+                # Use first successfully parsed non-file-request plan as primary
+                if primary_plan is None and not parsed.get('needs_more_information'):
+                    primary_plan = parsed
+                    primary_plan["_source_model"] = model_name
+                logger.info(f"Model {model_name} plan parsed successfully")
+            except Exception as e:
+                logger.error(f"Error parsing response from model {model_name}: {e}")
 
-                # Check if LLM is requesting more files
-                if plan.get('needs_more_information'):
-                    logger.info(f"LLM requesting additional files for {workflow_id}")
-                    return await self.handle_file_request(plan, analysis_result, catalogs, workflow_context)
+        # Handle file request if all models asked for more info
+        if primary_plan is None and file_request_plan is not None:
+            logger.info(f"All models requesting additional files for {workflow_id}")
+            return await self.handle_file_request(file_request_plan, analysis_result, catalogs, workflow_context)
 
-                # Validate plan
-                validation_result = self.validator.validate_plan(plan, workflow_context)
+        if primary_plan is not None:
+            try:
+                # Validate primary plan
+                validation_result = self.validator.validate_plan(primary_plan, workflow_context)
 
                 # Add metadata
-                plan["plan_id"] = str(uuid.uuid4())
-                plan["workflow_id"] = workflow_id
-                plan["created_at"] = datetime.now().isoformat()
-                plan["validation_result"] = validation_result
-                plan["llm_used"] = True
+                primary_plan["plan_id"] = str(uuid.uuid4())
+                primary_plan["workflow_id"] = workflow_id
+                primary_plan["created_at"] = datetime.now().isoformat()
+                primary_plan["validation_result"] = validation_result
+                primary_plan["llm_used"] = True
+                primary_plan["models_queried"] = list(all_responses.keys())
+                primary_plan["model_responses_summary"] = {
+                    m: ("parsed" if m in all_model_plans else "failed")
+                    for m in all_responses.keys()
+                }
 
                 # Store plan
-                self.plans_table.insert(plan)
+                self.plans_table.insert(primary_plan)
 
                 # Print plan summary
-                self.print_plan_summary(plan)
+                self.print_plan_summary(primary_plan)
 
                 # LOG COMPLETION
                 wf_logger.log_event("planning_completed", {
                     "status": "success",
                     "llm_used": True,
-                    "plan_id": plan["plan_id"]
+                    "plan_id": primary_plan["plan_id"],
+                    "models_queried": list(all_responses.keys()),
+                    "source_model": primary_plan.get("_source_model")
                 })
                 close_workflow_logger(workflow_id)
 
-                return plan
+                return primary_plan
 
             except Exception as e:
-                logger.error(f"Error parsing LLM response: {e}")
-
-                # LOG ERROR
+                logger.error(f"Error finalizing plan: {e}")
                 wf_logger.log_event("planning_error", {"error": str(e), "fallback": True})
                 close_workflow_logger(workflow_id)
-
                 return self.generate_fallback_plan(analysis_result, workflow_context)
         else:
-            logger.warning("LLM not available, using fallback planning")
+            logger.warning("No models returned a usable response, using fallback planning")
 
             # LOG FALLBACK
             wf_logger.log_event("planning_completed", {
                 "status": "fallback",
                 "llm_used": False,
-                "reason": "LLM not available"
+                "reason": "No models returned usable response",
+                "models_queried": list(all_responses.keys())
             })
             close_workflow_logger(workflow_id)
 
@@ -2310,6 +2501,7 @@ class PlannerHTTPServer:
                 "execution_request_generation"
             ],
             "ollama_available": self.planner.ollama_manager.is_healthy,
+            "openai_enabled": self.planner.openai_manager.is_enabled,
             "timestamp": datetime.now().isoformat()
         })
 
@@ -2507,13 +2699,14 @@ class PlannerHTTPServer:
             print(f"{TerminalColor.BRIGHT_MAGENTA.apply('🤖 STEP 2: GENERATING REPAIR PLAN WITH LLM')}")
             print(f"{'='*80}")
             print(f"{TerminalColor.CYAN.apply('→')} Building catalog-aware prompt...")
-            print(f"{TerminalColor.CYAN.apply('→')} Calling Ollama LLM ({self.planner.ollama_manager.ollama_model})...")
+            models_list = self.planner.ollama_manager.ollama_models
+            print(f"{TerminalColor.CYAN.apply('→')} Calling Ollama LLM — models: {', '.join(models_list)}...")
 
             # LOG STEP 2 START
             wf_logger.log_print(
-                message=f"🤖 STEP 2: GENERATING REPAIR PLAN WITH LLM - Model: {self.planner.ollama_manager.ollama_model}",
+                message=f"🤖 STEP 2: GENERATING REPAIR PLAN WITH LLM - Models: {', '.join(models_list)}",
                 level="info",
-                context={"step": "plan_generation", "ollama_model": self.planner.ollama_manager.ollama_model}
+                context={"step": "plan_generation", "ollama_models": models_list}
             )
 
             plan = await self.planner.generate_plan_with_llm(
@@ -2943,13 +3136,19 @@ async def main():
     print(f"\n{TerminalColor.BRIGHT_GREEN.apply('✓ LLM-Powered Planner Agent Started')}")
     print(f"{'='*80}")
     print(f"{TerminalColor.CYAN.apply('🌐 HTTP API:')} http://localhost:{HTTP_PORT}")
-    print(f"{TerminalColor.CYAN.apply('🦙 Ollama Model:')} {planner.ollama_manager.ollama_model}")
+    print(f"{TerminalColor.CYAN.apply('🦙 Ollama Models:')} {', '.join(planner.ollama_manager.ollama_models)}")
     print(f"{TerminalColor.CYAN.apply('🔗 Ollama URL:')} {planner.ollama_manager.ollama_url}")
 
     if planner.ollama_manager.is_healthy:
         print(f"{TerminalColor.GREEN.apply('✅ Ollama:')} Connected")
     else:
         print(f"{TerminalColor.YELLOW.apply('⚠ Ollama:')} Not available (fallback mode)")
+
+    if planner.openai_manager.is_enabled:
+        openai_models_str = ', '.join(planner.openai_manager.openai_models)
+        print(f"{TerminalColor.GREEN.apply('✅ OpenAI:')} Enabled — models: {openai_models_str}")
+    else:
+        print(f"{TerminalColor.YELLOW.apply('○ OpenAI:')} Disabled (set openai_api_key + openai_models in config to enable)")
 
     print(f"\n{TerminalColor.BRIGHT_CYAN.apply('📋 Available Endpoints:')}")
     print(f"   POST /webhooks/analysis-complete - Receive analysis from Analyzer")
