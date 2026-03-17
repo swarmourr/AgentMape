@@ -46,7 +46,7 @@ class PegasusProviderService:
     """Standalone service for Pegasus WMS data access"""
 
     def __init__(self):
-        self.executor = PegasusCommandExecutor(timeout=30)
+        self.executor = PegasusCommandExecutor(timeout=300)
         self.app = web.Application(middlewares=[self.cors_middleware])
         self.setup_routes()
         self.service_info = {

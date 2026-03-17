@@ -87,7 +87,7 @@ class OllamaManager:
         self.ollama_api_base = config.get("ollama_api_base")
         self.ollama_model = config.get("ollama_model", "llama3:latest")
         self.ollama_models = config.get("ollama_models", [self.ollama_model])
-        self.connection_timeout = config.get("connection_timeout", 120)
+        self.connection_timeout = config.get("connection_timeout", 300)
         self.is_healthy = False
         self.last_check = 0
         self.check_interval = config.get("ollama_check_interval", 30)
@@ -251,7 +251,7 @@ class OpenAIManager:
         self.api_key = config.get("openai_api_key", "")
         self.api_base = config.get("openai_api_base", "https://api.openai.com/v1")
         self.openai_models = config.get("openai_models", [])
-        self.connection_timeout = config.get("connection_timeout", 120)
+        self.connection_timeout = config.get("connection_timeout", 300)
         self.is_enabled = bool(self.api_key and self.openai_models)
 
     def check_health(self) -> bool:
@@ -1626,8 +1626,7 @@ class LLMPlanner:
             return {"valid": True, "confidence": 0.5, "issues": [], "corrections": [], "corrected_plan": None, "_parse_error": str(e), "_skipped": True}
 
     def call_llm_all_models(self, prompt: str, workflow_id: str, plan_type: str = "repair", system_prompt: str = "") -> Dict[str, Optional[Dict[str, Any]]]:
-        """Call all configured Ollama + OpenAI models in parallel, return {model_name: response}"""
-        from concurrent.futures import ThreadPoolExecutor, as_completed
+        """Call all configured Ollama + OpenAI models sequentially, return {model_name: response}"""
 
         # Build task list: (label, callable)
         tasks = []
@@ -1655,23 +1654,21 @@ class LLMPlanner:
             provider = label.split("/")[0]
             provider_counts[provider] = provider_counts.get(provider, 0) + 1
         summary = ", ".join(f"{v} {k}" for k, v in provider_counts.items())
-        print(f"\n  {TerminalColor.BRIGHT_CYAN.apply('🔀 MULTI-MODEL MODE')} — querying {len(tasks)} model(s) in parallel ({summary})")
+        print(f"\n  {TerminalColor.BRIGHT_CYAN.apply('🔁 MULTI-MODEL MODE')} — querying {len(tasks)} model(s) sequentially ({summary})")
         for label, _ in tasks:
             print(f"    • {TerminalColor.CYAN.apply(label)}")
 
         results = {}
-        with ThreadPoolExecutor(max_workers=len(tasks)) as executor:
-            futures = {executor.submit(fn): label for label, fn in tasks}
-            for future in as_completed(futures):
-                label = futures[future]
-                try:
-                    response = future.result()
-                except Exception as e:
-                    logger.error(f"Model {label} raised exception: {e}")
-                    response = None
-                results[label] = response
-                status = TerminalColor.GREEN.apply("✓") if response else TerminalColor.RED.apply("✗")
-                print(f"  {status} {TerminalColor.CYAN.apply(label)}: {'received response' if response else 'no response'}")
+        for label, fn in tasks:
+            print(f"  {TerminalColor.CYAN.apply('→')} Calling {TerminalColor.CYAN.apply(label)} ...")
+            try:
+                response = fn()
+            except Exception as e:
+                logger.error(f"Model {label} raised exception: {e}")
+                response = None
+            results[label] = response
+            status = TerminalColor.GREEN.apply("✓") if response else TerminalColor.RED.apply("✗")
+            print(f"  {status} {TerminalColor.CYAN.apply(label)}: {'received response' if response else 'no response'}")
 
         return results
 

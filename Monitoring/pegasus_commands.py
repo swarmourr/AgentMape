@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class PegasusCommandExecutor:
     """Executes Pegasus WMS commands and parses output"""
 
-    def __init__(self, timeout: int = 30):
+    def __init__(self, timeout: int = 300):
         self.timeout = timeout
         self._command_cache = {}  # Cache recent command results
         self._cache_ttl = 10  # Cache for 10 seconds

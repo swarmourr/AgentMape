@@ -2643,7 +2643,7 @@ class EnhancedPegasusMCPServer:
         self.agent_registry = AgentRegistry()
 
         # Initialize Pegasus command executor for real-time data
-        self.pegasus_executor = PegasusCommandExecutor(timeout=30)
+        self.pegasus_executor = PegasusCommandExecutor(timeout=300)
 
         # Pass pegasus_executor to workflow_manager so it can extract .out files
         self.workflow_manager = PegasusWorkflowManager(
