@@ -1753,7 +1753,7 @@ class LLMPlanner:
 
         # Call LLM with workflow logging
         # Call all configured models in parallel
-        all_responses = self.call_llm_all_models(prompt, workflow_id, "repair", self.prompt_builder.SYSTEM_PROMPT)
+        all_responses = await asyncio.to_thread(self.call_llm_all_models, prompt, workflow_id, "repair", self.prompt_builder.SYSTEM_PROMPT)
 
         # Collect all parsed plans from each model
         all_model_plans = {}
@@ -1786,7 +1786,8 @@ class LLMPlanner:
         for model_name, parsed in list(all_model_plans.items()):
             if parsed.get('needs_more_information'):
                 continue
-            validation = self.validate_plan_with_llm(
+            validation = await asyncio.to_thread(
+                self.validate_plan_with_llm,
                 plan=parsed,
                 source_model=model_name,
                 analysis_result=analysis_result,
@@ -1826,10 +1827,24 @@ class LLMPlanner:
             if primary_plan:
                 break
 
-        # Handle file request if all models asked for more info
-        if primary_plan is None and file_request_plan is not None:
-            logger.info(f"All models requesting additional files for {workflow_id}")
+        # Track iterations to prevent infinite file-request loops
+        file_request_iterations = workflow_context.get('_file_request_iterations', 0)
+        max_file_iterations = self.config.get("max_file_request_iterations", 10)
+
+        # Always give the model the files it asks for, up to max_file_request_iterations
+        if file_request_plan is not None and file_request_iterations < max_file_iterations:
+            logger.info(
+                f"File request detected for {workflow_id} — fetching files "
+                f"(iteration {file_request_iterations + 1}/{max_file_iterations})"
+            )
+            print(f"\n  {TerminalColor.YELLOW.apply(f'⚠ File request detected (iteration {file_request_iterations + 1}/{max_file_iterations}) — fetching files')}")
+            workflow_context['_file_request_iterations'] = file_request_iterations + 1
             return await self.handle_file_request(file_request_plan, analysis_result, catalogs, workflow_context)
+
+        # Log if max iterations reached
+        if file_request_plan is not None and file_request_iterations >= max_file_iterations:
+            logger.warning(f"Max file-request iterations ({max_file_iterations}) reached for {workflow_id} — using best available plan")
+            print(f"\n  {TerminalColor.YELLOW.apply(f'⚠ Max file-fetch iterations reached ({max_file_iterations}) — proceeding with best available plan')}")
 
         if primary_plan is not None:
             try:
@@ -1959,7 +1974,7 @@ class LLMPlanner:
             return await self.generate_plan_with_llm(analysis_result, catalogs, workflow_context, use_multi_stage=False)
 
         try:
-            stage1_response = self.ollama_manager.call_llm(stage1_prompt, workflow_id, "multi_stage_1", "You are a Pegasus workflow debugging assistant. Identify which files are needed to fix errors.")
+            stage1_response = await asyncio.to_thread(self.ollama_manager.call_llm, stage1_prompt, workflow_id, "multi_stage_1", "You are a Pegasus workflow debugging assistant. Identify which files are needed to fix errors.")
         except Exception as e:
             logger.error(f"Stage 1 LLM call failed: {e}")
             print(f"{TerminalColor.RED.apply('✗ Error:')} LLM call failed: {str(e)}")
@@ -2822,6 +2837,77 @@ class PlannerHTTPServer:
         except Exception as e:
             logger.error(f"Error exporting plan to file: {e}")
 
+    async def fetch_monitoring_status(self, workflow_id: str) -> Dict[str, Any]:
+        """Fetch live workflow status from the Monitor service"""
+        monitor_url = self.config.get("monitor_url", MONITOR_URL)
+        try:
+            async with ClientSession() as session:
+                async with session.get(
+                    f"{monitor_url}/api/workflows/{workflow_id}/pegasus/full",
+                    timeout=aiohttp.ClientTimeout(total=10)
+                ) as resp:
+                    if resp.status == 200:
+                        return await resp.json()
+        except Exception as e:
+            logger.debug(f"Could not fetch monitoring status: {e}")
+        return {}
+
+    def print_monitoring_status(self, status: Dict[str, Any], workflow_id: str):
+        """Print workflow monitoring status to console"""
+        if not status:
+            print(f"  {TerminalColor.YELLOW.apply('⚠ Monitoring status unavailable')}")
+            return
+
+        # Overall state from pegasus-status
+        peg_status = status.get("status", {})
+        state = peg_status.get("state", status.get("state", "unknown"))
+        percent = peg_status.get("percent_done", status.get("percent_done"))
+
+        state_color = {
+            "running": TerminalColor.CYAN,
+            "success": TerminalColor.GREEN,
+            "failure": TerminalColor.RED,
+            "failed": TerminalColor.RED,
+        }.get(str(state).lower(), TerminalColor.YELLOW)
+
+        print(f"  {TerminalColor.YELLOW.apply('State:')}        {state_color.apply(str(state).upper())}", end="")
+        if percent is not None:
+            print(f"  ({percent}% done)", end="")
+        print()
+
+        # Job counts
+        jobs = peg_status.get("dags", {}).get("root", peg_status)
+        total    = jobs.get("total",     peg_status.get("total"))
+        success  = jobs.get("success",   peg_status.get("succeed", peg_status.get("success")))
+        failed   = jobs.get("failed",    peg_status.get("failed"))
+        unready  = jobs.get("unready",   peg_status.get("unready"))
+        running  = jobs.get("running",   peg_status.get("running", 0))
+
+        if total is not None:
+            print(f"  {TerminalColor.YELLOW.apply('Jobs:')}         "
+                  f"total={total}  "
+                  f"{TerminalColor.GREEN.apply(f'ok={success}')}  "
+                  f"{TerminalColor.RED.apply(f'failed={failed}')}  "
+                  f"running={running}  unready={unready}")
+
+        # Failed job names from analyzer
+        analyzer = status.get("analyzer", {})
+        failed_jobs = status.get("failed_jobs", analyzer.get("failed_jobs", []))
+        if failed_jobs:
+            print(f"  {TerminalColor.RED.apply('Failed jobs:')}")
+            for job in failed_jobs[:8]:
+                name = job if isinstance(job, str) else job.get("job", job.get("name", str(job)))
+                print(f"    {TerminalColor.RED.apply('✗')} {name}")
+            if len(failed_jobs) > 8:
+                print(f"    ... and {len(failed_jobs) - 8} more")
+
+        # Root causes from analyzer
+        root_causes = status.get("root_causes", analyzer.get("root_causes", []))
+        if root_causes:
+            print(f"  {TerminalColor.MAGENTA.apply('Root causes:')}")
+            for rc in root_causes[:3]:
+                print(f"    {TerminalColor.MAGENTA.apply('→')} {rc}")
+
     def setup_routes(self):
         """Setup HTTP routes"""
         self.app.router.add_get('/health', self.handle_health)
@@ -3042,6 +3128,14 @@ class PlannerHTTPServer:
                 label="Problems Received from Analyzer",
                 context={"total_problems": len(analysis_result.get('problems_and_solutions', []))}
             )
+
+            # MONITORING STATUS: fetch and display live workflow state
+            print(f"{'='*80}")
+            print(f"{TerminalColor.BRIGHT_CYAN.apply('📊 MONITORING: WORKFLOW STATUS')}")
+            print(f"{'='*80}")
+            monitoring_status = await self.fetch_monitoring_status(workflow_id)
+            self.print_monitoring_status(monitoring_status, workflow_id)
+            print(f"{'='*80}\n")
 
             # STEP 2: Generate plan with LLM
             print(f"{'='*80}")

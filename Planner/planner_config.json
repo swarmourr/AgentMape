@@ -30,5 +30,6 @@
     "auto_approve_low_risk": true,
     "auto_approve_confidence_threshold": 0.75,
     "max_plan_steps": 10,
+    "max_file_request_iterations": 10,
     "fallback_mode": true
 }
