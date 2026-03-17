@@ -542,17 +542,17 @@ class PegasusWorkflowManager:
                     "monitor_url": request_data["monitor_url"],
                     "metadata": {
                         "workflow_yaml_path": stored_metadata.get("workflow_yaml_path"),
-                        "transformation_pfns_count": len(stored_metadata.get("transformation_pfns", [])),
-                        "replica_pfns_count": len(stored_metadata.get("replica_pfns", [])),
-                        "catalog_info": stored_metadata.get("catalog_info", {}),
-                        "file_paths": stored_metadata.get("file_paths", {}),
+                        "transformation_pfns_count": len(stored_metadata.get("transformation_pfns") or []),
+                        "replica_pfns_count": len(stored_metadata.get("replica_pfns") or []),
+                        "catalog_info": stored_metadata.get("catalog_info") or {},
+                        "file_paths": stored_metadata.get("file_paths") or {},
                         "collected_at": stored_metadata.get("collected_at")
                     },
                     "pegasus_analyzer": {
                         "ran": pegasus_analyzer_output.get("ran", False),
                         "exit_code": pegasus_analyzer_output.get("exit_code"),
-                        "output_size": len(pegasus_analyzer_output.get("output", "")),
-                        "issues_found": len(pegasus_analyzer_output.get("parsed_issues", [])),
+                        "output_size": len(pegasus_analyzer_output.get("output") or ""),
+                        "issues_found": len(pegasus_analyzer_output.get("parsed_issues") or []),
                         "error": pegasus_analyzer_output.get("error")
                     },
                     "job_out_files": {
@@ -612,7 +612,7 @@ class PegasusWorkflowManager:
 
                         # Write to shared log
                         metadata_summary = f"Workflow YAML: {stored_metadata.get('workflow_yaml_path', 'N/A')}\n"
-                        metadata_summary += f"Catalogs: {len(stored_metadata.get('catalog_info', {}))}\n"
+                        metadata_summary += f"Catalogs: {len(stored_metadata.get('catalog_info') or {})}\n"
                         metadata_summary += f"Pegasus Analyzer: {'YES' if pegasus_analyzer_output.get('ran') else 'NO'}\n"
                         metadata_summary += f"Job .out Files: {len(job_out_files)}\n"
                         metadata_summary += f"Pull Model: Analyzer requests files on-demand\n"
