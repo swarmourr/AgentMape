@@ -554,6 +554,46 @@ IMPORTANT RULES:
 - Better to suggest investigation steps than a potentially wrong fix
 """
 
+    VALIDATION_SYSTEM_PROMPT = """You are a senior Pegasus WMS plan reviewer.
+A planning agent has generated a repair plan for a failed workflow. Your job is to critically review it.
+
+CHECK FOR:
+1. ROOT CAUSE ALIGNMENT  — Does the plan fix the actual root cause from the analysis, not just a symptom?
+2. COMMAND SAFETY        — Any destructive commands? (rm -rf, dd, chmod 777, DROP TABLE, etc.)
+3. EXECUTABILITY         — Are all commands concrete with real paths/values (no <PLACEHOLDER>, TODO, etc.)?
+4. LOGICAL CONSISTENCY   — Do steps contradict each other or undo previous steps?
+5. COMPLETENESS          — Does the plan address ALL problems listed in the analysis?
+
+If you find fixable issues, provide a corrected_plan with the fixes applied.
+If issues are too severe to fix, set valid=false and explain clearly.
+
+Output ONLY valid JSON:
+{
+  "valid": true or false,
+  "confidence": <0.0–1.0>,
+  "issues": ["<issue description>", ...],
+  "corrections": ["<what was fixed>", ...],
+  "corrected_plan": <corrected plan JSON object, or null if no fix needed or possible>
+}"""
+
+    @staticmethod
+    def build_validation_prompt(analysis_result: Dict[str, Any], plan: Dict[str, Any]) -> str:
+        """Build the self-validation prompt sent back to the LLM after plan generation"""
+        clean_plan = {k: v for k, v in plan.items() if not k.startswith("_")}
+        return f"""PLAN REVIEW REQUEST
+
+═══════════════════════════════════════
+ORIGINAL FAILURE ANALYSIS
+═══════════════════════════════════════
+{json.dumps(analysis_result, indent=2)}
+
+═══════════════════════════════════════
+GENERATED REPAIR PLAN (to review)
+═══════════════════════════════════════
+{json.dumps(clean_plan, indent=2)}
+
+Review the plan against the analysis above and return your assessment as JSON only."""
+
     @staticmethod
     def build_planner_prompt(analysis_result: Dict[str, Any], catalogs: Dict[str, Any], workflow_context: Dict[str, Any]) -> str:
         """Build comprehensive prompt with catalog awareness"""
@@ -1370,6 +1410,59 @@ class LLMPlanner:
             logger.error(f"Error loading config: {e}")
             return {}
 
+    def write_to_pipeline(
+        self,
+        workflow_id: str,
+        analysis_result: Dict[str, Any],
+        catalogs: Dict[str, Any],
+        workflow_context: Dict[str, Any],
+        all_model_plans: Dict[str, Any]
+    ):
+        """
+        Drop evaluator input payload into pipeline_data/planner_output/pending/.
+        The Evaluator picks this up independently — Planner does not wait.
+        """
+        try:
+            base = os.path.dirname(os.path.abspath(__file__))
+            pending_dir = os.path.normpath(
+                os.path.join(base, "../pipeline_data/planner_output/pending")
+            )
+            os.makedirs(pending_dir, exist_ok=True)
+
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"{workflow_id}__{ts}__planner.json"
+            file_path = os.path.join(pending_dir, filename)
+
+            # Build clean plans dict (strip internal _ keys from each plan)
+            clean_plans = {}
+            for label, plan in all_model_plans.items():
+                clean_plans[label] = {k: v for k, v in plan.items() if not k.startswith("_")}
+
+            # Strip internal keys from workflow_context
+            wf_ctx_clean = {k: v for k, v in workflow_context.items() if not k.startswith("_")}
+
+            payload = {
+                "_source_file":         filename,
+                "workflow_id":          workflow_id,
+                "workflow_dir":         wf_ctx_clean.get("workflow_dir"),
+                "timestamp":            datetime.now().isoformat(),
+                "analyzer_result":      analysis_result,
+                "catalogs":             catalogs,
+                "workflow_files":       wf_ctx_clean.get("workflow_files", {}),
+                "parent_error_analysis": wf_ctx_clean.get("parent_error_analysis"),
+                "plans":                clean_plans,
+                "custom_metrics":       []
+            }
+
+            with open(file_path, "w", encoding="utf-8") as f:
+                json.dump(payload, f, indent=2, default=str)
+
+            print(f"  {TerminalColor.CYAN.apply('📤 Pipeline drop:')} {filename}")
+            logger.info(f"Wrote evaluator input to pipeline: {file_path}")
+
+        except Exception as e:
+            logger.error(f"Failed to write to pipeline: {e}")
+
     def save_model_results(
         self,
         workflow_id: str,
@@ -1457,6 +1550,77 @@ class LLMPlanner:
 
         return file_path
 
+    def validate_plan_with_llm(
+        self,
+        plan: Dict[str, Any],
+        source_model: str,
+        analysis_result: Dict[str, Any],
+        workflow_id: str
+    ) -> Dict[str, Any]:
+        """
+        Send the generated plan back to the same model that produced it for self-validation.
+        Returns a validation result dict:
+          {valid, confidence, issues, corrections, corrected_plan, _validation_model}
+        """
+        validation_enabled = self.config.get("enable_plan_validation", True)
+        if not validation_enabled:
+            return {"valid": True, "confidence": 1.0, "issues": [], "corrections": [], "corrected_plan": None, "_skipped": True}
+
+        print(f"\n  {TerminalColor.BRIGHT_CYAN.apply('🔍 PLAN SELF-VALIDATION')} — sending plan back to {source_model}")
+
+        validation_prompt = self.prompt_builder.build_validation_prompt(analysis_result, plan)
+
+        # Use the same model that generated the plan
+        provider, model_name = source_model.split("/", 1)
+        if provider == "ollama":
+            llm_response = self.ollama_manager.call_llm(
+                validation_prompt, workflow_id, "validation",
+                self.prompt_builder.VALIDATION_SYSTEM_PROMPT, model=model_name
+            )
+        elif provider == "openai":
+            llm_response = self.openai_manager.call_llm(
+                validation_prompt, workflow_id, "validation",
+                self.prompt_builder.VALIDATION_SYSTEM_PROMPT, model=model_name
+            )
+        else:
+            logger.warning(f"Unknown provider for validation: {provider}")
+            return {"valid": True, "confidence": 0.5, "issues": [], "corrections": [], "corrected_plan": None, "_skipped": True}
+
+        if not llm_response:
+            logger.warning(f"Validation LLM returned no response for model {source_model}")
+            return {"valid": True, "confidence": 0.5, "issues": [], "corrections": [], "corrected_plan": None, "_skipped": True}
+
+        try:
+            raw = llm_response.get("response", "")
+            import re
+            match = re.search(r'\{.*\}', raw, re.DOTALL)
+            data = json.loads(match.group() if match else raw)
+
+            result = {
+                "valid":          bool(data.get("valid", True)),
+                "confidence":     float(data.get("confidence", 0.5)),
+                "issues":         data.get("issues", []),
+                "corrections":    data.get("corrections", []),
+                "corrected_plan": data.get("corrected_plan"),
+                "_validation_model": source_model,
+                "_skipped": False
+            }
+
+            if result["valid"]:
+                print(f"  {TerminalColor.GREEN.apply('✓ Validation passed')} — confidence: {result['confidence']:.0%}")
+            else:
+                print(f"  {TerminalColor.YELLOW.apply('⚠ Validation issues found:')} {len(result['issues'])} issue(s)")
+                for issue in result["issues"]:
+                    print(f"    • {issue}")
+                if result["corrected_plan"]:
+                    print(f"  {TerminalColor.CYAN.apply('↻ Corrected plan provided by validator')}")
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Failed to parse validation response: {e}")
+            return {"valid": True, "confidence": 0.5, "issues": [], "corrections": [], "corrected_plan": None, "_parse_error": str(e), "_skipped": True}
+
     def call_llm_all_models(self, prompt: str, workflow_id: str, plan_type: str = "repair", system_prompt: str = "") -> Dict[str, Optional[Dict[str, Any]]]:
         """Call all configured Ollama + OpenAI models in parallel, return {model_name: response}"""
         from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -1469,9 +1633,18 @@ class LLMPlanner:
             tasks.append((f"openai/{model}", lambda m=model: self.openai_manager.call_llm(prompt, workflow_id, plan_type, system_prompt, model=m)))
 
         if not tasks:
-            logger.warning("No models configured, falling back to default Ollama model")
-            tasks = [(f"ollama/{self.ollama_manager.ollama_model}",
-                      lambda: self.ollama_manager.call_llm(prompt, workflow_id, plan_type, system_prompt))]
+            # Try OpenAI first, then Ollama as last resort
+            if self.openai_manager.api_key and self.openai_manager.openai_models:
+                m = self.openai_manager.openai_models[0]
+                logger.warning(f"No models in task list, falling back to openai/{m}")
+                tasks = [(f"openai/{m}", lambda _m=m: self.openai_manager.call_llm(prompt, workflow_id, plan_type, system_prompt, model=_m))]
+            elif self.ollama_manager.ollama_model:
+                logger.warning(f"No models in task list, falling back to ollama/{self.ollama_manager.ollama_model}")
+                tasks = [(f"ollama/{self.ollama_manager.ollama_model}",
+                          lambda: self.ollama_manager.call_llm(prompt, workflow_id, plan_type, system_prompt))]
+            else:
+                logger.error("No models configured at all — cannot generate plan")
+                return {}
 
         provider_counts = {}
         for label, _ in tasks:
@@ -1583,10 +1756,12 @@ class LLMPlanner:
 
         # Collect all parsed plans from each model
         all_model_plans = {}
+        all_validation_results = {}
         parse_errors = {}
         primary_plan = None
         file_request_plan = None
 
+        # ── Parse all model responses ────────────────────────────────────────
         for model_name, llm_response in all_responses.items():
             if not llm_response:
                 logger.warning(f"Model {model_name} returned no response")
@@ -1594,17 +1769,61 @@ class LLMPlanner:
             try:
                 parsed = self.parse_llm_response(llm_response)
                 all_model_plans[model_name] = parsed
-                # Capture first file-request plan so we can handle it after
                 if parsed.get('needs_more_information') and file_request_plan is None:
                     file_request_plan = parsed
-                # Use first successfully parsed non-file-request plan as primary
-                if primary_plan is None and not parsed.get('needs_more_information'):
-                    primary_plan = parsed
-                    primary_plan["_source_model"] = model_name
                 logger.info(f"Model {model_name} plan parsed successfully")
             except Exception as e:
                 parse_errors[model_name] = str(e)
                 logger.error(f"Error parsing response from model {model_name}: {e}")
+
+        # ── Self-validation pass: send each plan back to its own model ───────
+        validation_threshold = self.config.get("validation_confidence_threshold", 0.6)
+        print(f"\n{'='*80}")
+        print(f"{TerminalColor.BRIGHT_CYAN.apply('🔍 PLAN SELF-VALIDATION PASS')}")
+        print(f"{'='*80}")
+
+        for model_name, parsed in list(all_model_plans.items()):
+            if parsed.get('needs_more_information'):
+                continue
+            validation = self.validate_plan_with_llm(
+                plan=parsed,
+                source_model=model_name,
+                analysis_result=analysis_result,
+                workflow_id=workflow_id
+            )
+            all_validation_results[model_name] = validation
+
+            # If validator provided a corrected plan, replace the original
+            if not validation.get("_skipped") and not validation["valid"] and validation.get("corrected_plan"):
+                try:
+                    corrected = validation["corrected_plan"]
+                    if isinstance(corrected, dict) and corrected:
+                        corrected["_source_model"] = model_name
+                        corrected["_was_corrected"] = True
+                        all_model_plans[model_name] = corrected
+                        logger.info(f"Replaced plan for {model_name} with corrected version from validator")
+                except Exception as e:
+                    logger.warning(f"Could not apply corrected plan from validator: {e}")
+
+        # ── Select primary: prefer plans that passed validation ──────────────
+        # Priority 1: valid=True and confidence >= threshold
+        # Priority 2: valid=True regardless of confidence
+        # Priority 3: any parsed plan (fallback)
+        for priority_check in [
+            lambda v: v.get("valid") and v.get("confidence", 0) >= validation_threshold,
+            lambda v: v.get("valid"),
+            lambda v: True
+        ]:
+            for model_name, parsed in all_model_plans.items():
+                if parsed.get('needs_more_information'):
+                    continue
+                vr = all_validation_results.get(model_name, {})
+                if priority_check(vr):
+                    primary_plan = parsed
+                    primary_plan["_source_model"] = model_name
+                    break
+            if primary_plan:
+                break
 
         # Handle file request if all models asked for more info
         if primary_plan is None and file_request_plan is not None:
@@ -1627,6 +1846,10 @@ class LLMPlanner:
                     m: ("parsed" if m in all_model_plans else "failed")
                     for m in all_responses.keys()
                 }
+                primary_plan["self_validation"] = all_validation_results.get(
+                    primary_plan.get("_source_model"), {}
+                )
+                primary_plan["all_validation_results"] = all_validation_results
 
                 # Save detailed per-model results to JSON file
                 self.save_model_results(
@@ -1639,6 +1862,15 @@ class LLMPlanner:
                     parse_errors=parse_errors,
                     catalogs=catalogs,
                     workflow_context=workflow_context
+                )
+
+                # Drop all plans into pipeline for Evaluator (fire-and-forget)
+                self.write_to_pipeline(
+                    workflow_id=workflow_id,
+                    analysis_result=analysis_result,
+                    catalogs=catalogs,
+                    workflow_context=workflow_context,
+                    all_model_plans=all_model_plans
                 )
 
                 # Store plan

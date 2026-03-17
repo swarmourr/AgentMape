@@ -253,7 +253,12 @@ class OllamaConnectionManager:
         self.ollama_url = config.get("ollama_url", f"{self.ollama_api_base}/api/generate")
         self.ollama_model = config.get("ollama_model", "qwen2.5:7b")
         self.connection_timeout = config.get("connection_timeout", 10)
-        
+
+        # OpenAI-compatible endpoint (takes priority when api_key is set)
+        self.openai_api_key  = config.get("openai_api_key", "")
+        self.openai_api_base = config.get("openai_api_base", "https://api.openai.com/v1")
+        self.openai_model    = config.get("openai_model", self.ollama_model)
+
         # Connection status tracking
         self.last_health_check = 0
         self.health_check_interval = config.get("ollama_check_interval", 30)
@@ -261,9 +266,14 @@ class OllamaConnectionManager:
         self.model_available = False
         self.last_error = None
         self.connection_history = []
-        
+
         # Setup logging
         self.logger = logging.getLogger(f"{__name__}.OllamaManager")
+
+    @property
+    def is_openai_mode(self) -> bool:
+        """True when an OpenAI-compatible key is configured — bypasses Ollama entirely"""
+        return bool(self.openai_api_key)
     
     def log_connection_attempt(self, endpoint: str, success: bool, error: str = None):
         """Log connection attempt with timestamp"""
@@ -610,7 +620,49 @@ class OllamaConnectionManager:
         
         self.last_health_check = current_time
         return self.is_healthy
-    
+
+    def quick_health_check_openai(self) -> bool:
+        """Health check for OpenAI-compatible endpoints — just verify reachability"""
+        try:
+            response = requests.get(
+                f"{self.openai_api_base}/models",
+                headers={"Authorization": f"Bearer {self.openai_api_key}"},
+                timeout=10
+            )
+            self.is_healthy = response.status_code == 200
+            self.model_available = self.is_healthy
+            self.last_error = None if self.is_healthy else f"HTTP {response.status_code}"
+        except Exception as e:
+            self.is_healthy = False
+            self.last_error = str(e)
+        self.last_health_check = time.time()
+        return self.is_healthy
+
+    def call_openai(self, prompt: str, use_json_format: bool = True) -> Optional[str]:
+        """Call OpenAI-compatible /chat/completions endpoint, return response text"""
+        messages = [{"role": "user", "content": prompt}]
+        payload: Dict[str, Any] = {
+            "model":       self.openai_model,
+            "messages":    messages,
+            "temperature": 0.1,
+            "max_tokens":  2048
+        }
+        if use_json_format:
+            payload["response_format"] = {"type": "json_object"}
+
+        response = requests.post(
+            f"{self.openai_api_base}/chat/completions",
+            headers={
+                "Authorization": f"Bearer {self.openai_api_key}",
+                "Content-Type":  "application/json"
+            },
+            json=payload,
+            timeout=self.connection_timeout
+        )
+        if response.status_code != 200:
+            raise RuntimeError(f"OpenAI HTTP {response.status_code}: {response.text[:200]}")
+        return response.json()["choices"][0]["message"]["content"]
+
     def get_connection_status(self) -> Dict[str, Any]:
         """Get detailed connection status"""
         return {
@@ -1205,24 +1257,147 @@ class EnhancedAnalyzerAgent:
         self.app.router.add_get('/api/workflow-logs/{workflow_id}', self.handle_get_workflow_logs)
         self.app.router.add_get('/api/workflow-logs/{workflow_id}/download', self.handle_download_workflow_logs)
 
+    # ─────────────────────────────────────────────────────────────────────────
+    # Dedicated OpenAI LLM function
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def call_openai_llm(
+        self,
+        prompt: str,
+        workflow_id: str,
+        analysis_type: str = "failed",
+        wf_logger=None
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Dedicated OpenAI-compatible LLM call for workflow analysis.
+        Handles retries, structured JSON response, and workflow interaction logging.
+        Returns standard response dict: {"choices": [{"message": {"content": <text>}}]}
+        """
+        if wf_logger is None:
+            wf_logger = get_workflow_logger(workflow_id)
+
+        model        = self.ollama_manager.openai_model
+        api_base     = self.ollama_manager.openai_api_base
+        api_key      = self.ollama_manager.openai_api_key
+        timeout      = self.config.get("connection_timeout", 300)
+        max_retries  = self.config.get("retry_attempts", 3)
+
+        self.logger.info(f"[OpenAI] Calling model={model} workflow={workflow_id} type={analysis_type}")
+
+        for attempt in range(max_retries):
+            interaction_id = None
+            start_time = time.time()
+            try:
+                self.logger.info(f"[OpenAI] Attempt {attempt + 1}/{max_retries}")
+
+                interaction_id = wf_logger.log_llm_request(
+                    prompt=prompt,
+                    metadata={
+                        "provider":       "openai",
+                        "model":          model,
+                        "api_base":       api_base,
+                        "analysis_type":  analysis_type,
+                        "attempt":        attempt + 1,
+                    }
+                )
+
+                payload = {
+                    "model":           model,
+                    "messages":        [{"role": "user", "content": prompt}],
+                    "temperature":     0.1,
+                    "max_tokens":      4096,
+                    "response_format": {"type": "json_object"}
+                }
+
+                response = requests.post(
+                    f"{api_base}/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type":  "application/json"
+                    },
+                    json=payload,
+                    timeout=timeout
+                )
+
+                latency_ms = (time.time() - start_time) * 1000
+
+                if response.status_code == 200:
+                    content = response.json()["choices"][0]["message"]["content"].strip()
+
+                    if not content:
+                        self.logger.warning(f"[OpenAI] Empty content on attempt {attempt + 1}")
+                        wf_logger.log_llm_response(interaction_id, "", False, latency_ms, "empty response")
+                        continue
+
+                    self.ollama_manager.is_healthy = True
+                    self.ollama_manager.last_error = None
+                    self.ollama_manager.log_connection_attempt("openai_generate", True)
+
+                    wf_logger.log_llm_response(
+                        interaction_id=interaction_id,
+                        response=content,
+                        success=True,
+                        latency_ms=latency_ms
+                    )
+
+                    self.logger.info(f"[OpenAI] Success — {len(content)} chars in {latency_ms:.0f}ms")
+                    return {"choices": [{"message": {"content": content}}]}
+
+                else:
+                    error_msg = f"HTTP {response.status_code}: {response.text[:300]}"
+                    self.logger.error(f"[OpenAI] Attempt {attempt + 1} failed: {error_msg}")
+                    self.ollama_manager.log_connection_attempt("openai_generate", False, error_msg)
+                    if interaction_id:
+                        wf_logger.log_llm_response(interaction_id, "", False, latency_ms, error_msg)
+
+                    # Do not retry on client errors
+                    if 400 <= response.status_code < 500:
+                        break
+
+            except requests.exceptions.Timeout:
+                latency_ms = (time.time() - start_time) * 1000
+                error_msg = f"Timeout after {timeout}s on attempt {attempt + 1}"
+                self.logger.error(f"[OpenAI] {error_msg}")
+                self.ollama_manager.log_connection_attempt("openai_generate", False, error_msg)
+                if interaction_id:
+                    wf_logger.log_llm_response(interaction_id, "", False, latency_ms, error_msg)
+
+            except Exception as e:
+                latency_ms = (time.time() - start_time) * 1000
+                error_msg = f"Exception on attempt {attempt + 1}: {e}"
+                self.logger.error(f"[OpenAI] {error_msg}")
+                self.ollama_manager.log_connection_attempt("openai_generate", False, str(e))
+                if interaction_id:
+                    wf_logger.log_llm_response(interaction_id, "", False, latency_ms, error_msg)
+
+        self.logger.error(f"[OpenAI] All {max_retries} attempts failed for workflow {workflow_id}")
+        self.ollama_manager.is_healthy = False
+        return None
+
+    # ─────────────────────────────────────────────────────────────────────────
+
     def send_logs_and_workflow_to_llm_enhanced(self, logs: str, workflow: Dict[str, Any], analysis_type: str = "failed", hold_reason: str = "", stderr_summary: str = "", wf_logger=None) -> Optional[Dict[str, Any]]:
         """Enhanced LLM communication with better error handling and fallback"""
 
         # Extract workflow_id for logging
         workflow_id = workflow.get('workflow', {}).get('wf_id', 'unknown')
 
-        # First, check if Ollama is healthy
-        if not self.ollama_manager.quick_health_check():
-            self.logger.warning(f"Ollama not healthy: {self.ollama_manager.last_error}")
-            if not self.fallback_mode:
-                return None
-            # Continue to try anyway in fallback mode
-
         # Generate appropriate prompt based on analysis type
         if analysis_type == "held":
             prompt = self.prompt_manager.get_held_workflow_analysis_prompt(logs, workflow, hold_reason)
         else:
             prompt = self.prompt_manager.get_workflow_analysis_prompt(logs, workflow, stderr_summary)
+
+        # ── Route to OpenAI if configured ────────────────────────────────────
+        if self.ollama_manager.is_openai_mode:
+            return self.call_openai_llm(prompt, workflow_id, analysis_type, wf_logger)
+
+        # ── Ollama path ───────────────────────────────────────────────────────
+        if not self.ollama_manager.quick_health_check():
+            self.logger.warning(f"Ollama not healthy: {self.ollama_manager.last_error}")
+            if not self.fallback_mode:
+                return None
+            # Continue to try anyway in fallback mode
 
         # Try with JSON format first (if supported)
         if self.config.get("use_json_format", True):
@@ -1247,6 +1422,9 @@ class EnhancedAnalyzerAgent:
         if wf_logger is None:
             wf_logger = get_workflow_logger(workflow_id)
 
+        max_retries = self.config.get("retry_attempts", 3)
+        generation_timeout = self.config.get("generation_timeout", 120)
+
         payload = {
             "model": self.ollama_manager.ollama_model,
             "prompt": prompt,
@@ -1257,25 +1435,22 @@ class EnhancedAnalyzerAgent:
                 "num_predict": 2048
             }
         }
-        
         if use_json_format:
             payload["format"] = "json"
-        
-        max_retries = self.config.get("retry_attempts", 3)
-        generation_timeout = self.config.get("generation_timeout", 120)
-        
+
         for attempt in range(max_retries):
             try:
-                self.logger.info(f"LLM request attempt {attempt + 1}/{max_retries} (JSON format: {use_json_format})")
+                self.logger.info(f"LLM request attempt {attempt + 1}/{max_retries} (JSON:{use_json_format})")
 
                 # LOG LLM REQUEST
                 interaction_id = wf_logger.log_llm_request(
                     prompt=prompt,
                     metadata={
-                        "attempt": attempt + 1,
-                        "max_retries": max_retries,
-                        "ollama_model": self.ollama_manager.ollama_model,
-                        "analysis_type": analysis_type,
+                        "attempt":         attempt + 1,
+                        "max_retries":     max_retries,
+                        "ollama_model":    self.ollama_manager.ollama_model,
+                        "provider":        "ollama",
+                        "analysis_type":   analysis_type,
                         "use_json_format": use_json_format
                     }
                 )
@@ -1290,35 +1465,25 @@ class EnhancedAnalyzerAgent:
                 )
 
                 latency_ms = (time.time() - start_time) * 1000
-                
+
                 if response.status_code == 200:
                     ollama_response = response.json()
                     response_text = ollama_response.get('response', '').strip()
-                    
+
                     if not response_text:
                         self.logger.warning(f"Empty response from Ollama on attempt {attempt + 1}")
                         continue
-                    
-                    # Update connection status on success
+
                     self.ollama_manager.is_healthy = True
                     self.ollama_manager.last_error = None
                     self.ollama_manager.log_connection_attempt("generate", True)
-
-                    # LOG SUCCESSFUL LLM RESPONSE
                     wf_logger.log_llm_response(
                         interaction_id=interaction_id,
                         response=response_text,
                         success=True,
                         latency_ms=latency_ms
                     )
-
-                    return {
-                        "choices": [{
-                            "message": {
-                                "content": response_text
-                            }
-                        }]
-                    }
+                    return {"choices": [{"message": {"content": response_text}}]}
                 else:
                     error_msg = f"HTTP {response.status_code}: {response.text[:200]}"
                     self.logger.error(f"Ollama API Error on attempt {attempt + 1}: {error_msg}")

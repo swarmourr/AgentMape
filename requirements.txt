@@ -36,6 +36,9 @@ numpy>=1.24.0
 # --- LLM Providers ---
 openai>=1.0.0
 
+# --- Evaluator (council + aggregator) ---
+# No extra dependencies — uses aiohttp + requests already listed above
+
 # --- Image Validation (optional, WorkflowValidator) ---
 Pillow>=10.0.0
 

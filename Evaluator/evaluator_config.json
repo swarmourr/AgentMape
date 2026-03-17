@@ -1,0 +1,34 @@
+{
+    "agent_identity": {
+        "id": "evaluator_001",
+        "name": "Evaluator",
+        "type": "evaluator",
+        "description": "LLM Council Evaluator — multi-model cross-validation of Planner outputs"
+    },
+    "http_port": 8084,
+
+    "council_models": [
+        {"label": "openai/kimi",    "tier": 1},
+        {"label": "openai/glm-4.7", "tier": 1},
+        {"label": "openai/gemma3",  "tier": 2},
+        {"label": "openai/qwen3",   "tier": 2}
+    ],
+
+    "ollama_url":      "",
+    "ollama_api_base": "",
+    "openai_api_key":  "XUCcJ4cCRL3bUj9qCZKvMmbY5nGDye4P",
+    "openai_api_base": "https://ellm.nrp-nautilus.io/v1",
+    "connection_timeout": 300,
+
+    "aggregation_strategy": "borda_count",
+    "quality_gate_threshold": 0.70,
+    "veto_min_members": 1,
+
+    "tier_weights": {"1": 1.0, "2": 0.75, "3": 0.5},
+
+    "watch_interval_seconds": 5,
+
+    "pipeline_data_dir": "../pipeline_data",
+
+    "user_defined_metrics": []
+}

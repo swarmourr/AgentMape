@@ -5,9 +5,15 @@
         "type": "analyzer",
         "description": "Root cause analysis and problem detection agent"
     },
-   "ollama_url": "https://ialip-37-66-208-20.a.free.pinggy.link/api/generate",
-    "ollama_api_base": "https://ialip-37-66-208-20.a.free.pinggy.link",
-    "ollama_model": "glm-4.6:cloud",
+
+    "ollama_url":      "",
+    "ollama_api_base": "",
+    "ollama_model":    "",
+
+    "openai_api_key":  "XUCcJ4cCRL3bUj9qCZKvMmbY5nGDye4P",
+    "openai_api_base": "https://ellm.nrp-nautilus.io/v1",
+    "openai_model":    "glm-4.7",
+
     "ollama_check_interval": 30,
     "monitor_url": "ws://localhost:8765",
     "monitor_check_interval": 120,
@@ -17,6 +23,6 @@
     "fallback_mode": true,
     "log_level": "INFO",
     "enable_monitor_integration": true,
-    "connection_timeout": 10,
+    "connection_timeout": 300,
     "retry_attempts": 3
-}   
+}
