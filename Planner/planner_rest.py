@@ -2840,23 +2840,45 @@ class PlannerHTTPServer:
     async def fetch_monitoring_status(self, workflow_id: str) -> Dict[str, Any]:
         """Fetch live workflow status from the Monitor service"""
         monitor_url = self.config.get("monitor_url", MONITOR_URL)
+        result = {}
         try:
             async with ClientSession() as session:
+                # Check if workflow is registered in Monitor
+                async with session.get(
+                    f"{monitor_url}/api/workflows/{workflow_id}/status",
+                    timeout=aiohttp.ClientTimeout(total=10)
+                ) as resp:
+                    if resp.status == 200:
+                        result["_monitored"] = True
+                        result["_status"] = await resp.json()
+                    else:
+                        result["_monitored"] = False
+
+                # Also fetch pegasus/full for job counts and failed jobs
                 async with session.get(
                     f"{monitor_url}/api/workflows/{workflow_id}/pegasus/full",
                     timeout=aiohttp.ClientTimeout(total=10)
                 ) as resp:
                     if resp.status == 200:
-                        return await resp.json()
+                        result.update(await resp.json())
         except Exception as e:
             logger.debug(f"Could not fetch monitoring status: {e}")
-        return {}
+        return result
 
     def print_monitoring_status(self, status: Dict[str, Any], workflow_id: str):
         """Print workflow monitoring status to console"""
         if not status:
-            print(f"  {TerminalColor.YELLOW.apply('⚠ Monitoring status unavailable')}")
+            print(f"  {TerminalColor.RED.apply('✗ UNDER MONITORING: NO')}  (Monitor unreachable)")
             return
+
+        # Show monitoring registration status
+        is_monitored = status.get("_monitored")
+        if is_monitored is True:
+            print(f"  {TerminalColor.GREEN.apply('● UNDER MONITORING: YES')}")
+        elif is_monitored is False:
+            print(f"  {TerminalColor.RED.apply('○ UNDER MONITORING: NO')}  (workflow not registered in Monitor)")
+        else:
+            print(f"  {TerminalColor.YELLOW.apply('? UNDER MONITORING: UNKNOWN')}")
 
         # Overall state from pegasus-status
         peg_status = status.get("status", {})

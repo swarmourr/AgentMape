@@ -3337,9 +3337,24 @@ class EnhancedPegasusMCPServer:
                 
                 monitored_count = len(self.workflow_manager.registered_workflows)
                 healthy_agents = len([a for a in self.agent_registry.agents.values() if a.get('status') == 'healthy'])
-                
+
                 logger.info(f"Currently monitoring {monitored_count} workflows")
                 logger.info(f"Healthy agents: {healthy_agents}/{len(self.agent_registry.agents)}")
+
+                # Console status block
+                now = datetime.now().strftime("%H:%M:%S")
+                print(f"\n{'─'*80}")
+                print(f"{TerminalColor.BRIGHT_CYAN.apply('📡 MONITOR STATUS')}  {TerminalColor.CYAN.apply(now)}  "
+                      f"agents: {TerminalColor.GREEN.apply(str(healthy_agents))}/{len(self.agent_registry.agents)} healthy")
+                if self.workflow_manager.registered_workflows:
+                    print(f"{TerminalColor.YELLOW.apply('Monitored workflows:')} {monitored_count}")
+                    for wf_id, iwd in self.workflow_manager.registered_workflows.items():
+                        short_id = (wf_id[:36] + '…') if len(wf_id) > 37 else wf_id
+                        short_dir = ('…' + iwd[-55:]) if len(iwd) > 56 else iwd
+                        print(f"  {TerminalColor.GREEN.apply('●')} {TerminalColor.BRIGHT_WHITE.apply(short_id)}  {TerminalColor.CYAN.apply(short_dir)}")
+                else:
+                    print(f"  {TerminalColor.YELLOW.apply('○ No workflows currently monitored')}")
+                print(f"{'─'*80}")
                 
                 await asyncio.sleep(self.monitor_interval)
                 
