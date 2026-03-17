@@ -1263,6 +1263,8 @@ class PegasusWorkflowManager:
         """Run pegasus-analyzer on the workflow and capture output"""
         import subprocess
 
+        ANALYZER_TIMEOUT = 1800  # seconds (30 min) — large workflows can take a long time
+
         result = {
             "ran": False,
             "exit_code": None,
@@ -1281,18 +1283,18 @@ class PegasusWorkflowManager:
 
         # Run pegasus-analyzer on the workflow directory
         try:
-            logger.info(f"Running pegasus-analyzer on {workflow_dir}")
+            logger.info(f"Running pegasus-analyzer on {workflow_dir} (timeout={ANALYZER_TIMEOUT}s)")
             proc = subprocess.run(
                 ["pegasus-analyzer", workflow_dir],
                 capture_output=True,
                 text=True,
-                timeout=30  # 30 second timeout
+                timeout=ANALYZER_TIMEOUT
             )
 
             result["ran"] = True
             result["exit_code"] = proc.returncode
-            result["output"] = proc.stdout
-            result["error"] = proc.stderr
+            result["output"] = proc.stdout or ""
+            result["error"] = proc.stderr or ""
 
             # Parse common issues from output
             if proc.stdout:
@@ -1306,11 +1308,13 @@ class PegasusWorkflowManager:
             logger.info(f"pegasus-analyzer completed with exit code {proc.returncode}, found {len(result['parsed_issues'])} issues")
 
         except subprocess.TimeoutExpired:
-            logger.error("pegasus-analyzer timed out after 30 seconds")
-            result["error"] = "Timeout after 30 seconds"
+            logger.error(f"pegasus-analyzer timed out after {ANALYZER_TIMEOUT}s")
+            result["error"] = f"Timeout after {ANALYZER_TIMEOUT} seconds"
+            result["output"] = result["output"] or ""   # keep any partial output
         except Exception as e:
             logger.error(f"Error running pegasus-analyzer: {e}")
             result["error"] = str(e)
+            result["output"] = result["output"] or ""
 
         return result
 

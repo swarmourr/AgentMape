@@ -133,6 +133,7 @@ class OllamaManager:
             }
         }
 
+        interaction_id = None
         try:
             logger.info(f"Calling Ollama with prompt length: {len(full_prompt)} chars")
 
@@ -226,14 +227,15 @@ class OllamaManager:
             latency_ms = (time.time() - start_time) * 1000 if 'start_time' in locals() else 0
             error_msg = str(e)
 
-            # LOG EXCEPTION
-            wf_logger.log_llm_response(
-                interaction_id=interaction_id,
-                response="",
-                success=False,
-                latency_ms=latency_ms,
-                error=error_msg
-            )
+            # LOG EXCEPTION (only if request was logged successfully)
+            if interaction_id is not None:
+                wf_logger.log_llm_response(
+                    interaction_id=interaction_id,
+                    response="",
+                    success=False,
+                    latency_ms=latency_ms,
+                    error=error_msg
+                )
 
             logger.error(f"Ollama call failed: {e}")
             import traceback
@@ -289,6 +291,7 @@ class OpenAIManager:
             "max_tokens": 16000
         }
 
+        interaction_id = None
         try:
             logger.info(f"[OpenAI] Calling model {active_model}, prompt length: {len(prompt)} chars")
 
@@ -350,13 +353,14 @@ class OpenAIManager:
 
         except Exception as e:
             latency_ms = (time.time() - start_time) * 1000 if 'start_time' in locals() else 0
-            wf_logger.log_llm_response(
-                interaction_id=interaction_id,
-                response="",
-                success=False,
-                latency_ms=latency_ms,
-                error=str(e)
-            )
+            if interaction_id is not None:
+                wf_logger.log_llm_response(
+                    interaction_id=interaction_id,
+                    response="",
+                    success=False,
+                    latency_ms=latency_ms,
+                    error=str(e)
+                )
             logger.error(f"OpenAI call failed: {e}")
             return None
 

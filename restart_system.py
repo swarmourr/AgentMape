@@ -1,10 +1,15 @@
 #!/usr/bin/env python3.11
 """
 AgentMape MAPE-K — Restart & Monitoring Console
-Stops all services, starts them in order, then shows a live TUI dashboard.
 
+Usage:
+  python3.11 restart_system.py              # stop, restart all services, then show console
+  python3.11 restart_system.py --console    # skip restart, attach console to running services
+  python3.11 restart_system.py -c           # same as --console
+
+Keyboard shortcuts (in console):
   q / Q        → quit console (services keep running)
-  r / R        → force re-check all health & connectivity
+  r / R        → force re-check health & connectivity now
   Ctrl-C       → stop ALL services and exit
 """
 
@@ -12,6 +17,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -21,14 +27,13 @@ import time
 import tty
 import urllib.error
 import urllib.request
-from collections import deque
+from collections import defaultdict, deque
 from datetime import datetime
 from pathlib import Path
 
 try:
     from rich import box
     from rich.align import Align
-    from rich.columns import Columns
     from rich.console import Console
     from rich.layout import Layout
     from rich.live import Live
@@ -39,7 +44,6 @@ except ImportError:
     subprocess.run([sys.executable, "-m", "pip", "install", "rich"], check=True)
     from rich import box
     from rich.align import Align
-    from rich.columns import Columns
     from rich.console import Console
     from rich.layout import Layout
     from rich.live import Live
@@ -79,11 +83,11 @@ CONNECTIONS: list[tuple] = [
 LLM_API_KEY      = "XUCcJ4cCRL3bUj9qCZKvMmbY5nGDye4P"
 PIPELINE_PENDING = PIPE_DIR / "planner_output" / "pending"
 
-HEALTH_INTERVAL  = 5     # seconds between background health polls
+HEALTH_INTERVAL   = 5    # seconds between background health polls
 LOG_POLL_INTERVAL = 0.3  # seconds between log file reads
-REFRESH_HZ       = 2     # live console refreshes per second
-MAX_LOG_LINES    = 300   # lines kept per service
-ALL_LOG_KEEP     = 600   # interleaved log buffer size
+REFRESH_HZ        = 2    # live console refreshes per second
+MAX_LOG_LINES     = 300  # lines kept per service
+ALL_LOG_KEEP      = 600  # interleaved log buffer size
 
 SVC_COLORS = {
     "Monitor":          "cyan",
@@ -93,8 +97,114 @@ SVC_COLORS = {
     "Pegasus Provider": "magenta",
 }
 
+# ── LLM log patterns ──────────────────────────────────────────────────────────
+# Each entry: (service_name, regex, event_type)
+#   event_type: "request" | "success" | "error"
+LLM_PATTERNS: list[tuple[str, re.Pattern, str]] = [
+    # Planner — OpenAI call start
+    ("Planner",   re.compile(r"\[OpenAI\] Calling model\s+([\w.\-]+)"),                       "request"),
+    # Planner — OpenAI response received
+    ("Planner",   re.compile(r"OpenAI response length:"),                                      "success"),
+    # Planner — per-model plan parsed ok
+    ("Planner",   re.compile(r"Model\s+(openai/[\w.\-]+|ollama/[\w.\-]+)\s+plan parsed"),     "success"),
+    # Planner — model returned nothing
+    ("Planner",   re.compile(r"Model\s+(openai/[\w.\-]+|ollama/[\w.\-]+)\s+returned no resp"),"error"),
+    # Planner — Ollama call
+    ("Planner",   re.compile(r"Calling Ollama with prompt"),                                   "request"),
+    # Planner — Ollama response
+    ("Planner",   re.compile(r"Ollama response length:"),                                      "success"),
+    # Analyzer — OpenAI call
+    ("Analyzer",  re.compile(r"Calling OpenAI|call_openai|openai.*glm|glm.*openai"),          "request"),
+    # Analyzer — OpenAI success
+    ("Analyzer",  re.compile(r"LLM analysis.*success|openai.*response|analysis.*completed"),  "success"),
+    # Evaluator — council member called
+    ("Evaluator", re.compile(r"Running council with \d+ member"),                             "request"),
+    # Evaluator — member result
+    ("Evaluator", re.compile(r"(✓|✗)\s+(openai/[\w.\-]+|[\w.\-]+):\s+confidence="),          "success"),
+    # Evaluator — member error
+    ("Evaluator", re.compile(r"Council member\s+([\w./\-]+)\s+(?:thread error|failed)"),      "error"),
+]
+
 # ─────────────────────────────────────────────────────────────────────────────
-# STATE
+# LLM TRACKER
+# ─────────────────────────────────────────────────────────────────────────────
+class ModelStat:
+    __slots__ = ("requests", "successes", "errors", "last_seen", "last_ms")
+
+    def __init__(self) -> None:
+        self.requests  = 0
+        self.successes = 0
+        self.errors    = 0
+        self.last_seen = "—"
+        self.last_ms: int | None = None
+
+
+class LLMTracker:
+    """
+    Parses log lines for LLM request/response events.
+    Maintains per-(service, model) counters.
+    """
+    def __init__(self) -> None:
+        # key: (service, model_label) → ModelStat
+        self._stats: dict[tuple[str, str], ModelStat] = {}
+        self._lock = threading.Lock()
+
+        # Pending request label per service (last "Calling model X" seen)
+        self._pending: dict[str, str] = {}
+
+    def ingest(self, service: str, line: str) -> None:
+        for svc_filter, pattern, event in LLM_PATTERNS:
+            if svc_filter != service:
+                continue
+            m = pattern.search(line)
+            if m is None:
+                continue
+
+            # Try to extract model name from capture group
+            model_label = m.group(1) if m.lastindex and m.lastindex >= 1 else None
+
+            # For "Calling model X" pattern, store as pending for this service
+            if event == "request" and model_label:
+                self._pending[service] = model_label
+                key = (service, model_label)
+            elif event == "request" and not model_label:
+                # Generic request (e.g. Ollama call without model name)
+                model_label = self._pending.get(service, "unknown")
+                key = (service, model_label)
+            elif event in ("success", "error"):
+                if model_label:
+                    key = (service, model_label)
+                else:
+                    model_label = self._pending.get(service, "unknown")
+                    key = (service, model_label)
+            else:
+                continue
+
+            with self._lock:
+                if key not in self._stats:
+                    self._stats[key] = ModelStat()
+                stat = self._stats[key]
+
+                if event == "request":
+                    stat.requests += 1
+                elif event == "success":
+                    stat.successes += 1
+                elif event == "error":
+                    stat.errors += 1
+
+                stat.last_seen = datetime.now().strftime("%H:%M:%S")
+            break  # first matching pattern per line
+
+    def snapshot(self) -> list[tuple[str, str, ModelStat]]:
+        """Return sorted list of (service, model, stat) — most recent first."""
+        with self._lock:
+            items = [(svc, mdl, st) for (svc, mdl), st in self._stats.items()]
+        items.sort(key=lambda x: x[2].last_seen, reverse=True)
+        return items
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SERVICE STATE
 # ─────────────────────────────────────────────────────────────────────────────
 class ServiceState:
     def __init__(self, name: str, port: int, log_stem: str):
@@ -103,18 +213,17 @@ class ServiceState:
         self.log_path  = LOG_DIR / f"{log_stem}.log"
         self.pid_path  = LOG_DIR / f"{log_stem}.pid"
 
-        self.pid: int | None        = None
-        self.status: str            = "pending"   # pending | starting | up | down
+        self.pid: int | None         = None
+        self.status: str             = "pending"
         self.response_ms: int | None = None
-        self.detail: str            = ""
-        self.last_check: str        = "—"
+        self.detail: str             = ""
+        self.last_check: str         = "—"
 
-        self.logs: deque[str]       = deque(maxlen=MAX_LOG_LINES)
-        self._log_pos: int          = 0
-        self._lock                  = threading.Lock()
+        self.logs: deque[str]        = deque(maxlen=MAX_LOG_LINES)
+        self._log_pos: int           = 0
+        self._lock                   = threading.Lock()
 
     def poll_logs(self) -> list[str]:
-        """Read new lines from the log file since last poll. Returns new lines."""
         new: list[str] = []
         try:
             with open(self.log_path, "r", errors="replace") as f:
@@ -143,6 +252,12 @@ class ServiceState:
             self.response_ms = elapsed
             self.last_check  = datetime.now().strftime("%H:%M:%S")
             self._parse_detail(body)
+            # Try to read PID from pid file if not set
+            if self.pid is None and self.pid_path.exists():
+                try:
+                    self.pid = int(self.pid_path.read_text().strip())
+                except Exception:
+                    pass
         except Exception:
             self.status      = "down"
             self.response_ms = None
@@ -156,7 +271,7 @@ class ServiceState:
                 lb = data["llm_backend"]
                 self.detail = f"{lb.get('provider','?')} / {lb.get('model','?')}"
             elif "aggregation_strategy" in data:
-                strat = data["aggregation_strategy"]
+                strat     = data["aggregation_strategy"]
                 threshold = data.get("quality_gate_threshold", "")
                 self.detail = f"{strat}  gate={threshold}"
             elif "openai_enabled" in data:
@@ -209,11 +324,13 @@ conn_states: list[ConnState] = [
     ConnState(frm, to, url) for frm, to, url in CONNECTIONS
 ]
 
-all_logs: deque[tuple[str, str, str]] = deque(maxlen=ALL_LOG_KEEP)  # (svc, line, color)
+all_logs: deque[tuple[str, str, str]] = deque(maxlen=ALL_LOG_KEEP)
 all_logs_lock = threading.Lock()
 
+llm_tracker = LLMTracker()
+
 start_time: datetime = datetime.now()
-_stop_event = threading.Event()
+_stop_event  = threading.Event()
 _force_check = threading.Event()
 
 
@@ -226,7 +343,6 @@ def _health_loop() -> None:
             st.check_health()
         for cs in conn_states:
             cs.check()
-        # Wait, but wake up immediately if forced
         _force_check.clear()
         _force_check.wait(timeout=HEALTH_INTERVAL)
 
@@ -240,6 +356,7 @@ def _log_poll_loop() -> None:
                 with all_logs_lock:
                     for line in new_lines:
                         all_logs.append((st.name, line, color))
+                        llm_tracker.ingest(st.name, line)
         time.sleep(LOG_POLL_INTERVAL)
 
 
@@ -247,9 +364,8 @@ def _log_poll_loop() -> None:
 # RICH RENDERERS
 # ─────────────────────────────────────────────────────────────────────────────
 def _overall_status() -> tuple[str, str]:
-    """Return (label, style)."""
-    all_up   = all(s.status == "up"   for s in svc_states.values())
-    all_conn = all(c.ok is not False   for c in conn_states)
+    all_up    = all(s.status == "up" for s in svc_states.values())
+    all_conn  = all(c.ok is not False for c in conn_states)
     down_svcs = [s.name for s in svc_states.values() if s.status == "down"]
 
     if all_up and all_conn:
@@ -257,18 +373,17 @@ def _overall_status() -> tuple[str, str]:
     if all_up and not all_conn:
         return "● SERVICES UP  /  CONNECTIVITY ISSUES", "bold yellow"
     if down_svcs:
-        names = ", ".join(down_svcs)
-        return f"● DEGRADED  —  DOWN: {names}", "bold red"
+        return f"● DEGRADED  —  DOWN: {', '.join(down_svcs)}", "bold red"
     return "● STARTING UP…", "bold yellow"
 
 
 def render_header() -> Panel:
-    elapsed   = datetime.now() - start_time
-    h, rem    = divmod(int(elapsed.total_seconds()), 3600)
-    m, s      = divmod(rem, 60)
-    uptime    = f"{h:02d}:{m:02d}:{s:02d}"
-    now       = datetime.now().strftime("%Y-%m-%d  %H:%M:%S")
-    lbl, sty  = _overall_status()
+    elapsed = datetime.now() - start_time
+    h, rem  = divmod(int(elapsed.total_seconds()), 3600)
+    m, s    = divmod(rem, 60)
+    uptime  = f"{h:02d}:{m:02d}:{s:02d}"
+    now     = datetime.now().strftime("%Y-%m-%d  %H:%M:%S")
+    lbl, sty = _overall_status()
 
     grid = Table.grid(expand=True)
     grid.add_column(justify="left")
@@ -281,15 +396,14 @@ def render_header() -> Panel:
     )
     return Panel(grid,
                  title="[bold cyan]AgentMape MAPE-K — Monitoring Console[/]",
-                 border_style="cyan",
-                 padding=(0, 1))
+                 border_style="cyan", padding=(0, 1))
 
 
 def render_service_table() -> Panel:
     t = Table(box=box.SIMPLE_HEAD, expand=True,
               header_style="bold cyan", border_style="dim",
               show_edge=False, pad_edge=False)
-    t.add_column("Service",  style="bold",   min_width=18)
+    t.add_column("Service",  style="bold", min_width=18)
     t.add_column("Port",     justify="right", width=6)
     t.add_column("Status",   width=9)
     t.add_column("PID",      justify="right", width=7)
@@ -313,13 +427,9 @@ def render_service_table() -> Panel:
             rt  = "—"
 
         t.add_row(
-            name,
-            str(st.port),
-            dot,
+            name, str(st.port), dot,
             str(st.pid) if st.pid else "—",
-            rt,
-            st.last_check,
-            st.detail or "—",
+            rt, st.last_check, st.detail or "—",
         )
 
     return Panel(t, title="[bold]Service Health[/]", border_style="blue", padding=(0, 1))
@@ -329,40 +439,98 @@ def render_conn_table() -> Panel:
     t = Table(box=box.SIMPLE_HEAD, expand=True,
               header_style="bold cyan", border_style="dim",
               show_edge=False, pad_edge=False)
-    t.add_column("From",   style="bold", min_width=16)
+    t.add_column("From",   style="bold", min_width=14)
     t.add_column("",       width=3, justify="center")
     t.add_column("To",     min_width=14)
-    t.add_column("Result", min_width=18)
+    t.add_column("Result", min_width=16)
 
     for cs in conn_states:
         if cs.ok is True:
             arrow  = Text("→", style="green")
-            result = Text(
-                f"✔  {cs.ms}ms" if cs.ms else "✔  filesystem",
-                style="green",
-            )
+            result = Text(f"✔  {cs.ms}ms" if cs.ms else "✔  filesystem", style="green")
         elif cs.ok is False:
             arrow  = Text("→", style="red")
             result = Text("✘  unreachable", style="bold red")
         else:
             arrow  = Text("→", style="dim")
             result = Text("checking…", style="dim yellow")
-
         t.add_row(cs.frm, arrow, cs.to, result)
 
-    # Summary line
-    ok_count   = sum(1 for c in conn_states if c.ok is True)
-    fail_count = sum(1 for c in conn_states if c.ok is False)
-    total      = len(conn_states)
-    if fail_count == 0 and ok_count == total:
-        summary = Text(f"  All {total} connections OK", style="bold green")
+    ok_n   = sum(1 for c in conn_states if c.ok is True)
+    fail_n = sum(1 for c in conn_states if c.ok is False)
+    total  = len(conn_states)
+    if fail_n == 0 and ok_n == total:
+        summary = Text(f"  All {total} OK", style="bold green")
     else:
-        summary = Text(f"  {ok_count}/{total} OK  —  {fail_count} failed", style="bold yellow")
-
+        summary = Text(f"  {ok_n}/{total} OK  —  {fail_n} failed", style="bold yellow")
     t.add_row("", Text(""), Text(""), Text(""))
     t.add_row("", Text(""), summary, Text(""))
 
     return Panel(t, title="[bold]Inter-Service Connectivity[/]", border_style="blue", padding=(0, 1))
+
+
+def render_llm_panel() -> Panel:
+    t = Table(box=box.SIMPLE_HEAD, expand=True,
+              header_style="bold magenta", border_style="dim",
+              show_edge=False, pad_edge=False)
+    t.add_column("Service",   style="bold", width=12)
+    t.add_column("Model",     min_width=20)
+    t.add_column("Reqs",      justify="right", width=6)
+    t.add_column("OK",        justify="right", width=6)
+    t.add_column("Err",       justify="right", width=6)
+    t.add_column("Rate",      justify="right", width=7)
+    t.add_column("Last seen", width=10)
+
+    rows = llm_tracker.snapshot()
+
+    if not rows:
+        t.add_row(
+            Text("—", style="dim"), Text("waiting for LLM activity…", style="dim"),
+            "—", "—", "—", "—", "—",
+        )
+    else:
+        for svc, model, stat in rows:
+            color = SVC_COLORS.get(svc, "white")
+            reqs  = stat.requests
+            ok    = stat.successes
+            err   = stat.errors
+
+            # Success rate based on completed (ok + err)
+            completed = ok + err
+            rate_str  = f"{ok/completed*100:.0f}%" if completed > 0 else "—"
+            rate_sty  = "green" if completed > 0 and ok / completed >= 0.8 else "yellow" if completed > 0 else "dim"
+
+            err_sty   = "red" if err > 0 else "dim"
+
+            t.add_row(
+                Text(svc, style=f"bold {color}"),
+                Text(model, style="bold"),
+                str(reqs),
+                Text(str(ok),  style="green"),
+                Text(str(err), style=err_sty),
+                Text(rate_str, style=rate_sty),
+                Text(stat.last_seen, style="dim"),
+            )
+
+    # Totals footer
+    if rows:
+        total_reqs = sum(s.requests  for _, _, s in rows)
+        total_ok   = sum(s.successes for _, _, s in rows)
+        total_err  = sum(s.errors    for _, _, s in rows)
+        completed  = total_ok + total_err
+        rate_str   = f"{total_ok/completed*100:.0f}%" if completed > 0 else "—"
+        t.add_row("", Text(""), Text(""), Text(""), Text(""), Text(""), Text(""))
+        t.add_row(
+            Text("TOTAL", style="bold dim"),
+            Text(f"{len(rows)} model(s)", style="dim"),
+            Text(str(total_reqs), style="bold"),
+            Text(str(total_ok),  style="bold green"),
+            Text(str(total_err), style="bold red" if total_err else "dim"),
+            Text(rate_str, style="bold"),
+            Text(""),
+        )
+
+    return Panel(t, title="[bold magenta]LLM Model Activity[/]", border_style="magenta", padding=(0, 1))
 
 
 def render_logs(visible_lines: int) -> Panel:
@@ -378,37 +546,40 @@ def render_logs(visible_lines: int) -> Panel:
     return Panel(
         text,
         title=f"[bold]Live Logs[/]  [dim]({len(recent)} lines)[/]",
-        border_style="blue",
-        padding=(0, 1),
+        border_style="blue", padding=(0, 1),
     )
 
 
 def render_footer() -> Text:
     t = Text(justify="center", style="dim")
-    t.append(" q", style="bold yellow"); t.append(": quit console (services keep running)   ")
-    t.append("r", style="bold yellow"); t.append(": force re-check   ")
-    t.append("Ctrl-C", style="bold yellow"); t.append(": stop ALL services ")
+    t.append(" q", style="bold yellow");      t.append(": quit (services keep running)   ")
+    t.append("r",  style="bold yellow");      t.append(": force re-check   ")
+    t.append("Ctrl-C", style="bold yellow");  t.append(": stop ALL services ")
     return t
 
 
 def build_layout(console_height: int) -> Layout:
-    # Fixed rows: header=3, middle=18, footer=1; logs fill the rest
-    log_height = max(console_height - 3 - 18 - 1, 6)
+    # header=3  top=16  llm=9  logs=rest  footer=1
+    llm_height = 9
+    top_height  = 16
+    log_height  = max(console_height - 3 - top_height - llm_height - 1, 5)
 
     layout = Layout()
     layout.split_column(
         Layout(name="header", size=3),
-        Layout(name="middle", size=18),
+        Layout(name="top",    size=top_height),
+        Layout(name="llm",    size=llm_height),
         Layout(name="logs",   size=log_height),
         Layout(name="footer", size=1),
     )
-    layout["middle"].split_row(
-        Layout(name="services",      ratio=3),
-        Layout(name="connections",   ratio=2),
+    layout["top"].split_row(
+        Layout(name="services",     ratio=3),
+        Layout(name="connections",  ratio=2),
     )
     layout["header"].update(render_header())
     layout["services"].update(render_service_table())
     layout["connections"].update(render_conn_table())
+    layout["llm"].update(render_llm_panel())
     layout["logs"].update(render_logs(log_height - 4))
     layout["footer"].update(Align(render_footer(), vertical="middle"))
     return layout
@@ -435,7 +606,6 @@ def _kill_port(port: int) -> None:
 def stop_all(console: Console | None = None) -> None:
     msg = lambda s: console.print(s) if console else print(s)
     msg("[bold red]  Stopping all services…[/]")
-
     for stem in ["monitor", "analyzer", "planner", "executor", "evaluator", "provider", "dashboard"]:
         pf = LOG_DIR / f"{stem}.pid"
         if pf.exists():
@@ -446,10 +616,8 @@ def stop_all(console: Console | None = None) -> None:
                 pf.unlink(missing_ok=True)
             except (ValueError, ProcessLookupError, OSError):
                 pf.unlink(missing_ok=True)
-
     for port in [8080, 8081, 8082, 8083, 8084, 8085, 5000]:
         _kill_port(port)
-
     time.sleep(1)
     msg("[green]  All services stopped.[/]")
 
@@ -471,11 +639,8 @@ def start_all(console: Console) -> None:
 
         log_fh = open(log_path, "w")
         proc   = subprocess.Popen(
-            [PYTHON, script],
-            cwd=work_dir,
-            env=env,
-            stdout=log_fh,
-            stderr=subprocess.STDOUT,
+            [PYTHON, script], cwd=work_dir, env=env,
+            stdout=log_fh, stderr=subprocess.STDOUT,
         )
         log_fh.close()
 
@@ -484,7 +649,6 @@ def start_all(console: Console) -> None:
         svc_states[name].status = "starting"
         console.print(f"  [bold]{name}[/]  PID [cyan]{proc.pid}[/]  log → {log_path.name}")
 
-        # Health gate
         console.print(f"  Waiting for :{port}", end="")
         for i in range(30):
             try:
@@ -502,17 +666,39 @@ def start_all(console: Console) -> None:
         console.print("")
 
 
+def attach_console_only(console: Console) -> None:
+    """Read existing PID files and do a health check without restarting."""
+    console.print("[cyan]  Console-only mode — attaching to running services…[/]")
+    for name, _, _, port, log_stem, _ in SERVICES:
+        pid_path = LOG_DIR / f"{log_stem}.pid"
+        if pid_path.exists():
+            try:
+                svc_states[name].pid = int(pid_path.read_text().strip())
+            except Exception:
+                pass
+        # Seek to end of existing log file so we only show new lines
+        log_path = LOG_DIR / f"{log_stem}.log"
+        if log_path.exists():
+            try:
+                svc_states[name]._log_pos = log_path.stat().st_size
+            except Exception:
+                pass
+        svc_states[name].check_health()
+        status = svc_states[name].status
+        color  = "green" if status == "up" else "red"
+        console.print(f"  [bold]{name:20}[/]  [{color}]{status.upper()}[/]"
+                      f"  PID {svc_states[name].pid or '—'}")
+    console.print("")
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # KEYBOARD HANDLER
 # ─────────────────────────────────────────────────────────────────────────────
 class RawKeyboard:
-    """Non-blocking single-char reader in raw tty mode."""
-
     def __init__(self) -> None:
-        self._fd: int | None       = None
-        self._old_settings         = None
-        self._thread: threading.Thread | None = None
-        self._stop  = threading.Event()
+        self._fd: int | None = None
+        self._old_settings   = None
+        self._stop = threading.Event()
         self.quit   = threading.Event()
         self.recheck = threading.Event()
 
@@ -523,8 +709,7 @@ class RawKeyboard:
             self._fd = sys.stdin.fileno()
             self._old_settings = termios.tcgetattr(self._fd)
             tty.setcbreak(self._fd)
-            self._thread = threading.Thread(target=self._run, daemon=True)
-            self._thread.start()
+            threading.Thread(target=self._run, daemon=True).start()
         except Exception:
             pass
 
@@ -557,21 +742,26 @@ class RawKeyboard:
 # ─────────────────────────────────────────────────────────────────────────────
 def main() -> None:
     global start_time
-    console = Console()
+    console_only = "--console" in sys.argv or "-c" in sys.argv
+    console      = Console()
 
-    # ── Phase 1: Stop ────────────────────────────────────────────────────────
     console.print()
     console.rule("[bold cyan]AgentMape MAPE-K — Restart & Monitor[/]")
     console.print()
-    stop_all(console)
-    console.print()
 
-    # ── Phase 2: Start ───────────────────────────────────────────────────────
-    start_time = datetime.now()
-    start_all(console)
+    if console_only:
+        # ── Attach-only mode ─────────────────────────────────────────────────
+        attach_console_only(console)
+        start_time = datetime.now()
+    else:
+        # ── Full restart ──────────────────────────────────────────────────────
+        stop_all(console)
+        console.print()
+        start_time = datetime.now()
+        start_all(console)
 
-    # ── Phase 3: Initial connectivity check ──────────────────────────────────
-    console.print("[cyan]Running initial connectivity checks…[/]")
+    # ── Initial connectivity check ────────────────────────────────────────────
+    console.print("[cyan]Running connectivity checks…[/]")
     for cs in conn_states:
         cs.check()
     for st in svc_states.values():
@@ -581,16 +771,13 @@ def main() -> None:
     console.print()
     time.sleep(0.5)
 
-    # ── Phase 4: Background threads ──────────────────────────────────────────
-    ht = threading.Thread(target=_health_loop,   daemon=True, name="health")
-    lt = threading.Thread(target=_log_poll_loop, daemon=True, name="log-poll")
-    ht.start()
-    lt.start()
+    # ── Background threads ────────────────────────────────────────────────────
+    threading.Thread(target=_health_loop,   daemon=True, name="health").start()
+    threading.Thread(target=_log_poll_loop, daemon=True, name="log-poll").start()
 
-    # ── Phase 5: Live console ────────────────────────────────────────────────
+    # ── Live console ──────────────────────────────────────────────────────────
     kb = RawKeyboard()
     kb.start()
-
     console.print("[bold cyan]Entering monitoring console…[/]")
     time.sleep(0.4)
 
@@ -604,14 +791,12 @@ def main() -> None:
             while True:
                 if kb.quit.is_set():
                     break
-
                 live.update(build_layout(console.height))
                 time.sleep(1.0 / REFRESH_HZ)
 
     except KeyboardInterrupt:
         _stop_event.set()
         kb.stop()
-        # Ctrl-C → stop all services
         console.print()
         stop_all(console)
         sys.exit(0)
@@ -620,11 +805,10 @@ def main() -> None:
         _stop_event.set()
         kb.stop()
 
-    # q was pressed — leave services running
     console.print()
     console.print("[green]Monitoring console closed.  Services are still running.[/]")
-    console.print(f"  Logs  : {LOG_DIR}")
-    console.print(f"  Stop  : ./stop_system.sh")
+    console.print(f"  Logs : {LOG_DIR}")
+    console.print(f"  Stop : ./stop_system.sh")
     console.print()
 
 
