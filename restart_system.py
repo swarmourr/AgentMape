@@ -485,7 +485,7 @@ def start_all(console: Console) -> None:
         console.print(f"  [bold]{name}[/]  PID [cyan]{proc.pid}[/]  log → {log_path.name}")
 
         # Health gate
-        console.print(f"  Waiting for :{port}", end="", flush=True)
+        console.print(f"  Waiting for :{port}", end="")
         for i in range(30):
             try:
                 urllib.request.urlopen(f"http://localhost:{port}/health", timeout=2)
@@ -493,7 +493,7 @@ def start_all(console: Console) -> None:
                 svc_states[name].status = "up"
                 break
             except Exception:
-                console.print(".", end="", flush=True)
+                console.print(".", end="")
                 time.sleep(1)
         else:
             console.print(f"  [red]✘ no response after 30s[/]")
