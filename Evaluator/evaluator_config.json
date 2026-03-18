@@ -30,5 +30,6 @@
 
     "pipeline_data_dir": "../pipeline_data",
 
-    "user_defined_metrics": []
+    "user_defined_metrics": [],
+    "max_tokens": 100000
 }

@@ -24,5 +24,6 @@
     "log_level": "INFO",
     "enable_monitor_integration": true,
     "connection_timeout": 300,
-    "retry_attempts": 3
+    "retry_attempts": 3,
+    "max_tokens": 100000
 }

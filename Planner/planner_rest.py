@@ -252,6 +252,7 @@ class OpenAIManager:
         self.api_base = config.get("openai_api_base", "https://api.openai.com/v1")
         self.openai_models = config.get("openai_models", [])
         self.connection_timeout = config.get("connection_timeout", 300)
+        self.max_tokens = config.get("max_tokens", 100000)
         self.is_enabled = bool(self.api_key and self.openai_models)
 
     def check_health(self) -> bool:
@@ -288,7 +289,7 @@ class OpenAIManager:
             "messages": messages,
             "temperature": 0.1,
             "response_format": {"type": "json_object"},
-            "max_tokens": 16000
+            "max_tokens": self.max_tokens
         }
 
         interaction_id = None

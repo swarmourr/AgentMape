@@ -258,6 +258,7 @@ class OllamaConnectionManager:
         self.openai_api_key  = config.get("openai_api_key", "")
         self.openai_api_base = config.get("openai_api_base", "https://api.openai.com/v1")
         self.openai_model    = config.get("openai_model", self.ollama_model)
+        self.max_tokens      = config.get("max_tokens", 100000)
 
         # Connection status tracking
         self.last_health_check = 0
@@ -645,7 +646,7 @@ class OllamaConnectionManager:
             "model":       self.openai_model,
             "messages":    messages,
             "temperature": 0.1,
-            "max_tokens":  2048
+            "max_tokens":  self.max_tokens
         }
         if use_json_format:
             payload["response_format"] = {"type": "json_object"}
@@ -1305,7 +1306,7 @@ class EnhancedAnalyzerAgent:
                     "model":           model,
                     "messages":        [{"role": "user", "content": prompt}],
                     "temperature":     0.1,
-                    "max_tokens":      4096,
+                    "max_tokens":      self.config.get("max_tokens", 100000),
                     "response_format": {"type": "json_object"}
                 }
 

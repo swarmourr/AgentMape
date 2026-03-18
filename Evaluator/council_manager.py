@@ -228,6 +228,7 @@ class CouncilMember:
         self.openai_api_key = config.get("openai_api_key", "")
         self.openai_api_base = config.get("openai_api_base", "https://api.openai.com/v1")
         self.connection_timeout = config.get("connection_timeout", 300)
+        self.max_tokens = config.get("max_tokens", 100000)
 
     def evaluate(self, context: EvaluationContext) -> Dict[str, Any]:
         """Run evaluation and return structured result"""
@@ -299,7 +300,7 @@ class CouncilMember:
             ],
             "temperature": 0.1,
             "response_format": {"type": "json_object"},
-            "max_tokens": 8000
+            "max_tokens": self.max_tokens
         }
         response = requests.post(
             f"{self.openai_api_base}/chat/completions",
