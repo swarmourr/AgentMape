@@ -1753,7 +1753,8 @@ class LLMPlanner:
 
         # Call LLM with workflow logging
         # Call all configured models in parallel
-        all_responses = await asyncio.to_thread(self.call_llm_all_models, prompt, workflow_id, "repair", self.prompt_builder.SYSTEM_PROMPT)
+        loop = asyncio.get_event_loop()
+        all_responses = await loop.run_in_executor(None, self.call_llm_all_models, prompt, workflow_id, "repair", self.prompt_builder.SYSTEM_PROMPT)
 
         # Collect all parsed plans from each model
         all_model_plans = {}
@@ -1786,12 +1787,11 @@ class LLMPlanner:
         for model_name, parsed in list(all_model_plans.items()):
             if parsed.get('needs_more_information'):
                 continue
-            validation = await asyncio.to_thread(
-                self.validate_plan_with_llm,
-                plan=parsed,
-                source_model=model_name,
-                analysis_result=analysis_result,
-                workflow_id=workflow_id
+            _plan, _model = parsed, model_name
+            loop = asyncio.get_event_loop()
+            validation = await loop.run_in_executor(
+                None,
+                lambda: self.validate_plan_with_llm(plan=_plan, source_model=_model, analysis_result=analysis_result, workflow_id=workflow_id)
             )
             all_validation_results[model_name] = validation
 
@@ -1974,7 +1974,8 @@ class LLMPlanner:
             return await self.generate_plan_with_llm(analysis_result, catalogs, workflow_context, use_multi_stage=False)
 
         try:
-            stage1_response = await asyncio.to_thread(self.ollama_manager.call_llm, stage1_prompt, workflow_id, "multi_stage_1", "You are a Pegasus workflow debugging assistant. Identify which files are needed to fix errors.")
+            loop = asyncio.get_event_loop()
+            stage1_response = await loop.run_in_executor(None, self.ollama_manager.call_llm, stage1_prompt, workflow_id, "multi_stage_1", "You are a Pegasus workflow debugging assistant. Identify which files are needed to fix errors.")
         except Exception as e:
             logger.error(f"Stage 1 LLM call failed: {e}")
             print(f"{TerminalColor.RED.apply('✗ Error:')} LLM call failed: {str(e)}")
