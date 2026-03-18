@@ -3316,53 +3316,114 @@ class EnhancedPegasusMCPServer:
         logger.info(f"Started automatic monitoring with {self.monitor_interval}s interval")
         return True
 
+    def _print_monitor_status(self, healthy_agents: int = None, total_agents: int = None):
+        """Print current monitoring status to console — always safe to call"""
+        try:
+            now = datetime.now().strftime("%H:%M:%S")
+            monitored = self.workflow_manager.registered_workflows
+            monitored_count = len(monitored)
+
+            if healthy_agents is None:
+                healthy_agents = len([a for a in self.agent_registry.agents.values() if a.get('status') == 'healthy'])
+            if total_agents is None:
+                total_agents = len(self.agent_registry.agents)
+
+            print(f"\n{'═'*80}")
+            print(f"{TerminalColor.BRIGHT_CYAN.apply('📡 MONITOR STATUS')}  "
+                  f"{TerminalColor.CYAN.apply(now)}  "
+                  f"agents: {TerminalColor.GREEN.apply(str(healthy_agents))}/{total_agents} healthy  "
+                  f"workflows: {TerminalColor.BRIGHT_WHITE.apply(str(monitored_count))}")
+            print(f"{'─'*80}")
+
+            if not monitored:
+                print(f"  {TerminalColor.YELLOW.apply('○  No workflows currently monitored')}")
+            else:
+                for wf_id, iwd in monitored.items():
+                    # Fetch enriched record from DB
+                    try:
+                        rec = workflows_table.get(Query().workflow_id == wf_id) or {}
+                    except Exception:
+                        rec = {}
+
+                    state        = rec.get("state", "unknown")
+                    percent      = rec.get("percent_done")
+                    analysis_st  = rec.get("analysis_status", "—")
+                    plan_st      = rec.get("plan_status", "—")
+                    first_seen   = rec.get("first_seen", "")
+                    run_number   = rec.get("run_number")
+                    pipeline_step = rec.get("pipeline_step", "—")
+
+                    # Color-code state
+                    state_color = {
+                        "running":  TerminalColor.CYAN,
+                        "Running":  TerminalColor.CYAN,
+                        "success":  TerminalColor.GREEN,
+                        "Success":  TerminalColor.GREEN,
+                        "failed":   TerminalColor.RED,
+                        "Failed":   TerminalColor.RED,
+                        "removed":  TerminalColor.YELLOW,
+                    }.get(state, TerminalColor.YELLOW)
+
+                    # Short display values
+                    short_id  = (wf_id[:34] + '…') if len(wf_id) > 35 else wf_id
+                    short_dir = ('…' + iwd[-60:]) if len(iwd) > 61 else iwd
+                    first_seen_short = first_seen[:19].replace("T", " ") if first_seen else "—"
+                    percent_str = f"  {percent:.0f}%" if percent is not None else ""
+                    run_str = f"  run #{run_number}" if run_number else ""
+
+                    print(f"  {TerminalColor.GREEN.apply('●')} {TerminalColor.BRIGHT_WHITE.apply(short_id)}{run_str}")
+                    print(f"      {TerminalColor.YELLOW.apply('Dir:')}      {TerminalColor.CYAN.apply(short_dir)}")
+                    print(f"      {TerminalColor.YELLOW.apply('State:')}    {state_color.apply(state)}{percent_str}"
+                          f"   {TerminalColor.YELLOW.apply('Step:')} {pipeline_step}")
+                    print(f"      {TerminalColor.YELLOW.apply('Analysis:')} {analysis_st}"
+                          f"   {TerminalColor.YELLOW.apply('Plan:')} {plan_st}")
+                    print(f"      {TerminalColor.YELLOW.apply('Since:')}    {first_seen_short}")
+                    print(f"  {'·'*76}")
+
+            print(f"{'═'*80}")
+        except Exception as e:
+            logger.debug(f"Could not print monitor status: {e}")
+
     async def auto_monitor_loop(self):
         """Enhanced auto monitoring loop with health checks"""
         monitor_logger = self.workflow_manager.setup_logger()
-        
+
+        # Print status immediately on startup
+        self._print_monitor_status()
+
         while self.auto_monitor_active:
+            healthy_agents = 0
+            total_agents = 0
             try:
                 monitor_logger.info("Checking for new workflows...")
                 workflows = await self.workflow_manager.get_workflow_details()
-                
+
                 for wf_id, iwd in workflows:
                     if wf_id not in self.workflow_manager.registered_workflows:
                         logger.info(f"Auto-discovered new workflow: {wf_id}")
                         monitor_logger.info(f"Auto-discovered new workflow: {wf_id} in {iwd}")
                         await self.workflow_manager.start_monitoring_workflow(wf_id, iwd)
-                
+
                 # Perform health checks on known agents
                 for agent_id in list(self.agent_registry.agents.keys()):
                     await self.agent_registry.health_check_agent(agent_id)
-                
-                monitored_count = len(self.workflow_manager.registered_workflows)
+
                 healthy_agents = len([a for a in self.agent_registry.agents.values() if a.get('status') == 'healthy'])
+                total_agents = len(self.agent_registry.agents)
 
-                logger.info(f"Currently monitoring {monitored_count} workflows")
-                logger.info(f"Healthy agents: {healthy_agents}/{len(self.agent_registry.agents)}")
+                logger.info(f"Currently monitoring {len(self.workflow_manager.registered_workflows)} workflows")
+                logger.info(f"Healthy agents: {healthy_agents}/{total_agents}")
 
-                # Console status block
-                now = datetime.now().strftime("%H:%M:%S")
-                print(f"\n{'─'*80}")
-                print(f"{TerminalColor.BRIGHT_CYAN.apply('📡 MONITOR STATUS')}  {TerminalColor.CYAN.apply(now)}  "
-                      f"agents: {TerminalColor.GREEN.apply(str(healthy_agents))}/{len(self.agent_registry.agents)} healthy")
-                if self.workflow_manager.registered_workflows:
-                    print(f"{TerminalColor.YELLOW.apply('Monitored workflows:')} {monitored_count}")
-                    for wf_id, iwd in self.workflow_manager.registered_workflows.items():
-                        short_id = (wf_id[:36] + '…') if len(wf_id) > 37 else wf_id
-                        short_dir = ('…' + iwd[-55:]) if len(iwd) > 56 else iwd
-                        print(f"  {TerminalColor.GREEN.apply('●')} {TerminalColor.BRIGHT_WHITE.apply(short_id)}  {TerminalColor.CYAN.apply(short_dir)}")
-                else:
-                    print(f"  {TerminalColor.YELLOW.apply('○ No workflows currently monitored')}")
-                print(f"{'─'*80}")
-                
                 await asyncio.sleep(self.monitor_interval)
-                
+
             except asyncio.CancelledError:
                 break
             except Exception as e:
                 logger.error(f"Error in auto-monitor loop: {e}")
                 await asyncio.sleep(10)
+            finally:
+                # Always print status after each cycle, whether it succeeded or failed
+                self._print_monitor_status(healthy_agents, total_agents)
 
     async def handle_client(self, websocket):
         """Handle WebSocket MCP client connections"""
