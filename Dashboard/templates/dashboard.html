@@ -1355,59 +1355,75 @@
                 </div>
             </div>
 
-            <!-- Activity Feed Section -->
+            <!-- Activity Feed + Monitored Workflows (tabbed) -->
             <div class="section fade-in" style="animation-delay: 0.4s">
-                <div class="section-header">
-                    <h2 class="section-title">
-                        <span>📡</span>
-                        <span>Real-Time Activity Feed</span>
-                    </h2>
-                    <div class="section-actions">
-                        <button class="btn btn-secondary" onclick="refreshData()">Refresh</button>
+                <!-- Tab Bar -->
+                <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid var(--gray-200); margin-bottom: 20px;">
+                    <div style="display: flex; gap: 0;">
+                        <button
+                            id="feed-tab-logs"
+                            onclick="switchFeedTab('logs')"
+                            style="padding: 12px 24px; border: none; background: none; font-size: 15px; font-weight: 600; cursor: pointer; border-bottom: 3px solid var(--primary); color: var(--primary); margin-bottom: -2px;"
+                        >📡 Live Logs</button>
+                        <button
+                            id="feed-tab-monitored"
+                            onclick="switchFeedTab('monitored')"
+                            style="padding: 12px 24px; border: none; background: none; font-size: 15px; font-weight: 600; cursor: pointer; border-bottom: 3px solid transparent; color: var(--gray-600); margin-bottom: -2px;"
+                        >🔄 Monitored Workflows</button>
+                    </div>
+                    <div style="padding-bottom: 4px;">
+                        <button class="btn btn-secondary" onclick="refreshFeedTab()">Refresh</button>
                     </div>
                 </div>
 
-                <!-- Activity Filter Bar -->
-                <div style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
-                    <input
-                        type="text"
-                        id="activity-search"
-                        placeholder="🔍 Search activities..."
-                        style="flex: 1; min-width: 200px; padding: 10px 16px; border: 1px solid var(--gray-300); border-radius: 8px; font-size: 14px;"
-                        oninput="filterActivities()"
-                    />
-                    <select
-                        id="activity-agent-filter"
-                        style="padding: 10px 16px; border: 1px solid var(--gray-300); border-radius: 8px; font-size: 14px; cursor: pointer;"
-                        onchange="filterActivities()"
-                    >
-                        <option value="">All Agents</option>
-                        <option value="Monitor">📡 Monitor</option>
-                        <option value="Analyzer">🔬 Analyzer</option>
-                        <option value="Planner">📋 Planner</option>
-                        <option value="Executor">⚙️ Executor</option>
-                    </select>
-                    <select
-                        id="activity-status-filter"
-                        style="padding: 10px 16px; border: 1px solid var(--gray-300); border-radius: 8px; font-size: 14px; cursor: pointer;"
-                        onchange="filterActivities()"
-                    >
-                        <option value="">All Statuses</option>
-                        <option value="info">ℹ️ Info</option>
-                        <option value="success">✅ Success</option>
-                        <option value="warning">⚠️ Warning</option>
-                        <option value="error">❌ Error</option>
-                    </select>
-                    <button
-                        onclick="clearActivityFilters()"
-                        style="padding: 10px 16px; border: 1px solid var(--gray-300); background: white; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500;"
-                    >
-                        Clear Filters
-                    </button>
+                <!-- Live Logs Panel -->
+                <div id="feed-panel-logs">
+                    <!-- Activity Filter Bar -->
+                    <div style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
+                        <input
+                            type="text"
+                            id="activity-search"
+                            placeholder="🔍 Search activities..."
+                            style="flex: 1; min-width: 200px; padding: 10px 16px; border: 1px solid var(--gray-300); border-radius: 8px; font-size: 14px;"
+                            oninput="filterActivities()"
+                        />
+                        <select
+                            id="activity-agent-filter"
+                            style="padding: 10px 16px; border: 1px solid var(--gray-300); border-radius: 8px; font-size: 14px; cursor: pointer;"
+                            onchange="filterActivities()"
+                        >
+                            <option value="">All Agents</option>
+                            <option value="Monitor">📡 Monitor</option>
+                            <option value="Analyzer">🔬 Analyzer</option>
+                            <option value="Planner">📋 Planner</option>
+                            <option value="Executor">⚙️ Executor</option>
+                        </select>
+                        <select
+                            id="activity-status-filter"
+                            style="padding: 10px 16px; border: 1px solid var(--gray-300); border-radius: 8px; font-size: 14px; cursor: pointer;"
+                            onchange="filterActivities()"
+                        >
+                            <option value="">All Statuses</option>
+                            <option value="info">ℹ️ Info</option>
+                            <option value="success">✅ Success</option>
+                            <option value="warning">⚠️ Warning</option>
+                            <option value="error">❌ Error</option>
+                        </select>
+                        <button
+                            onclick="clearActivityFilters()"
+                            style="padding: 10px 16px; border: 1px solid var(--gray-300); background: white; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500;"
+                        >Clear Filters</button>
+                    </div>
+                    <div id="activity-feed-container">
+                        <div class="spinner"></div>
+                    </div>
                 </div>
 
-                <div id="activity-feed-container">
-                    <div class="spinner"></div>
+                <!-- Monitored Workflows Panel -->
+                <div id="feed-panel-monitored" style="display: none;">
+                    <div id="monitored-workflows-container">
+                        <div class="spinner"></div>
+                    </div>
                 </div>
             </div>
 
@@ -3597,6 +3613,118 @@
             document.getElementById('activity-agent-filter').value = '';
             document.getElementById('activity-status-filter').value = '';
             filterActivities();
+        }
+
+        // ============================================================================
+        // Feed Tab (Live Logs / Monitored Workflows)
+        // ============================================================================
+
+        let _activeFeedTab = 'logs';
+
+        function switchFeedTab(tab) {
+            _activeFeedTab = tab;
+            const tabs = ['logs', 'monitored'];
+            tabs.forEach(t => {
+                const btn = document.getElementById(`feed-tab-${t}`);
+                const panel = document.getElementById(`feed-panel-${t}`);
+                if (t === tab) {
+                    btn.style.borderBottom = '3px solid var(--primary)';
+                    btn.style.color = 'var(--primary)';
+                    panel.style.display = 'block';
+                } else {
+                    btn.style.borderBottom = '3px solid transparent';
+                    btn.style.color = 'var(--gray-600)';
+                    panel.style.display = 'none';
+                }
+            });
+            if (tab === 'monitored') fetchMonitoredWorkflows();
+        }
+
+        function refreshFeedTab() {
+            if (_activeFeedTab === 'monitored') fetchMonitoredWorkflows();
+            else refreshData();
+        }
+
+        async function fetchMonitoredWorkflows() {
+            const container = document.getElementById('monitored-workflows-container');
+            container.innerHTML = '<div class="spinner"></div>';
+            try {
+                const response = await fetch('/api/workflows/detailed?include_historical=false');
+                const data = await response.json();
+                const workflows = data.workflows || [];
+
+                if (workflows.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state" style="padding: 48px; text-align: center;">
+                            <div style="font-size: 48px; margin-bottom: 12px;">📭</div>
+                            <div style="font-size: 16px; color: var(--gray-600);">No workflows currently monitored</div>
+                        </div>`;
+                    return;
+                }
+
+                const stateColor = {
+                    'Running': 'var(--info)',    'running': 'var(--info)',
+                    'Success': 'var(--success)', 'success': 'var(--success)',
+                    'Failed':  'var(--danger)',  'failed':  'var(--danger)',
+                    'removed': 'var(--gray-500)'
+                };
+                const stateIcon = {
+                    'Running': '🔄', 'running': '🔄',
+                    'Success': '✅', 'success': '✅',
+                    'Failed':  '❌', 'failed':  '❌',
+                    'removed': '🗑️'
+                };
+
+                const rows = workflows.map(wf => {
+                    const state = wf.state || 'unknown';
+                    const color = stateColor[state] || 'var(--gray-600)';
+                    const icon  = stateIcon[state]  || '❓';
+                    const pct   = wf.percent_done != null ? `${Math.round(wf.percent_done)}%` : '—';
+                    const analysis = wf.analysis_status || '—';
+                    const plan = wf.plan_status || '—';
+                    const since = wf.first_seen ? wf.first_seen.substring(0,19).replace('T',' ') : '—';
+                    const run = wf.run_number ? `#${wf.run_number}` : '';
+                    const shortId = wf.workflow_id.length > 20 ? wf.workflow_id.substring(0,20)+'…' : wf.workflow_id;
+                    const shortDir = wf.iwd && wf.iwd.length > 45 ? '…'+wf.iwd.slice(-44) : (wf.iwd || '—');
+                    const activeBadge = wf.is_active
+                        ? `<span style="background:rgba(16,185,129,0.1);color:var(--success);padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;">ACTIVE</span>`
+                        : `<span style="background:var(--gray-100);color:var(--gray-500);padding:2px 8px;border-radius:12px;font-size:11px;">INACTIVE</span>`;
+
+                    return `<tr style="cursor:pointer;" onclick="viewWorkflow('${wf.workflow_id}')">
+                        <td>
+                            <div style="font-weight:600;font-size:13px;font-family:monospace;">${shortId} <span style="color:var(--gray-500);font-size:11px;">${run}</span></div>
+                            <div style="color:var(--gray-500);font-size:11px;margin-top:2px;">${shortDir}</div>
+                        </td>
+                        <td>${activeBadge}</td>
+                        <td>
+                            <span style="color:${color};font-weight:600;">${icon} ${state}</span>
+                            <span style="color:var(--gray-500);font-size:12px;margin-left:6px;">${pct}</span>
+                        </td>
+                        <td style="font-size:13px;">${wf.pipeline_step || '—'}</td>
+                        <td style="font-size:13px;">${analysis}</td>
+                        <td style="font-size:13px;">${plan}</td>
+                        <td style="font-size:12px;color:var(--gray-500);">${since}</td>
+                    </tr>`;
+                }).join('');
+
+                container.innerHTML = `
+                    <table class="workflows-table" style="width:100%;">
+                        <thead>
+                            <tr>
+                                <th>Workflow</th>
+                                <th>Active</th>
+                                <th>State</th>
+                                <th>Step</th>
+                                <th>Analysis</th>
+                                <th>Plan</th>
+                                <th>First Seen</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>`;
+            } catch (err) {
+                container.innerHTML = `<div style="padding:24px;color:var(--danger);">Failed to load monitored workflows: ${err.message}</div>`;
+            }
         }
 
         // ============================================================================
