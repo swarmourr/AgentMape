@@ -1,0 +1,1083 @@
+09/11/26 05:13:29 ******************************************************
+09/11/26 05:13:29 ** condor_scheduniv_exec.4351914.0 (CONDOR_DAGMAN) STARTING UP
+09/11/26 05:13:29 ** /usr/bin/condor_dagman
+09/11/26 05:13:29 ** SubsystemInfo: name=DAGMAN type=DAGMAN(9) class=CLIENT(2)
+09/11/26 05:13:29 ** Configuration: subsystem:DAGMAN local:<NONE> class:CLIENT
+09/11/26 05:13:29 ** $CondorVersion: 25.14.0 2026-08-06 BuildID: 939575 PackageID: 25.14.0-0.939575 PRE-RELEASE-UWCS $
+09/11/26 05:13:29 ** $CondorPlatform: x86_64_AlmaLinux8 $
+09/11/26 05:13:29 ** PID = 4132622 RealUID = 1333
+09/11/26 05:13:29 ** Log last touched time unavailable (No such file or directory)
+09/11/26 05:13:29 ******************************************************
+09/11/26 05:13:29 Using config source: /etc/condor/condor_config
+09/11/26 05:13:29 Using local config sources: 
+09/11/26 05:13:29    /usr/share/condor/config.d/50-gratia-gwms.conf
+09/11/26 05:13:29    /etc/condor/config.d/00-security
+09/11/26 05:13:29    /etc/condor/config.d/10-main.conf
+09/11/26 05:13:29    /etc/condor/config.d/10-stash-plugin.conf
+09/11/26 05:13:29    /etc/condor/config.d/80-osg-flocking.conf
+09/11/26 05:13:29    /etc/condor/config.d/81-osg-flock-version.conf
+09/11/26 05:13:29    /etc/condor/config.d/99-rynge.conf
+09/11/26 05:13:29    /etc/condor/config.d/99-vahi.conf
+09/11/26 05:13:29    /etc/condor/condor_config.local
+09/11/26 05:13:29 config Macros = 136, Sorted = 136, StringBytes = 6606, TablesBytes = 5000
+09/11/26 05:13:29 CLASSAD_CACHING is ENABLED
+09/11/26 05:13:29 Daemon Log is logging: D_ALWAYS D_ERROR D_STATUS
+09/11/26 05:13:29 Daemoncore: Listening at <0.0.0.0:9147> on TCP (ReliSock) and UDP (SafeSock).
+09/11/26 05:13:29 DaemonCore: command socket at <149.165.153.107:9147?addrs=149.165.153.107-9147&alias=pegasus.access-ci.org&noUDP>
+09/11/26 05:13:29 DaemonCore: private command socket at <149.165.153.107:9147?addrs=10.1.214.25-9147&alias=pegasus.access-ci.org>
+09/11/26 05:13:29 Administrator set throttle limits enabled
+09/11/26 05:13:29 DAGMAN_USE_OLD_FILE_PARSER setting: False
+09/11/26 05:13:29 DAGMAN_USE_STRICT setting: 1
+09/11/26 05:13:29 DAGMAN_VERBOSITY setting: 3
+09/11/26 05:13:29 DAGMAN_DEBUG_CACHE_SIZE setting: 5242880
+09/11/26 05:13:29 DAGMAN_DEBUG_CACHE_ENABLE setting: False
+09/11/26 05:13:29 DAGMAN_SUBMIT_DELAY setting: 0
+09/11/26 05:13:29 DAGMAN_MAX_SUBMIT_ATTEMPTS setting: 6
+09/11/26 05:13:29 DAGMAN_STARTUP_CYCLE_DETECT setting: False
+09/11/26 05:13:29 DAGMAN_USE_JOIN_NODES setting: True
+09/11/26 05:13:29 DAGMAN_REPORT_GRAPH_METRICS setting: False
+09/11/26 05:13:29 DAGMAN_MAX_SUBMITS_PER_INTERVAL setting: 100
+09/11/26 05:13:29 DAGMAN_AGGRESSIVE_SUBMIT setting: False
+09/11/26 05:13:29 DAGMAN_USER_LOG_SCAN_INTERVAL setting: 5
+09/11/26 05:13:29 DAGMAN_QUEUE_UPDATE_INTERVAL setting: 300.000000
+09/11/26 05:13:29 DAGMAN_DEFAULT_PRIORITY setting: 0
+09/11/26 05:13:29 DAGMAN_SUPPRESS_NOTIFICATION setting: False
+09/11/26 05:13:29 allow_events (DAGMAN_ALLOW_EVENTS) setting: 114
+09/11/26 05:13:29 DAGMAN_RETRY_SUBMIT_FIRST setting: True
+09/11/26 05:13:29 DAGMAN_RETRY_NODE_FIRST setting: False
+09/11/26 05:13:29 DAGMAN_MAX_JOBS_IDLE setting: 1000
+09/11/26 05:13:29 DAGMAN_MAX_JOBS_SUBMITTED setting: 0
+09/11/26 05:13:29 DAGMAN_MAX_PRE_SCRIPTS setting: 20
+09/11/26 05:13:29 DAGMAN_MAX_POST_SCRIPTS setting: 20
+09/11/26 05:13:29 DAGMAN_MAX_HOLD_SCRIPTS setting: 20
+09/11/26 05:13:29 DAGMAN_MUNGE_NODE_NAMES setting: True
+09/11/26 05:13:29 DAGMAN_ALLOW_ANY_NODE_NAME_CHARACTERS setting: False
+09/11/26 05:13:29 DAGMAN_PROHIBIT_MULTI_JOBS setting: False
+09/11/26 05:13:29 DAGMAN_SUBMIT_DEPTH_FIRST setting: False
+09/11/26 05:13:29 DAGMAN_ALWAYS_RUN_POST setting: False
+09/11/26 05:13:29 DAGMAN_CONDOR_SUBMIT_EXE setting: /usr/bin/condor_submit
+09/11/26 05:13:29 DAGMAN_CONDOR_RM_EXE setting: /usr/bin/condor_rm
+09/11/26 05:13:29 DAGMAN_USE_DIRECT_SUBMIT setting: True
+09/11/26 05:13:29 DAGMAN_PRODUCE_JOB_CREDENTIALS setting: True
+09/11/26 05:13:29 DAGMAN_DEFAULT_APPEND_VARS setting: False
+09/11/26 05:13:29 DAGMAN_INHERIT_ATTRS_PREFIX setting: 
+09/11/26 05:13:29 DAGMAN_INHERIT_ATTRS setting: 
+09/11/26 05:13:29 DAGMAN_ABORT_DUPLICATES setting: True
+09/11/26 05:13:29 DAGMAN_ABORT_ON_SCARY_SUBMIT setting: True
+09/11/26 05:13:29 DAGMAN_REMOVE_JOB_LIST_ON_FAILURE setting: True
+09/11/26 05:13:29 DAGMAN_PENDING_REPORT_INTERVAL setting: 600
+09/11/26 05:13:29 DAGMAN_CHECK_QUEUE_INTERVAL setting: 28800
+09/11/26 05:13:29 DAGMAN_PRINT_JOB_TABLE_INTERVAL setting: 900
+09/11/26 05:13:29 DAGMAN_AUTO_RESCUE setting: True
+09/11/26 05:13:29 DAGMAN_MAX_RESCUE_NUM setting: 100
+09/11/26 05:13:29 DAGMAN_RESET_RETRIES_UPON_RESCUE setting: True
+09/11/26 05:13:29 DAGMAN_METRICS_FILE_VERSION setting: 2
+09/11/26 05:13:29 DAGMAN_DEFAULT_NODE_LOG setting: @(DAG_DIR)/@(DAG_FILE).nodes.log
+09/11/26 05:13:29 DAGMAN_LOG_ON_NFS_IS_ERROR setting: False
+09/11/26 05:13:29 DAGMAN_GENERATE_SUBDAG_SUBMITS setting: True
+09/11/26 05:13:29 DAGMAN_MAX_JOB_HOLDS setting: 100
+09/11/26 05:13:29 DAGMAN_NODE_JOB_FAILURE_TOLERANCE setting: 0
+09/11/26 05:13:29 DAGMAN_HOLD_CLAIM_TIME setting: 20
+09/11/26 05:13:29 DAGMAN_SUPPRESS_JOB_LOGS setting: False
+09/11/26 05:13:29 DAGMAN_REMOVE_NODE_JOBS setting: True
+09/11/26 05:13:29 DAGMAN_PUT_FAILED_JOBS_ON_HOLD setting: False
+09/11/26 05:13:29 DAGMAN_REMOVE_JOBS_AFTER_LIMIT_CHANGE setting: False
+09/11/26 05:13:29 DAGMAN will adjust edges after parsing
+09/11/26 05:13:29 Can't open directory "/etc/condor/passwords.d" as PRIV_ROOT, errno: 13 (Permission denied)
+09/11/26 05:13:29 Can't open directory "/etc/condor/passwords.d" as PRIV_ROOT, errno: 13 (Permission denied)
+09/11/26 05:13:29 argv[0] == "condor_scheduniv_exec.4351914.0"
+09/11/26 05:13:29 argv[1] == "-Lockfile"
+09/11/26 05:13:29 argv[2] == "subductcr-end-to-end-0.dag.lock"
+09/11/26 05:13:29 argv[3] == "-Dag"
+09/11/26 05:13:29 argv[4] == "subductcr-end-to-end-0.dag"
+09/11/26 05:13:29 argv[5] == "-MaxPost"
+09/11/26 05:13:29 argv[6] == "20"
+09/11/26 05:13:29 argv[7] == "-CsdVersion"
+09/11/26 05:13:29 argv[8] == "$CondorVersion: 25.14.0 2026-08-06 BuildID: 939575 PackageID: 25.14.0-0.939575 PRE-RELEASE-UWCS $"
+09/11/26 05:13:29 argv[9] == "-dagman"
+09/11/26 05:13:29 argv[10] == "/usr/bin/condor_dagman"
+09/11/26 05:13:29 argv[11] == "-AutoRescue"
+09/11/26 05:13:29 argv[12] == "1"
+09/11/26 05:13:29 Workflow batch-id: <4351914.0>
+09/11/26 05:13:29 Workflow batch-name: <subductcr-end-to-end-0.dag+4351914>
+09/11/26 05:13:29 Workflow accounting_group: <>
+09/11/26 05:13:29 Workflow accounting_group_user: <>
+09/11/26 05:13:29 Warning: failed to get attribute DAGNodeName
+09/11/26 05:13:29 Default node log file is: </home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/./subductcr-end-to-end-0.dag.nodes.log>
+09/11/26 05:13:29 Setting DAGMan throttles:
+09/11/26 05:13:29 	Maximum Idle Jobs-------------: 1000
+09/11/26 05:13:29 	Maximum Pre Scripts-----------: 20
+09/11/26 05:13:29 	Maximum Hold Scripts----------: 20
+09/11/26 05:13:29 	Maximum Post Scripts----------: 20
+09/11/26 05:13:29 	Maximum Submitted Nodes-------: 0
+09/11/26 05:13:29 	Maximum Submits Per Interval--: 100
+09/11/26 05:13:29 DAG Lockfile will be written to subductcr-end-to-end-0.dag.lock
+09/11/26 05:13:29 DAG Input file is subductcr-end-to-end-0.dag
+09/11/26 05:13:29 Parsing 1 dagfiles
+09/11/26 05:13:29 Parsing subductcr-end-to-end-0.dag ...
+09/11/26 05:13:29 Adjusting edges
+09/11/26 05:13:29 Dag contains 135 total nodes
+09/11/26 05:13:29 Bootstrapping...
+09/11/26 05:13:29 Number of pre-completed nodes: 0
+09/11/26 05:13:29 MultiLogFiles: truncating log file /home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/./subductcr-end-to-end-0.dag.nodes.log
+09/11/26 05:13:29 DAG status: 0 (DAG_STATUS_OK)
+09/11/26 05:13:29 Of 135 nodes total:
+09/11/26 05:13:29  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+09/11/26 05:13:29   ===     ===      ===     ===     ===        ===      ===      ===
+09/11/26 05:13:29     0       0        0       0       1        134        0        0
+09/11/26 05:13:29 0 job proc(s) currently held
+09/11/26 05:13:29 DAGMan Runtime Statistics: [EventCycleTimeSum=0.000; SleepCycleTimeSum=0.000; SubmitCycleTimeSum=0.000; EventCycleTimeCount=0.000; SleepCycleTimeCount=0.000; SubmitCycleTimeCount=0.000; LogProcessCycleTimeSum=0.000; LogProcessCycleTimeCount=0.000; ]
+09/11/26 05:13:29 Registering condor_event_timer...
+09/11/26 05:13:30 Submitting HTCondor Node create_dir_subductcr-end-to-end_0_compute job(s)...
+09/11/26 05:13:30 Submitting node create_dir_subductcr-end-to-end_0_compute from file 00/02/create_dir_subductcr-end-to-end_0_compute.sub using direct job submission
+09/11/26 05:13:30 Submit warning: Submit:0:the line 'wf_submit_dir = /home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_job_runtime = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_cores = 1' was unused by DAGMAN. Is it a typo?
+09/11/26 05:13:30 	assigned HTCondor ID (4351915.0.0)
+09/11/26 05:13:30 Just submitted 1 job this cycle...
+09/11/26 05:13:30 DAG status: 0 (DAG_STATUS_OK)
+09/11/26 05:13:30 Of 135 nodes total:
+09/11/26 05:13:30  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+09/11/26 05:13:30   ===     ===      ===     ===     ===        ===      ===      ===
+09/11/26 05:13:30     0       0        1       0       0        134        0        0
+09/11/26 05:13:30 0 job proc(s) currently held
+09/11/26 05:13:30 DAGMan Runtime Statistics: [EventCycleTimeSum=0.000; SleepCycleTimeSum=0.000; SubmitCycleTimeAvg=0.018; SubmitCycleTimeMax=0.018; SubmitCycleTimeMin=0.018; SubmitCycleTimeStd=0.018; SubmitCycleTimeSum=0.018; EventCycleTimeCount=0.000; SleepCycleTimeCount=0.000; SubmitCycleTimeCount=1.000; LogProcessCycleTimeSum=0.000; LogProcessCycleTimeCount=0.000; ]
+09/11/26 05:13:35 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:13:35 Reassigning the id of job create_dir_subductcr-end-to-end_0_compute from (4351915.0.0) to (4351915.0.0)
+09/11/26 05:13:35 Event: ULOG_SUBMIT for HTCondor Node create_dir_subductcr-end-to-end_0_compute (4351915.0.0) {09/11/26 05:13:30}
+09/11/26 05:13:35 Number of idle job procs: 1
+09/11/26 05:13:40 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:13:40 Event: ULOG_EXECUTE for HTCondor Node create_dir_subductcr-end-to-end_0_compute (4351915.0.0) {09/11/26 05:13:36}
+09/11/26 05:13:40 Number of idle job procs: 0
+09/11/26 05:13:45 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:13:45 Event: ULOG_JOB_TERMINATED for HTCondor Node create_dir_subductcr-end-to-end_0_compute (4351915.0.0) {09/11/26 05:13:41}
+09/11/26 05:13:45 Number of idle job procs: 0
+09/11/26 05:13:45 Node create_dir_subductcr-end-to-end_0_compute job proc (4351915.0.0) completed successfully.
+09/11/26 05:13:45 Node create_dir_subductcr-end-to-end_0_compute job(s) have exited the queue
+09/11/26 05:13:45 Running POST script of Node create_dir_subductcr-end-to-end_0_compute...
+09/11/26 05:13:45 DAG status: 0 (DAG_STATUS_OK)
+09/11/26 05:13:45 Of 135 nodes total:
+09/11/26 05:13:45  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+09/11/26 05:13:45   ===     ===      ===     ===     ===        ===      ===      ===
+09/11/26 05:13:45     0       0        0       1       0        134        0        0
+09/11/26 05:13:45 0 job proc(s) currently held
+09/11/26 05:13:45 DAGMan Runtime Statistics: [EventCycleTimeAvg=0.014; EventCycleTimeMax=0.024; EventCycleTimeMin=0.000; EventCycleTimeStd=0.012; EventCycleTimeSum=0.042; SleepCycleTimeAvg=5.005; SleepCycleTimeMax=5.005; SleepCycleTimeMin=5.004; SleepCycleTimeStd=0.001; SleepCycleTimeSum=15.014; SubmitCycleTimeAvg=0.004; SubmitCycleTimeMax=0.018; SubmitCycleTimeMin=0.000; SubmitCycleTimeStd=0.009; SubmitCycleTimeSum=0.018; EventCycleTimeCount=3.000; SleepCycleTimeCount=3.000; SubmitCycleTimeCount=4.000; LogProcessCycleTimeAvg=0.001; LogProcessCycleTimeMax=0.002; LogProcessCycleTimeMin=0.000; LogProcessCycleTimeStd=0.001; LogProcessCycleTimeSum=0.002; LogProcessCycleTimeCount=3.000; ]
+09/11/26 05:13:46 Initializing user log writer for /home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/./subductcr-end-to-end-0.dag.nodes.log, (4351915.0.0)
+09/11/26 05:13:50 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:13:50 Event: ULOG_POST_SCRIPT_TERMINATED for HTCondor Node create_dir_subductcr-end-to-end_0_compute (4351915.0.0) {09/11/26 05:13:46}
+09/11/26 05:13:50 POST Script of node create_dir_subductcr-end-to-end_0_compute completed successfully.
+09/11/26 05:13:50 DAG status: 0 (DAG_STATUS_OK)
+09/11/26 05:13:50 Of 135 nodes total:
+09/11/26 05:13:50  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+09/11/26 05:13:50   ===     ===      ===     ===     ===        ===      ===      ===
+09/11/26 05:13:50     1       0        0       0      10        124        0        0
+09/11/26 05:13:50 0 job proc(s) currently held
+09/11/26 05:13:50 DAGMan Runtime Statistics: [EventCycleTimeAvg=0.011; EventCycleTimeMax=0.024; EventCycleTimeMin=0.000; EventCycleTimeStd=0.012; EventCycleTimeSum=0.044; SleepCycleTimeAvg=4.789; SleepCycleTimeMax=5.005; SleepCycleTimeMin=4.140; SleepCycleTimeStd=0.432; SleepCycleTimeSum=19.154; SubmitCycleTimeAvg=0.004; SubmitCycleTimeMax=0.018; SubmitCycleTimeMin=0.000; SubmitCycleTimeStd=0.008; SubmitCycleTimeSum=0.018; EventCycleTimeCount=4.000; SleepCycleTimeCount=4.000; SubmitCycleTimeCount=5.000; LogProcessCycleTimeAvg=0.001; LogProcessCycleTimeMax=0.002; LogProcessCycleTimeMin=0.000; LogProcessCycleTimeStd=0.001; LogProcessCycleTimeSum=0.003; LogProcessCycleTimeCount=4.000; ]
+09/11/26 05:13:55 Submitting HTCondor Node stage_in_local_compute_4_0 job(s)...
+09/11/26 05:13:55 Submitting node stage_in_local_compute_4_0 from file 00/02/stage_in_local_compute_4_0.sub using direct job submission
+09/11/26 05:13:55 Submit warning: Submit:0:the line 'pegasus_job_runtime = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_cores = 1' was unused by DAGMAN. Is it a typo?
+09/11/26 05:13:55 	assigned HTCondor ID (4351916.0.0)
+09/11/26 05:13:55 Submitting HTCondor Node stage_in_local_compute_5_0 job(s)...
+09/11/26 05:13:55 Submitting node stage_in_local_compute_5_0 from file 00/02/stage_in_local_compute_5_0.sub using direct job submission
+09/11/26 05:13:55 Submit warning: Submit:0:the line 'pegasus_job_runtime = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_cores = 1' was unused by DAGMAN. Is it a typo?
+09/11/26 05:13:55 	assigned HTCondor ID (4351917.0.0)
+09/11/26 05:13:55 Submitting HTCondor Node stage_in_local_compute_0_0 job(s)...
+09/11/26 05:13:55 Submitting node stage_in_local_compute_0_0 from file 00/00/stage_in_local_compute_0_0.sub using direct job submission
+09/11/26 05:13:55 Submit warning: Submit:0:the line 'pegasus_job_runtime = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_cores = 1' was unused by DAGMAN. Is it a typo?
+09/11/26 05:13:55 	assigned HTCondor ID (4351918.0.0)
+09/11/26 05:13:55 Submitting HTCondor Node stage_in_local_compute_1_0 job(s)...
+09/11/26 05:13:55 Submitting node stage_in_local_compute_1_0 from file 00/01/stage_in_local_compute_1_0.sub using direct job submission
+09/11/26 05:13:55 Submit warning: Submit:0:the line 'pegasus_job_runtime = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_cores = 1' was unused by DAGMAN. Is it a typo?
+09/11/26 05:13:55 	assigned HTCondor ID (4351919.0.0)
+09/11/26 05:13:55 Submitting HTCondor Node stage_in_local_compute_2_0 job(s)...
+09/11/26 05:13:55 Submitting node stage_in_local_compute_2_0 from file 00/02/stage_in_local_compute_2_0.sub using direct job submission
+09/11/26 05:13:55 Submit warning: Submit:0:the line 'pegasus_job_runtime = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_cores = 1' was unused by DAGMAN. Is it a typo?
+09/11/26 05:13:55 	assigned HTCondor ID (4351920.0.0)
+09/11/26 05:13:55 Submitting HTCondor Node stage_in_local_compute_3_0 job(s)...
+09/11/26 05:13:55 Submitting node stage_in_local_compute_3_0 from file 00/02/stage_in_local_compute_3_0.sub using direct job submission
+09/11/26 05:13:55 Submit warning: Submit:0:the line 'pegasus_job_runtime = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_cores = 1' was unused by DAGMAN. Is it a typo?
+09/11/26 05:13:55 	assigned HTCondor ID (4351921.0.0)
+09/11/26 05:13:55 Submitting HTCondor Node stage_in_local_compute_0_1 job(s)...
+09/11/26 05:13:55 Submitting node stage_in_local_compute_0_1 from file 00/00/stage_in_local_compute_0_1.sub using direct job submission
+09/11/26 05:13:55 Submit warning: Submit:0:the line 'pegasus_job_runtime = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_cores = 1' was unused by DAGMAN. Is it a typo?
+09/11/26 05:13:55 	assigned HTCondor ID (4351922.0.0)
+09/11/26 05:13:55 Submitting HTCondor Node stage_in_local_compute_1_1 job(s)...
+09/11/26 05:13:55 Submitting node stage_in_local_compute_1_1 from file 00/01/stage_in_local_compute_1_1.sub using direct job submission
+09/11/26 05:13:55 Submit warning: Submit:0:the line 'pegasus_job_runtime = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_cores = 1' was unused by DAGMAN. Is it a typo?
+09/11/26 05:13:55 	assigned HTCondor ID (4351923.0.0)
+09/11/26 05:13:55 Submitting HTCondor Node stage_in_local_compute_0_2 job(s)...
+09/11/26 05:13:55 Submitting node stage_in_local_compute_0_2 from file 00/00/stage_in_local_compute_0_2.sub using direct job submission
+09/11/26 05:13:55 Submit warning: Submit:0:the line 'pegasus_job_runtime = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_cores = 1' was unused by DAGMAN. Is it a typo?
+09/11/26 05:13:55 	assigned HTCondor ID (4351924.0.0)
+09/11/26 05:13:55 Submitting HTCondor Node stage_in_local_compute_0_3 job(s)...
+09/11/26 05:13:55 Submitting node stage_in_local_compute_0_3 from file 00/00/stage_in_local_compute_0_3.sub using direct job submission
+09/11/26 05:13:55 Submit warning: Submit:0:the line 'pegasus_job_runtime = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_cores = 1' was unused by DAGMAN. Is it a typo?
+09/11/26 05:13:55 	assigned HTCondor ID (4351925.0.0)
+09/11/26 05:13:55 Just submitted 10 jobs this cycle...
+09/11/26 05:13:55 DAG status: 0 (DAG_STATUS_OK)
+09/11/26 05:13:55 Of 135 nodes total:
+09/11/26 05:13:55  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+09/11/26 05:13:55   ===     ===      ===     ===     ===        ===      ===      ===
+09/11/26 05:13:55     1       0       10       0       0        124        0        0
+09/11/26 05:13:55 0 job proc(s) currently held
+09/11/26 05:13:55 DAGMan Runtime Statistics: [EventCycleTimeAvg=0.009; EventCycleTimeMax=0.024; EventCycleTimeMin=0.000; EventCycleTimeStd=0.011; EventCycleTimeSum=0.045; SleepCycleTimeAvg=4.832; SleepCycleTimeMax=5.005; SleepCycleTimeMin=4.140; SleepCycleTimeStd=0.387; SleepCycleTimeSum=24.159; SubmitCycleTimeAvg=0.034; SubmitCycleTimeMax=0.187; SubmitCycleTimeMin=0.000; SubmitCycleTimeStd=0.075; SubmitCycleTimeSum=0.205; EventCycleTimeCount=5.000; SleepCycleTimeCount=5.000; SubmitCycleTimeCount=6.000; LogProcessCycleTimeAvg=0.001; LogProcessCycleTimeMax=0.002; LogProcessCycleTimeMin=0.000; LogProcessCycleTimeStd=0.001; LogProcessCycleTimeSum=0.003; LogProcessCycleTimeCount=4.000; ]
+09/11/26 05:14:00 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:14:00 Reassigning the id of job stage_in_local_compute_4_0 from (4351916.0.0) to (4351916.0.0)
+09/11/26 05:14:00 Event: ULOG_SUBMIT for HTCondor Node stage_in_local_compute_4_0 (4351916.0.0) {09/11/26 05:13:55}
+09/11/26 05:14:00 Number of idle job procs: 1
+09/11/26 05:14:00 Reassigning the id of job stage_in_local_compute_5_0 from (4351917.0.0) to (4351917.0.0)
+09/11/26 05:14:00 Event: ULOG_SUBMIT for HTCondor Node stage_in_local_compute_5_0 (4351917.0.0) {09/11/26 05:13:55}
+09/11/26 05:14:00 Number of idle job procs: 2
+09/11/26 05:14:00 Event: ULOG_EXECUTE for HTCondor Node stage_in_local_compute_4_0 (4351916.0.0) {09/11/26 05:13:55}
+09/11/26 05:14:00 Number of idle job procs: 1
+09/11/26 05:14:00 Reassigning the id of job stage_in_local_compute_0_0 from (4351918.0.0) to (4351918.0.0)
+09/11/26 05:14:00 Event: ULOG_SUBMIT for HTCondor Node stage_in_local_compute_0_0 (4351918.0.0) {09/11/26 05:13:55}
+09/11/26 05:14:00 Number of idle job procs: 2
+09/11/26 05:14:00 Reassigning the id of job stage_in_local_compute_1_0 from (4351919.0.0) to (4351919.0.0)
+09/11/26 05:14:00 Event: ULOG_SUBMIT for HTCondor Node stage_in_local_compute_1_0 (4351919.0.0) {09/11/26 05:13:55}
+09/11/26 05:14:00 Number of idle job procs: 3
+09/11/26 05:14:00 Reassigning the id of job stage_in_local_compute_2_0 from (4351920.0.0) to (4351920.0.0)
+09/11/26 05:14:00 Event: ULOG_SUBMIT for HTCondor Node stage_in_local_compute_2_0 (4351920.0.0) {09/11/26 05:13:55}
+09/11/26 05:14:00 Number of idle job procs: 4
+09/11/26 05:14:00 Reassigning the id of job stage_in_local_compute_3_0 from (4351921.0.0) to (4351921.0.0)
+09/11/26 05:14:00 Event: ULOG_SUBMIT for HTCondor Node stage_in_local_compute_3_0 (4351921.0.0) {09/11/26 05:13:55}
+09/11/26 05:14:00 Number of idle job procs: 5
+09/11/26 05:14:00 Reassigning the id of job stage_in_local_compute_0_1 from (4351922.0.0) to (4351922.0.0)
+09/11/26 05:14:00 Event: ULOG_SUBMIT for HTCondor Node stage_in_local_compute_0_1 (4351922.0.0) {09/11/26 05:13:55}
+09/11/26 05:14:00 Number of idle job procs: 6
+09/11/26 05:14:00 Reassigning the id of job stage_in_local_compute_1_1 from (4351923.0.0) to (4351923.0.0)
+09/11/26 05:14:00 Event: ULOG_SUBMIT for HTCondor Node stage_in_local_compute_1_1 (4351923.0.0) {09/11/26 05:13:55}
+09/11/26 05:14:00 Number of idle job procs: 7
+09/11/26 05:14:00 Reassigning the id of job stage_in_local_compute_0_2 from (4351924.0.0) to (4351924.0.0)
+09/11/26 05:14:00 Event: ULOG_SUBMIT for HTCondor Node stage_in_local_compute_0_2 (4351924.0.0) {09/11/26 05:13:55}
+09/11/26 05:14:00 Number of idle job procs: 8
+09/11/26 05:14:00 Reassigning the id of job stage_in_local_compute_0_3 from (4351925.0.0) to (4351925.0.0)
+09/11/26 05:14:00 Event: ULOG_SUBMIT for HTCondor Node stage_in_local_compute_0_3 (4351925.0.0) {09/11/26 05:13:55}
+09/11/26 05:14:00 Number of idle job procs: 9
+09/11/26 05:14:05 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:14:05 Event: ULOG_EXECUTE for HTCondor Node stage_in_local_compute_5_0 (4351917.0.0) {09/11/26 05:14:00}
+09/11/26 05:14:05 Number of idle job procs: 8
+09/11/26 05:14:05 Event: ULOG_EXECUTE for HTCondor Node stage_in_local_compute_0_0 (4351918.0.0) {09/11/26 05:14:00}
+09/11/26 05:14:05 Number of idle job procs: 7
+09/11/26 05:14:05 Event: ULOG_EXECUTE for HTCondor Node stage_in_local_compute_1_0 (4351919.0.0) {09/11/26 05:14:00}
+09/11/26 05:14:05 Number of idle job procs: 6
+09/11/26 05:14:05 Event: ULOG_EXECUTE for HTCondor Node stage_in_local_compute_2_0 (4351920.0.0) {09/11/26 05:14:00}
+09/11/26 05:14:05 Number of idle job procs: 5
+09/11/26 05:14:05 Event: ULOG_EXECUTE for HTCondor Node stage_in_local_compute_3_0 (4351921.0.0) {09/11/26 05:14:00}
+09/11/26 05:14:05 Number of idle job procs: 4
+09/11/26 05:14:05 Event: ULOG_EXECUTE for HTCondor Node stage_in_local_compute_0_1 (4351922.0.0) {09/11/26 05:14:00}
+09/11/26 05:14:05 Number of idle job procs: 3
+09/11/26 05:14:05 Event: ULOG_EXECUTE for HTCondor Node stage_in_local_compute_1_1 (4351923.0.0) {09/11/26 05:14:00}
+09/11/26 05:14:05 Number of idle job procs: 2
+09/11/26 05:14:05 Event: ULOG_EXECUTE for HTCondor Node stage_in_local_compute_0_2 (4351924.0.0) {09/11/26 05:14:00}
+09/11/26 05:14:05 Number of idle job procs: 1
+09/11/26 05:14:05 Event: ULOG_EXECUTE for HTCondor Node stage_in_local_compute_0_3 (4351925.0.0) {09/11/26 05:14:00}
+09/11/26 05:14:05 Number of idle job procs: 0
+09/11/26 05:14:05 Event: ULOG_JOB_TERMINATED for HTCondor Node stage_in_local_compute_4_0 (4351916.0.0) {09/11/26 05:14:04}
+09/11/26 05:14:05 Number of idle job procs: 0
+09/11/26 05:14:05 Node stage_in_local_compute_4_0 job proc (4351916.0.0) completed successfully.
+09/11/26 05:14:05 Node stage_in_local_compute_4_0 job(s) have exited the queue
+09/11/26 05:14:05 Running POST script of Node stage_in_local_compute_4_0...
+09/11/26 05:14:05 DAG status: 0 (DAG_STATUS_OK)
+09/11/26 05:14:05 Of 135 nodes total:
+09/11/26 05:14:05  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+09/11/26 05:14:05   ===     ===      ===     ===     ===        ===      ===      ===
+09/11/26 05:14:05     1       0        9       1       0        124        0        0
+09/11/26 05:14:05 0 job proc(s) currently held
+09/11/26 05:14:05 DAGMan Runtime Statistics: [EventCycleTimeAvg=0.033; EventCycleTimeMax=0.187; EventCycleTimeMin=0.000; EventCycleTimeStd=0.069; EventCycleTimeSum=0.233; SleepCycleTimeAvg=4.881; SleepCycleTimeMax=5.005; SleepCycleTimeMin=4.140; SleepCycleTimeStd=0.327; SleepCycleTimeSum=34.165; SubmitCycleTimeAvg=0.026; SubmitCycleTimeMax=0.187; SubmitCycleTimeMin=0.000; SubmitCycleTimeStd=0.066; SubmitCycleTimeSum=0.205; EventCycleTimeCount=7.000; SleepCycleTimeCount=7.000; SubmitCycleTimeCount=8.000; LogProcessCycleTimeAvg=0.001; LogProcessCycleTimeMax=0.003; LogProcessCycleTimeMin=0.000; LogProcessCycleTimeStd=0.001; LogProcessCycleTimeSum=0.006; LogProcessCycleTimeCount=6.000; ]
+09/11/26 05:14:05 Initializing user log writer for /home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/./subductcr-end-to-end-0.dag.nodes.log, (4351916.0.0)
+09/11/26 05:14:10 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:14:10 Event: ULOG_POST_SCRIPT_TERMINATED for HTCondor Node stage_in_local_compute_4_0 (4351916.0.0) {09/11/26 05:14:05}
+09/11/26 05:14:10 POST Script of node stage_in_local_compute_4_0 completed successfully.
+09/11/26 05:14:10 Event: ULOG_JOB_TERMINATED for HTCondor Node stage_in_local_compute_1_0 (4351919.0.0) {09/11/26 05:14:09}
+09/11/26 05:14:10 Number of idle job procs: 0
+09/11/26 05:14:10 Node stage_in_local_compute_1_0 job proc (4351919.0.0) completed successfully.
+09/11/26 05:14:10 Node stage_in_local_compute_1_0 job(s) have exited the queue
+09/11/26 05:14:10 Running POST script of Node stage_in_local_compute_1_0...
+09/11/26 05:14:10 Event: ULOG_JOB_TERMINATED for HTCondor Node stage_in_local_compute_5_0 (4351917.0.0) {09/11/26 05:14:09}
+09/11/26 05:14:10 Number of idle job procs: 0
+09/11/26 05:14:10 Node stage_in_local_compute_5_0 job proc (4351917.0.0) completed successfully.
+09/11/26 05:14:10 Node stage_in_local_compute_5_0 job(s) have exited the queue
+09/11/26 05:14:10 Running POST script of Node stage_in_local_compute_5_0...
+09/11/26 05:14:10 Event: ULOG_JOB_TERMINATED for HTCondor Node stage_in_local_compute_1_1 (4351923.0.0) {09/11/26 05:14:09}
+09/11/26 05:14:10 Number of idle job procs: 0
+09/11/26 05:14:10 Node stage_in_local_compute_1_1 job proc (4351923.0.0) completed successfully.
+09/11/26 05:14:10 Node stage_in_local_compute_1_1 job(s) have exited the queue
+09/11/26 05:14:10 Running POST script of Node stage_in_local_compute_1_1...
+09/11/26 05:14:10 Event: ULOG_JOB_TERMINATED for HTCondor Node stage_in_local_compute_3_0 (4351921.0.0) {09/11/26 05:14:10}
+09/11/26 05:14:10 Number of idle job procs: 0
+09/11/26 05:14:10 Node stage_in_local_compute_3_0 job proc (4351921.0.0) completed successfully.
+09/11/26 05:14:10 Node stage_in_local_compute_3_0 job(s) have exited the queue
+09/11/26 05:14:10 Running POST script of Node stage_in_local_compute_3_0...
+09/11/26 05:14:10 DAG status: 0 (DAG_STATUS_OK)
+09/11/26 05:14:10 Of 135 nodes total:
+09/11/26 05:14:10  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+09/11/26 05:14:10   ===     ===      ===     ===     ===        ===      ===      ===
+09/11/26 05:14:10     2       0        5       4       0        124        0        0
+09/11/26 05:14:10 0 job proc(s) currently held
+09/11/26 05:14:10 DAGMan Runtime Statistics: [EventCycleTimeAvg=0.029; EventCycleTimeMax=0.187; EventCycleTimeMin=0.000; EventCycleTimeStd=0.064; EventCycleTimeSum=0.236; SleepCycleTimeAvg=4.915; SleepCycleTimeMax=5.156; SleepCycleTimeMin=4.140; SleepCycleTimeStd=0.318; SleepCycleTimeSum=39.321; SubmitCycleTimeAvg=0.023; SubmitCycleTimeMax=0.187; SubmitCycleTimeMin=0.000; SubmitCycleTimeStd=0.062; SubmitCycleTimeSum=0.205; EventCycleTimeCount=8.000; SleepCycleTimeCount=8.000; SubmitCycleTimeCount=9.000; LogProcessCycleTimeAvg=0.002; LogProcessCycleTimeMax=0.010; LogProcessCycleTimeMin=0.000; LogProcessCycleTimeStd=0.004; LogProcessCycleTimeSum=0.016; LogProcessCycleTimeCount=7.000; ]
+09/11/26 05:14:10 Initializing user log writer for /home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/./subductcr-end-to-end-0.dag.nodes.log, (4351923.0.0)
+09/11/26 05:14:10 Initializing user log writer for /home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/./subductcr-end-to-end-0.dag.nodes.log, (4351917.0.0)
+09/11/26 05:14:10 Initializing user log writer for /home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/./subductcr-end-to-end-0.dag.nodes.log, (4351919.0.0)
+09/11/26 05:14:10 Initializing user log writer for /home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/./subductcr-end-to-end-0.dag.nodes.log, (4351921.0.0)
+09/11/26 05:14:15 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:14:15 Event: ULOG_POST_SCRIPT_TERMINATED for HTCondor Node stage_in_local_compute_1_1 (4351923.0.0) {09/11/26 05:14:10}
+09/11/26 05:14:15 POST Script of node stage_in_local_compute_1_1 completed successfully.
+09/11/26 05:14:15 Event: ULOG_POST_SCRIPT_TERMINATED for HTCondor Node stage_in_local_compute_5_0 (4351917.0.0) {09/11/26 05:14:10}
+09/11/26 05:14:15 POST Script of node stage_in_local_compute_5_0 completed successfully.
+09/11/26 05:14:15 Event: ULOG_POST_SCRIPT_TERMINATED for HTCondor Node stage_in_local_compute_1_0 (4351919.0.0) {09/11/26 05:14:10}
+09/11/26 05:14:15 POST Script of node stage_in_local_compute_1_0 completed successfully.
+09/11/26 05:14:15 Event: ULOG_POST_SCRIPT_TERMINATED for HTCondor Node stage_in_local_compute_3_0 (4351921.0.0) {09/11/26 05:14:10}
+09/11/26 05:14:15 POST Script of node stage_in_local_compute_3_0 completed successfully.
+09/11/26 05:14:15 Event: ULOG_JOB_TERMINATED for HTCondor Node stage_in_local_compute_2_0 (4351920.0.0) {09/11/26 05:14:14}
+09/11/26 05:14:15 Number of idle job procs: 0
+09/11/26 05:14:15 Node stage_in_local_compute_2_0 job proc (4351920.0.0) completed successfully.
+09/11/26 05:14:15 Node stage_in_local_compute_2_0 job(s) have exited the queue
+09/11/26 05:14:15 Running POST script of Node stage_in_local_compute_2_0...
+09/11/26 05:14:15 DAG status: 0 (DAG_STATUS_OK)
+09/11/26 05:14:15 Of 135 nodes total:
+09/11/26 05:14:15  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+09/11/26 05:14:15   ===     ===      ===     ===     ===        ===      ===      ===
+09/11/26 05:14:15     6       0        4       1       0        124        0        0
+09/11/26 05:14:15 0 job proc(s) currently held
+09/11/26 05:14:15 DAGMan Runtime Statistics: [EventCycleTimeAvg=0.027; EventCycleTimeMax=0.187; EventCycleTimeMin=0.000; EventCycleTimeStd=0.061; EventCycleTimeSum=0.246; SleepCycleTimeAvg=4.952; SleepCycleTimeMax=5.244; SleepCycleTimeMin=4.140; SleepCycleTimeStd=0.317; SleepCycleTimeSum=44.565; SubmitCycleTimeAvg=0.021; SubmitCycleTimeMax=0.187; SubmitCycleTimeMin=0.000; SubmitCycleTimeStd=0.059; SubmitCycleTimeSum=0.205; EventCycleTimeCount=9.000; SleepCycleTimeCount=9.000; SubmitCycleTimeCount=10.000; LogProcessCycleTimeAvg=0.002; LogProcessCycleTimeMax=0.010; LogProcessCycleTimeMin=0.000; LogProcessCycleTimeStd=0.003; LogProcessCycleTimeSum=0.019; LogProcessCycleTimeCount=8.000; ]
+09/11/26 05:14:15 Initializing user log writer for /home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/./subductcr-end-to-end-0.dag.nodes.log, (4351920.0.0)
+09/11/26 05:14:20 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:14:20 Event: ULOG_POST_SCRIPT_TERMINATED for HTCondor Node stage_in_local_compute_2_0 (4351920.0.0) {09/11/26 05:14:15}
+09/11/26 05:14:20 POST Script of node stage_in_local_compute_2_0 completed successfully.
+09/11/26 05:14:20 DAG status: 0 (DAG_STATUS_OK)
+09/11/26 05:14:20 Of 135 nodes total:
+09/11/26 05:14:20  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+09/11/26 05:14:20   ===     ===      ===     ===     ===        ===      ===      ===
+09/11/26 05:14:20     7       0        4       0       0        124        0        0
+09/11/26 05:14:20 0 job proc(s) currently held
+09/11/26 05:14:20 DAGMan Runtime Statistics: [EventCycleTimeAvg=0.025; EventCycleTimeMax=0.187; EventCycleTimeMin=0.000; EventCycleTimeStd=0.058; EventCycleTimeSum=0.249; SleepCycleTimeAvg=4.974; SleepCycleTimeMax=5.244; SleepCycleTimeMin=4.140; SleepCycleTimeStd=0.307; SleepCycleTimeSum=49.740; SubmitCycleTimeAvg=0.019; SubmitCycleTimeMax=0.187; SubmitCycleTimeMin=0.000; SubmitCycleTimeStd=0.056; SubmitCycleTimeSum=0.205; EventCycleTimeCount=10.000; SleepCycleTimeCount=10.000; SubmitCycleTimeCount=11.000; LogProcessCycleTimeAvg=0.002; LogProcessCycleTimeMax=0.010; LogProcessCycleTimeMin=0.000; LogProcessCycleTimeStd=0.003; LogProcessCycleTimeSum=0.019; LogProcessCycleTimeCount=9.000; ]
+09/11/26 05:18:16 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:18:16 Event: ULOG_JOB_TERMINATED for HTCondor Node stage_in_local_compute_0_3 (4351925.0.0) {09/11/26 05:18:13}
+09/11/26 05:18:16 Number of idle job procs: 0
+09/11/26 05:18:16 Node stage_in_local_compute_0_3 job proc (4351925.0.0) completed successfully.
+09/11/26 05:18:16 Node stage_in_local_compute_0_3 job(s) have exited the queue
+09/11/26 05:18:16 Running POST script of Node stage_in_local_compute_0_3...
+09/11/26 05:18:16 DAG status: 0 (DAG_STATUS_OK)
+09/11/26 05:18:16 Of 135 nodes total:
+09/11/26 05:18:16  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+09/11/26 05:18:16   ===     ===      ===     ===     ===        ===      ===      ===
+09/11/26 05:18:16     7       0        3       1       0        124        0        0
+09/11/26 05:18:16 0 job proc(s) currently held
+09/11/26 05:18:16 DAGMan Runtime Statistics: [EventCycleTimeAvg=0.004; EventCycleTimeMax=0.187; EventCycleTimeMin=0.000; EventCycleTimeStd=0.025; EventCycleTimeSum=0.251; SleepCycleTimeAvg=5.000; SleepCycleTimeMax=5.244; SleepCycleTimeMin=4.140; SleepCycleTimeStd=0.124; SleepCycleTimeSum=284.986; SubmitCycleTimeAvg=0.004; SubmitCycleTimeMax=0.187; SubmitCycleTimeMin=0.000; SubmitCycleTimeStd=0.025; SubmitCycleTimeSum=0.205; EventCycleTimeCount=57.000; SleepCycleTimeCount=57.000; SubmitCycleTimeCount=58.000; LogProcessCycleTimeAvg=0.002; LogProcessCycleTimeMax=0.010; LogProcessCycleTimeMin=0.000; LogProcessCycleTimeStd=0.003; LogProcessCycleTimeSum=0.022; LogProcessCycleTimeCount=10.000; ]
+09/11/26 05:18:16 Initializing user log writer for /home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/./subductcr-end-to-end-0.dag.nodes.log, (4351925.0.0)
+09/11/26 05:18:21 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:18:21 Event: ULOG_POST_SCRIPT_TERMINATED for HTCondor Node stage_in_local_compute_0_3 (4351925.0.0) {09/11/26 05:18:16}
+09/11/26 05:18:21 POST Script of node stage_in_local_compute_0_3 completed successfully.
+09/11/26 05:18:21 DAG status: 0 (DAG_STATUS_OK)
+09/11/26 05:18:21 Of 135 nodes total:
+09/11/26 05:18:21  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+09/11/26 05:18:21   ===     ===      ===     ===     ===        ===      ===      ===
+09/11/26 05:18:21     8       0        3       0       0        124        0        0
+09/11/26 05:18:21 0 job proc(s) currently held
+09/11/26 05:18:21 DAGMan Runtime Statistics: [EventCycleTimeAvg=0.004; EventCycleTimeMax=0.187; EventCycleTimeMin=0.000; EventCycleTimeStd=0.025; EventCycleTimeSum=0.254; SleepCycleTimeAvg=5.004; SleepCycleTimeMax=5.270; SleepCycleTimeMin=4.140; SleepCycleTimeStd=0.128; SleepCycleTimeSum=290.256; SubmitCycleTimeAvg=0.003; SubmitCycleTimeMax=0.187; SubmitCycleTimeMin=0.000; SubmitCycleTimeStd=0.024; SubmitCycleTimeSum=0.205; EventCycleTimeCount=58.000; SleepCycleTimeCount=58.000; SubmitCycleTimeCount=59.000; LogProcessCycleTimeAvg=0.002; LogProcessCycleTimeMax=0.010; LogProcessCycleTimeMin=0.000; LogProcessCycleTimeStd=0.003; LogProcessCycleTimeSum=0.022; LogProcessCycleTimeCount=11.000; ]
+09/11/26 05:18:56 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:18:56 Event: ULOG_JOB_TERMINATED for HTCondor Node stage_in_local_compute_0_0 (4351918.0.0) {09/11/26 05:18:54}
+09/11/26 05:18:56 Number of idle job procs: 0
+09/11/26 05:18:56 Node stage_in_local_compute_0_0 job proc (4351918.0.0) completed successfully.
+09/11/26 05:18:56 Node stage_in_local_compute_0_0 job(s) have exited the queue
+09/11/26 05:18:56 Running POST script of Node stage_in_local_compute_0_0...
+09/11/26 05:18:56 DAG status: 0 (DAG_STATUS_OK)
+09/11/26 05:18:56 Of 135 nodes total:
+09/11/26 05:18:56  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+09/11/26 05:18:56   ===     ===      ===     ===     ===        ===      ===      ===
+09/11/26 05:18:56     8       0        2       1       0        124        0        0
+09/11/26 05:18:56 0 job proc(s) currently held
+09/11/26 05:18:56 DAGMan Runtime Statistics: [EventCycleTimeAvg=0.005; EventCycleTimeMax=0.187; EventCycleTimeMin=0.000; EventCycleTimeStd=0.026; EventCycleTimeSum=0.347; SleepCycleTimeAvg=5.004; SleepCycleTimeMax=5.270; SleepCycleTimeMin=4.140; SleepCycleTimeStd=0.120; SleepCycleTimeSum=325.290; SubmitCycleTimeAvg=0.003; SubmitCycleTimeMax=0.187; SubmitCycleTimeMin=0.000; SubmitCycleTimeStd=0.023; SubmitCycleTimeSum=0.205; EventCycleTimeCount=65.000; SleepCycleTimeCount=65.000; SubmitCycleTimeCount=66.000; LogProcessCycleTimeAvg=0.002; LogProcessCycleTimeMax=0.010; LogProcessCycleTimeMin=0.000; LogProcessCycleTimeStd=0.003; LogProcessCycleTimeSum=0.027; LogProcessCycleTimeCount=12.000; ]
+09/11/26 05:18:56 Initializing user log writer for /home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/./subductcr-end-to-end-0.dag.nodes.log, (4351918.0.0)
+09/11/26 05:19:01 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:19:01 Event: ULOG_POST_SCRIPT_TERMINATED for HTCondor Node stage_in_local_compute_0_0 (4351918.0.0) {09/11/26 05:18:56}
+09/11/26 05:19:01 POST Script of node stage_in_local_compute_0_0 completed successfully.
+09/11/26 05:19:01 DAG status: 0 (DAG_STATUS_OK)
+09/11/26 05:19:01 Of 135 nodes total:
+09/11/26 05:19:01  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+09/11/26 05:19:01   ===     ===      ===     ===     ===        ===      ===      ===
+09/11/26 05:19:01     9       0        2       0      17        107        0        0
+09/11/26 05:19:01 0 job proc(s) currently held
+09/11/26 05:19:01 DAGMan Runtime Statistics: [EventCycleTimeAvg=0.005; EventCycleTimeMax=0.187; EventCycleTimeMin=0.000; EventCycleTimeStd=0.026; EventCycleTimeSum=0.353; SleepCycleTimeAvg=5.008; SleepCycleTimeMax=5.270; SleepCycleTimeMin=4.140; SleepCycleTimeStd=0.123; SleepCycleTimeSum=330.518; SubmitCycleTimeAvg=0.003; SubmitCycleTimeMax=0.187; SubmitCycleTimeMin=0.000; SubmitCycleTimeStd=0.023; SubmitCycleTimeSum=0.205; EventCycleTimeCount=66.000; SleepCycleTimeCount=66.000; SubmitCycleTimeCount=67.000; LogProcessCycleTimeAvg=0.002; LogProcessCycleTimeMax=0.010; LogProcessCycleTimeMin=0.000; LogProcessCycleTimeStd=0.003; LogProcessCycleTimeSum=0.027; LogProcessCycleTimeCount=13.000; ]
+09/11/26 05:19:06 Submitting HTCondor Node trim_reads_trim_BRS2 job(s)...
+09/11/26 05:19:06 Submitting node trim_reads_trim_BRS2 from file 00/00/trim_reads_trim_BRS2.sub using direct job submission
+09/11/26 05:19:06 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:19:06 	assigned HTCondor ID (4351926.0.0)
+09/11/26 05:19:06 Submitting HTCondor Node trim_reads_trim_RVF job(s)...
+09/11/26 05:19:06 Submitting node trim_reads_trim_RVF from file 00/00/trim_reads_trim_RVF.sub using direct job submission
+09/11/26 05:19:06 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:19:06 	assigned HTCondor ID (4351927.0.0)
+09/11/26 05:19:06 Submitting HTCondor Node trim_reads_trim_BRS1 job(s)...
+09/11/26 05:19:06 Submitting node trim_reads_trim_BRS1 from file 00/00/trim_reads_trim_BRS1.sub using direct job submission
+09/11/26 05:19:06 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:19:06 	assigned HTCondor ID (4351928.0.0)
+09/11/26 05:19:06 Submitting HTCondor Node trim_reads_trim_MTF job(s)...
+09/11/26 05:19:06 Submitting node trim_reads_trim_MTF from file 00/00/trim_reads_trim_MTF.sub using direct job submission
+09/11/26 05:19:06 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:19:06 	assigned HTCondor ID (4351929.0.0)
+09/11/26 05:19:06 Submitting HTCondor Node trim_reads_trim_QHS2 job(s)...
+09/11/26 05:19:06 Submitting node trim_reads_trim_QHS2 from file 00/00/trim_reads_trim_QHS2.sub using direct job submission
+09/11/26 05:19:06 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:19:06 	assigned HTCondor ID (4351930.0.0)
+09/11/26 05:19:06 Submitting HTCondor Node trim_reads_trim_EPS job(s)...
+09/11/26 05:19:06 Submitting node trim_reads_trim_EPS from file 00/00/trim_reads_trim_EPS.sub using direct job submission
+09/11/26 05:19:06 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:19:06 	assigned HTCondor ID (4351931.0.0)
+09/11/26 05:19:06 Submitting HTCondor Node trim_reads_trim_QNF job(s)...
+09/11/26 05:19:06 Submitting node trim_reads_trim_QNF from file 00/00/trim_reads_trim_QNF.sub using direct job submission
+09/11/26 05:19:06 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:19:06 	assigned HTCondor ID (4351932.0.0)
+09/11/26 05:19:06 Submitting HTCondor Node trim_reads_trim_CYF job(s)...
+09/11/26 05:19:06 Submitting node trim_reads_trim_CYF from file 00/00/trim_reads_trim_CYF.sub using direct job submission
+09/11/26 05:19:06 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:19:06 	assigned HTCondor ID (4351933.0.0)
+09/11/26 05:19:06 Submitting HTCondor Node trim_reads_trim_SLS job(s)...
+09/11/26 05:19:06 Submitting node trim_reads_trim_SLS from file 00/00/trim_reads_trim_SLS.sub using direct job submission
+09/11/26 05:19:06 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:19:06 	assigned HTCondor ID (4351934.0.0)
+09/11/26 05:19:06 Submitting HTCondor Node trim_reads_trim_PFS job(s)...
+09/11/26 05:19:06 Submitting node trim_reads_trim_PFS from file 00/00/trim_reads_trim_PFS.sub using direct job submission
+09/11/26 05:19:06 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:19:06 	assigned HTCondor ID (4351935.0.0)
+09/11/26 05:19:06 Submitting HTCondor Node trim_reads_trim_BQF job(s)...
+09/11/26 05:19:06 Submitting node trim_reads_trim_BQF from file 00/00/trim_reads_trim_BQF.sub using direct job submission
+09/11/26 05:19:07 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:19:07 	assigned HTCondor ID (4351936.0.0)
+09/11/26 05:19:07 Submitting HTCondor Node trim_reads_trim_BQS job(s)...
+09/11/26 05:19:07 Submitting node trim_reads_trim_BQS from file 00/00/trim_reads_trim_BQS.sub using direct job submission
+09/11/26 05:19:07 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:19:07 	assigned HTCondor ID (4351937.0.0)
+09/11/26 05:19:07 Submitting HTCondor Node trim_reads_trim_PBS job(s)...
+09/11/26 05:19:07 Submitting node trim_reads_trim_PBS from file 00/00/trim_reads_trim_PBS.sub using direct job submission
+09/11/26 05:19:07 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:19:07 	assigned HTCondor ID (4351938.0.0)
+09/11/26 05:19:07 Submitting HTCondor Node trim_reads_trim_PGF job(s)...
+09/11/26 05:19:07 Submitting node trim_reads_trim_PGF from file 00/00/trim_reads_trim_PGF.sub using direct job submission
+09/11/26 05:19:07 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:19:07 	assigned HTCondor ID (4351939.0.0)
+09/11/26 05:19:07 Submitting HTCondor Node trim_reads_trim_BRF2 job(s)...
+09/11/26 05:19:07 Submitting node trim_reads_trim_BRF2 from file 00/00/trim_reads_trim_BRF2.sub using direct job submission
+09/11/26 05:19:07 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:19:07 	assigned HTCondor ID (4351940.0.0)
+09/11/26 05:19:07 Submitting HTCondor Node trim_reads_trim_QH2F job(s)...
+09/11/26 05:19:07 Submitting node trim_reads_trim_QH2F from file 00/00/trim_reads_trim_QH2F.sub using direct job submission
+09/11/26 05:19:07 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:19:07 	assigned HTCondor ID (4351941.0.0)
+09/11/26 05:19:07 Submitting HTCondor Node trim_reads_trim_SIS job(s)...
+09/11/26 05:19:07 Submitting node trim_reads_trim_SIS from file 00/00/trim_reads_trim_SIS.sub using direct job submission
+09/11/26 05:19:07 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:19:07 	assigned HTCondor ID (4351942.0.0)
+09/11/26 05:19:07 Just submitted 17 jobs this cycle...
+09/11/26 05:19:07 DAG status: 0 (DAG_STATUS_OK)
+09/11/26 05:19:07 Of 135 nodes total:
+09/11/26 05:19:07  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+09/11/26 05:19:07   ===     ===      ===     ===     ===        ===      ===      ===
+09/11/26 05:19:07     9       0       19       0       0        107        0        0
+09/11/26 05:19:07 0 job proc(s) currently held
+09/11/26 05:19:07 DAGMan Runtime Statistics: [EventCycleTimeAvg=0.005; EventCycleTimeMax=0.187; EventCycleTimeMin=0.000; EventCycleTimeStd=0.026; EventCycleTimeSum=0.353; SleepCycleTimeAvg=5.008; SleepCycleTimeMax=5.270; SleepCycleTimeMin=4.140; SleepCycleTimeStd=0.122; SleepCycleTimeSum=335.523; SubmitCycleTimeAvg=0.009; SubmitCycleTimeMax=0.402; SubmitCycleTimeMin=0.000; SubmitCycleTimeStd=0.053; SubmitCycleTimeSum=0.607; EventCycleTimeCount=67.000; SleepCycleTimeCount=67.000; SubmitCycleTimeCount=68.000; LogProcessCycleTimeAvg=0.002; LogProcessCycleTimeMax=0.010; LogProcessCycleTimeMin=0.000; LogProcessCycleTimeStd=0.003; LogProcessCycleTimeSum=0.027; LogProcessCycleTimeCount=13.000; ]
+09/11/26 05:19:12 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:19:12 Reassigning the id of job trim_reads_trim_BRS2 from (4351926.0.0) to (4351926.0.0)
+09/11/26 05:19:12 Event: ULOG_SUBMIT for HTCondor Node trim_reads_trim_BRS2 (4351926.0.0) {09/11/26 05:19:06}
+09/11/26 05:19:12 Number of idle job procs: 1
+09/11/26 05:19:12 Reassigning the id of job trim_reads_trim_RVF from (4351927.0.0) to (4351927.0.0)
+09/11/26 05:19:12 Event: ULOG_SUBMIT for HTCondor Node trim_reads_trim_RVF (4351927.0.0) {09/11/26 05:19:06}
+09/11/26 05:19:12 Number of idle job procs: 2
+09/11/26 05:19:12 Reassigning the id of job trim_reads_trim_BRS1 from (4351928.0.0) to (4351928.0.0)
+09/11/26 05:19:12 Event: ULOG_SUBMIT for HTCondor Node trim_reads_trim_BRS1 (4351928.0.0) {09/11/26 05:19:06}
+09/11/26 05:19:12 Number of idle job procs: 3
+09/11/26 05:19:12 Reassigning the id of job trim_reads_trim_MTF from (4351929.0.0) to (4351929.0.0)
+09/11/26 05:19:12 Event: ULOG_SUBMIT for HTCondor Node trim_reads_trim_MTF (4351929.0.0) {09/11/26 05:19:06}
+09/11/26 05:19:12 Number of idle job procs: 4
+09/11/26 05:19:12 Reassigning the id of job trim_reads_trim_QHS2 from (4351930.0.0) to (4351930.0.0)
+09/11/26 05:19:12 Event: ULOG_SUBMIT for HTCondor Node trim_reads_trim_QHS2 (4351930.0.0) {09/11/26 05:19:06}
+09/11/26 05:19:12 Number of idle job procs: 5
+09/11/26 05:19:12 Reassigning the id of job trim_reads_trim_EPS from (4351931.0.0) to (4351931.0.0)
+09/11/26 05:19:12 Event: ULOG_SUBMIT for HTCondor Node trim_reads_trim_EPS (4351931.0.0) {09/11/26 05:19:06}
+09/11/26 05:19:12 Number of idle job procs: 6
+09/11/26 05:19:12 Reassigning the id of job trim_reads_trim_QNF from (4351932.0.0) to (4351932.0.0)
+09/11/26 05:19:12 Event: ULOG_SUBMIT for HTCondor Node trim_reads_trim_QNF (4351932.0.0) {09/11/26 05:19:06}
+09/11/26 05:19:12 Number of idle job procs: 7
+09/11/26 05:19:12 Reassigning the id of job trim_reads_trim_CYF from (4351933.0.0) to (4351933.0.0)
+09/11/26 05:19:12 Event: ULOG_SUBMIT for HTCondor Node trim_reads_trim_CYF (4351933.0.0) {09/11/26 05:19:06}
+09/11/26 05:19:12 Number of idle job procs: 8
+09/11/26 05:19:12 Reassigning the id of job trim_reads_trim_SLS from (4351934.0.0) to (4351934.0.0)
+09/11/26 05:19:12 Event: ULOG_SUBMIT for HTCondor Node trim_reads_trim_SLS (4351934.0.0) {09/11/26 05:19:06}
+09/11/26 05:19:12 Number of idle job procs: 9
+09/11/26 05:19:12 Reassigning the id of job trim_reads_trim_PFS from (4351935.0.0) to (4351935.0.0)
+09/11/26 05:19:12 Event: ULOG_SUBMIT for HTCondor Node trim_reads_trim_PFS (4351935.0.0) {09/11/26 05:19:06}
+09/11/26 05:19:12 Number of idle job procs: 10
+09/11/26 05:19:12 Reassigning the id of job trim_reads_trim_BQF from (4351936.0.0) to (4351936.0.0)
+09/11/26 05:19:12 Event: ULOG_SUBMIT for HTCondor Node trim_reads_trim_BQF (4351936.0.0) {09/11/26 05:19:07}
+09/11/26 05:19:12 Number of idle job procs: 11
+09/11/26 05:19:12 Reassigning the id of job trim_reads_trim_BQS from (4351937.0.0) to (4351937.0.0)
+09/11/26 05:19:12 Event: ULOG_SUBMIT for HTCondor Node trim_reads_trim_BQS (4351937.0.0) {09/11/26 05:19:07}
+09/11/26 05:19:12 Number of idle job procs: 12
+09/11/26 05:19:12 Reassigning the id of job trim_reads_trim_PBS from (4351938.0.0) to (4351938.0.0)
+09/11/26 05:19:12 Event: ULOG_SUBMIT for HTCondor Node trim_reads_trim_PBS (4351938.0.0) {09/11/26 05:19:07}
+09/11/26 05:19:12 Number of idle job procs: 13
+09/11/26 05:19:12 Reassigning the id of job trim_reads_trim_PGF from (4351939.0.0) to (4351939.0.0)
+09/11/26 05:19:12 Event: ULOG_SUBMIT for HTCondor Node trim_reads_trim_PGF (4351939.0.0) {09/11/26 05:19:07}
+09/11/26 05:19:12 Number of idle job procs: 14
+09/11/26 05:19:12 Reassigning the id of job trim_reads_trim_BRF2 from (4351940.0.0) to (4351940.0.0)
+09/11/26 05:19:12 Event: ULOG_SUBMIT for HTCondor Node trim_reads_trim_BRF2 (4351940.0.0) {09/11/26 05:19:07}
+09/11/26 05:19:12 Number of idle job procs: 15
+09/11/26 05:19:12 Reassigning the id of job trim_reads_trim_QH2F from (4351941.0.0) to (4351941.0.0)
+09/11/26 05:19:12 Event: ULOG_SUBMIT for HTCondor Node trim_reads_trim_QH2F (4351941.0.0) {09/11/26 05:19:07}
+09/11/26 05:19:12 Number of idle job procs: 16
+09/11/26 05:19:12 Reassigning the id of job trim_reads_trim_SIS from (4351942.0.0) to (4351942.0.0)
+09/11/26 05:19:12 Event: ULOG_SUBMIT for HTCondor Node trim_reads_trim_SIS (4351942.0.0) {09/11/26 05:19:07}
+09/11/26 05:19:12 Number of idle job procs: 17
+09/11/26 05:19:37 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:19:37 Event: ULOG_GRID_SUBMIT for HTCondor Node trim_reads_trim_MTF (4351929.0.0) {09/11/26 05:19:33}
+09/11/26 05:19:42 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:19:42 Event: ULOG_GRID_SUBMIT for HTCondor Node trim_reads_trim_QNF (4351932.0.0) {09/11/26 05:19:37}
+09/11/26 05:19:42 Event: ULOG_GRID_SUBMIT for HTCondor Node trim_reads_trim_CYF (4351933.0.0) {09/11/26 05:19:38}
+09/11/26 05:19:42 Event: ULOG_GRID_SUBMIT for HTCondor Node trim_reads_trim_PBS (4351938.0.0) {09/11/26 05:19:39}
+09/11/26 05:19:42 Event: ULOG_GRID_SUBMIT for HTCondor Node trim_reads_trim_SLS (4351934.0.0) {09/11/26 05:19:39}
+09/11/26 05:19:42 Event: ULOG_GRID_SUBMIT for HTCondor Node trim_reads_trim_BRS2 (4351926.0.0) {09/11/26 05:19:41}
+09/11/26 05:19:42 Event: ULOG_GRID_SUBMIT for HTCondor Node trim_reads_trim_QH2F (4351941.0.0) {09/11/26 05:19:41}
+09/11/26 05:19:42 Event: ULOG_GRID_SUBMIT for HTCondor Node trim_reads_trim_BRS1 (4351928.0.0) {09/11/26 05:19:41}
+09/11/26 05:19:47 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:19:47 Event: ULOG_GRID_SUBMIT for HTCondor Node trim_reads_trim_RVF (4351927.0.0) {09/11/26 05:19:42}
+09/11/26 05:19:47 Event: ULOG_GRID_SUBMIT for HTCondor Node trim_reads_trim_BRF2 (4351940.0.0) {09/11/26 05:19:43}
+09/11/26 05:19:47 Event: ULOG_GRID_SUBMIT for HTCondor Node trim_reads_trim_SIS (4351942.0.0) {09/11/26 05:19:43}
+09/11/26 05:19:47 Event: ULOG_GRID_SUBMIT for HTCondor Node trim_reads_trim_BQF (4351936.0.0) {09/11/26 05:19:43}
+09/11/26 05:19:47 Event: ULOG_GRID_SUBMIT for HTCondor Node trim_reads_trim_EPS (4351931.0.0) {09/11/26 05:19:43}
+09/11/26 05:19:47 Event: ULOG_GRID_SUBMIT for HTCondor Node trim_reads_trim_BQS (4351937.0.0) {09/11/26 05:19:44}
+09/11/26 05:19:47 Event: ULOG_GRID_SUBMIT for HTCondor Node trim_reads_trim_QHS2 (4351930.0.0) {09/11/26 05:19:44}
+09/11/26 05:19:47 Event: ULOG_GRID_SUBMIT for HTCondor Node trim_reads_trim_PFS (4351935.0.0) {09/11/26 05:19:45}
+09/11/26 05:19:47 Event: ULOG_GRID_SUBMIT for HTCondor Node trim_reads_trim_PGF (4351939.0.0) {09/11/26 05:19:47}
+09/11/26 05:20:07 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:20:07 Event: ULOG_JOB_TERMINATED for HTCondor Node stage_in_local_compute_0_1 (4351922.0.0) {09/11/26 05:20:03}
+09/11/26 05:20:07 Number of idle job procs: 17
+09/11/26 05:20:07 Node stage_in_local_compute_0_1 job proc (4351922.0.0) completed successfully.
+09/11/26 05:20:07 Node stage_in_local_compute_0_1 job(s) have exited the queue
+09/11/26 05:20:07 Running POST script of Node stage_in_local_compute_0_1...
+09/11/26 05:20:07 DAG status: 0 (DAG_STATUS_OK)
+09/11/26 05:20:07 Of 135 nodes total:
+09/11/26 05:20:07  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+09/11/26 05:20:07   ===     ===      ===     ===     ===        ===      ===      ===
+09/11/26 05:20:07     9       0       18       1       0        107        0        0
+09/11/26 05:20:07 0 job proc(s) currently held
+09/11/26 05:20:07 DAGMan Runtime Statistics: [EventCycleTimeAvg=0.010; EventCycleTimeMax=0.402; EventCycleTimeMin=0.000; EventCycleTimeStd=0.051; EventCycleTimeSum=0.758; SleepCycleTimeAvg=5.007; SleepCycleTimeMax=5.270; SleepCycleTimeMin=4.140; SleepCycleTimeStd=0.112; SleepCycleTimeSum=395.583; SubmitCycleTimeAvg=0.008; SubmitCycleTimeMax=0.402; SubmitCycleTimeMin=0.000; SubmitCycleTimeStd=0.049; SubmitCycleTimeSum=0.607; EventCycleTimeCount=79.000; SleepCycleTimeCount=79.000; SubmitCycleTimeCount=80.000; LogProcessCycleTimeAvg=0.002; LogProcessCycleTimeMax=0.010; LogProcessCycleTimeMin=0.000; LogProcessCycleTimeStd=0.003; LogProcessCycleTimeSum=0.032; LogProcessCycleTimeCount=18.000; ]
+09/11/26 05:20:07 Initializing user log writer for /home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/./subductcr-end-to-end-0.dag.nodes.log, (4351922.0.0)
+09/11/26 05:20:12 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:20:12 Event: ULOG_POST_SCRIPT_TERMINATED for HTCondor Node stage_in_local_compute_0_1 (4351922.0.0) {09/11/26 05:20:07}
+09/11/26 05:20:12 POST Script of node stage_in_local_compute_0_1 completed successfully.
+09/11/26 05:20:12 DAG status: 0 (DAG_STATUS_OK)
+09/11/26 05:20:12 Of 135 nodes total:
+09/11/26 05:20:12  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+09/11/26 05:20:12   ===     ===      ===     ===     ===        ===      ===      ===
+09/11/26 05:20:12    10       0       18       0       0        107        0        0
+09/11/26 05:20:12 0 job proc(s) currently held
+09/11/26 05:20:12 DAGMan Runtime Statistics: [EventCycleTimeAvg=0.010; EventCycleTimeMax=0.402; EventCycleTimeMin=0.000; EventCycleTimeStd=0.050; EventCycleTimeSum=0.761; SleepCycleTimeAvg=5.010; SleepCycleTimeMax=5.270; SleepCycleTimeMin=4.140; SleepCycleTimeStd=0.114; SleepCycleTimeSum=400.807; SubmitCycleTimeAvg=0.007; SubmitCycleTimeMax=0.402; SubmitCycleTimeMin=0.000; SubmitCycleTimeStd=0.049; SubmitCycleTimeSum=0.607; EventCycleTimeCount=80.000; SleepCycleTimeCount=80.000; SubmitCycleTimeCount=81.000; LogProcessCycleTimeAvg=0.002; LogProcessCycleTimeMax=0.010; LogProcessCycleTimeMin=0.000; LogProcessCycleTimeStd=0.002; LogProcessCycleTimeSum=0.032; LogProcessCycleTimeCount=19.000; ]
+09/11/26 05:23:52 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:23:52 Event: ULOG_JOB_TERMINATED for HTCondor Node stage_in_local_compute_0_2 (4351924.0.0) {09/11/26 05:23:51}
+09/11/26 05:23:52 Number of idle job procs: 17
+09/11/26 05:23:52 Node stage_in_local_compute_0_2 job proc (4351924.0.0) completed successfully.
+09/11/26 05:23:52 Node stage_in_local_compute_0_2 job(s) have exited the queue
+09/11/26 05:23:52 Running POST script of Node stage_in_local_compute_0_2...
+09/11/26 05:23:52 DAG status: 0 (DAG_STATUS_OK)
+09/11/26 05:23:52 Of 135 nodes total:
+09/11/26 05:23:52  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+09/11/26 05:23:52   ===     ===      ===     ===     ===        ===      ===      ===
+09/11/26 05:23:52    10       0       17       1       0        107        0        0
+09/11/26 05:23:52 0 job proc(s) currently held
+09/11/26 05:23:52 DAGMan Runtime Statistics: [EventCycleTimeAvg=0.006; EventCycleTimeMax=0.402; EventCycleTimeMin=0.000; EventCycleTimeStd=0.040; EventCycleTimeSum=0.776; SleepCycleTimeAvg=5.008; SleepCycleTimeMax=5.270; SleepCycleTimeMin=4.140; SleepCycleTimeStd=0.091; SleepCycleTimeSum=620.999; SubmitCycleTimeAvg=0.005; SubmitCycleTimeMax=0.402; SubmitCycleTimeMin=0.000; SubmitCycleTimeStd=0.040; SubmitCycleTimeSum=0.607; EventCycleTimeCount=124.000; SleepCycleTimeCount=124.000; SubmitCycleTimeCount=125.000; LogProcessCycleTimeAvg=0.002; LogProcessCycleTimeMax=0.010; LogProcessCycleTimeMin=0.000; LogProcessCycleTimeStd=0.002; LogProcessCycleTimeSum=0.034; LogProcessCycleTimeCount=20.000; ]
+09/11/26 05:23:52 Initializing user log writer for /home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/./subductcr-end-to-end-0.dag.nodes.log, (4351924.0.0)
+09/11/26 05:23:57 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:23:57 Event: ULOG_POST_SCRIPT_TERMINATED for HTCondor Node stage_in_local_compute_0_2 (4351924.0.0) {09/11/26 05:23:52}
+09/11/26 05:23:57 POST Script of node stage_in_local_compute_0_2 completed successfully.
+09/11/26 05:23:57 DAG status: 0 (DAG_STATUS_OK)
+09/11/26 05:23:57 Of 135 nodes total:
+09/11/26 05:23:57  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+09/11/26 05:23:57   ===     ===      ===     ===     ===        ===      ===      ===
+09/11/26 05:23:57    11       0       17       0      20         87        0        0
+09/11/26 05:23:57 0 job proc(s) currently held
+09/11/26 05:23:57 DAGMan Runtime Statistics: [EventCycleTimeAvg=0.006; EventCycleTimeMax=0.402; EventCycleTimeMin=0.000; EventCycleTimeStd=0.040; EventCycleTimeSum=0.778; SleepCycleTimeAvg=5.010; SleepCycleTimeMax=5.270; SleepCycleTimeMin=4.140; SleepCycleTimeStd=0.092; SleepCycleTimeSum=626.198; SubmitCycleTimeAvg=0.005; SubmitCycleTimeMax=0.402; SubmitCycleTimeMin=0.000; SubmitCycleTimeStd=0.039; SubmitCycleTimeSum=0.607; EventCycleTimeCount=125.000; SleepCycleTimeCount=125.000; SubmitCycleTimeCount=126.000; LogProcessCycleTimeAvg=0.002; LogProcessCycleTimeMax=0.010; LogProcessCycleTimeMin=0.000; LogProcessCycleTimeStd=0.002; LogProcessCycleTimeSum=0.034; LogProcessCycleTimeCount=21.000; ]
+09/11/26 05:24:02 Submitting HTCondor Node trim_reads_trim_ARS job(s)...
+09/11/26 05:24:02 Submitting node trim_reads_trim_ARS from file 00/00/trim_reads_trim_ARS.sub using direct job submission
+09/11/26 05:24:02 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:24:02 	assigned HTCondor ID (4351943.0.0)
+09/11/26 05:24:02 Submitting HTCondor Node trim_reads_trim_QHS1 job(s)...
+09/11/26 05:24:02 Submitting node trim_reads_trim_QHS1 from file 00/00/trim_reads_trim_QHS1.sub using direct job submission
+09/11/26 05:24:02 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:24:02 	assigned HTCondor ID (4351944.0.0)
+09/11/26 05:24:02 Submitting HTCondor Node trim_reads_trim_TCS job(s)...
+09/11/26 05:24:02 Submitting node trim_reads_trim_TCS from file 00/00/trim_reads_trim_TCS.sub using direct job submission
+09/11/26 05:24:02 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:24:02 	assigned HTCondor ID (4351945.0.0)
+09/11/26 05:24:02 Submitting HTCondor Node trim_reads_trim_ETS job(s)...
+09/11/26 05:24:02 Submitting node trim_reads_trim_ETS from file 00/00/trim_reads_trim_ETS.sub using direct job submission
+09/11/26 05:24:02 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:24:02 	assigned HTCondor ID (4351946.0.0)
+09/11/26 05:24:02 Submitting HTCondor Node trim_reads_trim_RSF job(s)...
+09/11/26 05:24:02 Submitting node trim_reads_trim_RSF from file 00/00/trim_reads_trim_RSF.sub using direct job submission
+09/11/26 05:24:02 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:24:02 	assigned HTCondor ID (4351947.0.0)
+09/11/26 05:24:02 Submitting HTCondor Node trim_reads_trim_SLF job(s)...
+09/11/26 05:24:02 Submitting node trim_reads_trim_SLF from file 00/00/trim_reads_trim_SLF.sub using direct job submission
+09/11/26 05:24:03 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:24:03 	assigned HTCondor ID (4351948.0.0)
+09/11/26 05:24:03 Submitting HTCondor Node trim_reads_trim_BR1F job(s)...
+09/11/26 05:24:03 Submitting node trim_reads_trim_BR1F from file 00/00/trim_reads_trim_BR1F.sub using direct job submission
+09/11/26 05:24:03 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:24:03 	assigned HTCondor ID (4351949.0.0)
+09/11/26 05:24:03 Submitting HTCondor Node trim_reads_trim_RSS job(s)...
+09/11/26 05:24:03 Submitting node trim_reads_trim_RSS from file 00/00/trim_reads_trim_RSS.sub using direct job submission
+09/11/26 05:24:03 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:24:03 	assigned HTCondor ID (4351950.0.0)
+09/11/26 05:24:03 Submitting HTCondor Node trim_reads_trim_ESF9 job(s)...
+09/11/26 05:24:03 Submitting node trim_reads_trim_ESF9 from file 00/00/trim_reads_trim_ESF9.sub using direct job submission
+09/11/26 05:24:03 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:24:03 	assigned HTCondor ID (4351951.0.0)
+09/11/26 05:24:03 Submitting HTCondor Node mothur_asv_mothur_asv job(s)...
+09/11/26 05:24:03 Submitting node mothur_asv_mothur_asv from file 00/00/mothur_asv_mothur_asv.sub using direct job submission
+09/11/26 05:24:03 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:24:03 	assigned HTCondor ID (4351952.0.0)
+09/11/26 05:24:03 Submitting HTCondor Node trim_reads_trim_PFF job(s)...
+09/11/26 05:24:03 Submitting node trim_reads_trim_PFF from file 00/00/trim_reads_trim_PFF.sub using direct job submission
+09/11/26 05:24:03 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:24:03 	assigned HTCondor ID (4351953.0.0)
+09/11/26 05:24:03 Submitting HTCondor Node trim_reads_trim_SIF job(s)...
+09/11/26 05:24:03 Submitting node trim_reads_trim_SIF from file 00/00/trim_reads_trim_SIF.sub using direct job submission
+09/11/26 05:24:03 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:24:03 	assigned HTCondor ID (4351954.0.0)
+09/11/26 05:24:03 Submitting HTCondor Node trim_reads_trim_EPF job(s)...
+09/11/26 05:24:03 Submitting node trim_reads_trim_EPF from file 00/00/trim_reads_trim_EPF.sub using direct job submission
+09/11/26 05:24:03 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:24:03 	assigned HTCondor ID (4351955.0.0)
+09/11/26 05:24:03 Submitting HTCondor Node trim_reads_trim_PGS job(s)...
+09/11/26 05:24:03 Submitting node trim_reads_trim_PGS from file 00/00/trim_reads_trim_PGS.sub using direct job submission
+09/11/26 05:24:03 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:24:03 	assigned HTCondor ID (4351956.0.0)
+09/11/26 05:24:03 Submitting HTCondor Node carbon_flux_carbon_flux job(s)...
+09/11/26 05:24:03 Submitting node carbon_flux_carbon_flux from file 00/00/carbon_flux_carbon_flux.sub using direct job submission
+09/11/26 05:24:03 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:24:03 	assigned HTCondor ID (4351957.0.0)
+09/11/26 05:24:03 Submitting HTCondor Node trim_reads_trim_CYS job(s)...
+09/11/26 05:24:03 Submitting node trim_reads_trim_CYS from file 00/00/trim_reads_trim_CYS.sub using direct job submission
+09/11/26 05:24:03 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:24:03 	assigned HTCondor ID (4351958.0.0)
+09/11/26 05:24:03 Submitting HTCondor Node trim_reads_trim_QNS job(s)...
+09/11/26 05:24:03 Submitting node trim_reads_trim_QNS from file 00/00/trim_reads_trim_QNS.sub using direct job submission
+09/11/26 05:24:03 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:24:03 	assigned HTCondor ID (4351959.0.0)
+09/11/26 05:24:03 Submitting HTCondor Node trim_reads_trim_PLS job(s)...
+09/11/26 05:24:03 Submitting node trim_reads_trim_PLS from file 00/00/trim_reads_trim_PLS.sub using direct job submission
+09/11/26 05:24:03 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:24:03 	assigned HTCondor ID (4351960.0.0)
+09/11/26 05:24:03 Submitting HTCondor Node trim_reads_trim_TCF job(s)...
+09/11/26 05:24:03 Submitting node trim_reads_trim_TCF from file 00/00/trim_reads_trim_TCF.sub using direct job submission
+09/11/26 05:24:03 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:24:03 	assigned HTCondor ID (4351961.0.0)
+09/11/26 05:24:03 Submitting HTCondor Node trim_reads_trim_FAS job(s)...
+09/11/26 05:24:03 Submitting node trim_reads_trim_FAS from file 00/00/trim_reads_trim_FAS.sub using direct job submission
+09/11/26 05:24:03 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:24:03 	assigned HTCondor ID (4351962.0.0)
+09/11/26 05:24:03 Just submitted 20 jobs this cycle...
+09/11/26 05:24:03 DAG status: 0 (DAG_STATUS_OK)
+09/11/26 05:24:03 Of 135 nodes total:
+09/11/26 05:24:03  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+09/11/26 05:24:03   ===     ===      ===     ===     ===        ===      ===      ===
+09/11/26 05:24:03    11       0       37       0       0         87        0        0
+09/11/26 05:24:03 0 job proc(s) currently held
+09/11/26 05:24:03 DAGMan Runtime Statistics: [EventCycleTimeAvg=0.006; EventCycleTimeMax=0.402; EventCycleTimeMin=0.000; EventCycleTimeStd=0.040; EventCycleTimeSum=0.779; SleepCycleTimeAvg=5.010; SleepCycleTimeMax=5.270; SleepCycleTimeMin=4.140; SleepCycleTimeStd=0.092; SleepCycleTimeSum=631.200; SubmitCycleTimeAvg=0.008; SubmitCycleTimeMax=0.402; SubmitCycleTimeMin=0.000; SubmitCycleTimeStd=0.051; SubmitCycleTimeSum=0.987; EventCycleTimeCount=126.000; SleepCycleTimeCount=126.000; SubmitCycleTimeCount=127.000; LogProcessCycleTimeAvg=0.002; LogProcessCycleTimeMax=0.010; LogProcessCycleTimeMin=0.000; LogProcessCycleTimeStd=0.002; LogProcessCycleTimeSum=0.034; LogProcessCycleTimeCount=21.000; ]
+09/11/26 05:24:08 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:24:08 Reassigning the id of job trim_reads_trim_ARS from (4351943.0.0) to (4351943.0.0)
+09/11/26 05:24:08 Event: ULOG_SUBMIT for HTCondor Node trim_reads_trim_ARS (4351943.0.0) {09/11/26 05:24:02}
+09/11/26 05:24:08 Number of idle job procs: 18
+09/11/26 05:24:08 Reassigning the id of job trim_reads_trim_QHS1 from (4351944.0.0) to (4351944.0.0)
+09/11/26 05:24:08 Event: ULOG_SUBMIT for HTCondor Node trim_reads_trim_QHS1 (4351944.0.0) {09/11/26 05:24:02}
+09/11/26 05:24:08 Number of idle job procs: 19
+09/11/26 05:24:08 Reassigning the id of job trim_reads_trim_TCS from (4351945.0.0) to (4351945.0.0)
+09/11/26 05:24:08 Event: ULOG_SUBMIT for HTCondor Node trim_reads_trim_TCS (4351945.0.0) {09/11/26 05:24:02}
+09/11/26 05:24:08 Number of idle job procs: 20
+09/11/26 05:24:08 Reassigning the id of job trim_reads_trim_ETS from (4351946.0.0) to (4351946.0.0)
+09/11/26 05:24:08 Event: ULOG_SUBMIT for HTCondor Node trim_reads_trim_ETS (4351946.0.0) {09/11/26 05:24:02}
+09/11/26 05:24:08 Number of idle job procs: 21
+09/11/26 05:24:08 Reassigning the id of job trim_reads_trim_RSF from (4351947.0.0) to (4351947.0.0)
+09/11/26 05:24:08 Event: ULOG_SUBMIT for HTCondor Node trim_reads_trim_RSF (4351947.0.0) {09/11/26 05:24:02}
+09/11/26 05:24:08 Number of idle job procs: 22
+09/11/26 05:24:08 Reassigning the id of job trim_reads_trim_SLF from (4351948.0.0) to (4351948.0.0)
+09/11/26 05:24:08 Event: ULOG_SUBMIT for HTCondor Node trim_reads_trim_SLF (4351948.0.0) {09/11/26 05:24:03}
+09/11/26 05:24:08 Number of idle job procs: 23
+09/11/26 05:24:08 Reassigning the id of job trim_reads_trim_BR1F from (4351949.0.0) to (4351949.0.0)
+09/11/26 05:24:08 Event: ULOG_SUBMIT for HTCondor Node trim_reads_trim_BR1F (4351949.0.0) {09/11/26 05:24:03}
+09/11/26 05:24:08 Number of idle job procs: 24
+09/11/26 05:24:08 Reassigning the id of job trim_reads_trim_RSS from (4351950.0.0) to (4351950.0.0)
+09/11/26 05:24:08 Event: ULOG_SUBMIT for HTCondor Node trim_reads_trim_RSS (4351950.0.0) {09/11/26 05:24:03}
+09/11/26 05:24:08 Number of idle job procs: 25
+09/11/26 05:24:08 Reassigning the id of job trim_reads_trim_ESF9 from (4351951.0.0) to (4351951.0.0)
+09/11/26 05:24:08 Event: ULOG_SUBMIT for HTCondor Node trim_reads_trim_ESF9 (4351951.0.0) {09/11/26 05:24:03}
+09/11/26 05:24:08 Number of idle job procs: 26
+09/11/26 05:24:08 Reassigning the id of job mothur_asv_mothur_asv from (4351952.0.0) to (4351952.0.0)
+09/11/26 05:24:08 Event: ULOG_SUBMIT for HTCondor Node mothur_asv_mothur_asv (4351952.0.0) {09/11/26 05:24:03}
+09/11/26 05:24:08 Number of idle job procs: 27
+09/11/26 05:24:08 Reassigning the id of job trim_reads_trim_PFF from (4351953.0.0) to (4351953.0.0)
+09/11/26 05:24:08 Event: ULOG_SUBMIT for HTCondor Node trim_reads_trim_PFF (4351953.0.0) {09/11/26 05:24:03}
+09/11/26 05:24:08 Number of idle job procs: 28
+09/11/26 05:24:08 Reassigning the id of job trim_reads_trim_SIF from (4351954.0.0) to (4351954.0.0)
+09/11/26 05:24:08 Event: ULOG_SUBMIT for HTCondor Node trim_reads_trim_SIF (4351954.0.0) {09/11/26 05:24:03}
+09/11/26 05:24:08 Number of idle job procs: 29
+09/11/26 05:24:08 Reassigning the id of job trim_reads_trim_EPF from (4351955.0.0) to (4351955.0.0)
+09/11/26 05:24:08 Event: ULOG_SUBMIT for HTCondor Node trim_reads_trim_EPF (4351955.0.0) {09/11/26 05:24:03}
+09/11/26 05:24:08 Number of idle job procs: 30
+09/11/26 05:24:08 Reassigning the id of job trim_reads_trim_PGS from (4351956.0.0) to (4351956.0.0)
+09/11/26 05:24:08 Event: ULOG_SUBMIT for HTCondor Node trim_reads_trim_PGS (4351956.0.0) {09/11/26 05:24:03}
+09/11/26 05:24:08 Number of idle job procs: 31
+09/11/26 05:24:08 Reassigning the id of job carbon_flux_carbon_flux from (4351957.0.0) to (4351957.0.0)
+09/11/26 05:24:08 Event: ULOG_SUBMIT for HTCondor Node carbon_flux_carbon_flux (4351957.0.0) {09/11/26 05:24:03}
+09/11/26 05:24:08 Number of idle job procs: 32
+09/11/26 05:24:08 Reassigning the id of job trim_reads_trim_CYS from (4351958.0.0) to (4351958.0.0)
+09/11/26 05:24:08 Event: ULOG_SUBMIT for HTCondor Node trim_reads_trim_CYS (4351958.0.0) {09/11/26 05:24:03}
+09/11/26 05:24:08 Number of idle job procs: 33
+09/11/26 05:24:08 Reassigning the id of job trim_reads_trim_QNS from (4351959.0.0) to (4351959.0.0)
+09/11/26 05:24:08 Event: ULOG_SUBMIT for HTCondor Node trim_reads_trim_QNS (4351959.0.0) {09/11/26 05:24:03}
+09/11/26 05:24:08 Number of idle job procs: 34
+09/11/26 05:24:08 Reassigning the id of job trim_reads_trim_PLS from (4351960.0.0) to (4351960.0.0)
+09/11/26 05:24:08 Event: ULOG_SUBMIT for HTCondor Node trim_reads_trim_PLS (4351960.0.0) {09/11/26 05:24:03}
+09/11/26 05:24:08 Number of idle job procs: 35
+09/11/26 05:24:08 Reassigning the id of job trim_reads_trim_TCF from (4351961.0.0) to (4351961.0.0)
+09/11/26 05:24:08 Event: ULOG_SUBMIT for HTCondor Node trim_reads_trim_TCF (4351961.0.0) {09/11/26 05:24:03}
+09/11/26 05:24:08 Number of idle job procs: 36
+09/11/26 05:24:08 Reassigning the id of job trim_reads_trim_FAS from (4351962.0.0) to (4351962.0.0)
+09/11/26 05:24:08 Event: ULOG_SUBMIT for HTCondor Node trim_reads_trim_FAS (4351962.0.0) {09/11/26 05:24:03}
+09/11/26 05:24:08 Number of idle job procs: 37
+09/11/26 05:24:33 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:24:33 Event: ULOG_GRID_SUBMIT for HTCondor Node trim_reads_trim_RSS (4351950.0.0) {09/11/26 05:24:30}
+09/11/26 05:24:38 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:24:38 Event: ULOG_GRID_SUBMIT for HTCondor Node trim_reads_trim_FAS (4351962.0.0) {09/11/26 05:24:37}
+09/11/26 05:24:38 Event: ULOG_GRID_SUBMIT for HTCondor Node trim_reads_trim_EPF (4351955.0.0) {09/11/26 05:24:37}
+09/11/26 05:24:38 Event: ULOG_GRID_SUBMIT for HTCondor Node trim_reads_trim_TCS (4351945.0.0) {09/11/26 05:24:38}
+09/11/26 05:24:43 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:24:43 Event: ULOG_GRID_SUBMIT for HTCondor Node trim_reads_trim_QNS (4351959.0.0) {09/11/26 05:24:38}
+09/11/26 05:24:43 Event: ULOG_GRID_SUBMIT for HTCondor Node trim_reads_trim_CYS (4351958.0.0) {09/11/26 05:24:39}
+09/11/26 05:24:43 Event: ULOG_GRID_SUBMIT for HTCondor Node trim_reads_trim_SLF (4351948.0.0) {09/11/26 05:24:39}
+09/11/26 05:24:43 Event: ULOG_GRID_SUBMIT for HTCondor Node trim_reads_trim_PFF (4351953.0.0) {09/11/26 05:24:40}
+09/11/26 05:24:43 Event: ULOG_GRID_SUBMIT for HTCondor Node trim_reads_trim_PGS (4351956.0.0) {09/11/26 05:24:41}
+09/11/26 05:24:43 Event: ULOG_GRID_SUBMIT for HTCondor Node trim_reads_trim_BR1F (4351949.0.0) {09/11/26 05:24:42}
+09/11/26 05:24:48 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:24:48 Event: ULOG_GRID_SUBMIT for HTCondor Node trim_reads_trim_RSF (4351947.0.0) {09/11/26 05:24:43}
+09/11/26 05:24:48 Event: ULOG_GRID_SUBMIT for HTCondor Node trim_reads_trim_QHS1 (4351944.0.0) {09/11/26 05:24:45}
+09/11/26 05:24:48 Event: ULOG_GRID_SUBMIT for HTCondor Node trim_reads_trim_SIF (4351954.0.0) {09/11/26 05:24:46}
+09/11/26 05:24:48 Event: ULOG_GRID_SUBMIT for HTCondor Node trim_reads_trim_ARS (4351943.0.0) {09/11/26 05:24:47}
+09/11/26 05:24:53 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:24:53 Event: ULOG_GRID_SUBMIT for HTCondor Node trim_reads_trim_TCF (4351961.0.0) {09/11/26 05:24:49}
+09/11/26 05:24:53 Event: ULOG_GRID_SUBMIT for HTCondor Node carbon_flux_carbon_flux (4351957.0.0) {09/11/26 05:24:50}
+09/11/26 05:24:53 Event: ULOG_GRID_SUBMIT for HTCondor Node trim_reads_trim_PLS (4351960.0.0) {09/11/26 05:24:50}
+09/11/26 05:24:53 Event: ULOG_GRID_SUBMIT for HTCondor Node trim_reads_trim_ETS (4351946.0.0) {09/11/26 05:24:52}
+09/11/26 05:24:58 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:24:58 Event: ULOG_EXECUTE for HTCondor Node trim_reads_trim_QNF (4351932.0.0) {09/11/26 05:24:54}
+09/11/26 05:24:58 Number of idle job procs: 36
+09/11/26 05:25:03 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:25:03 Event: ULOG_GRID_SUBMIT for HTCondor Node trim_reads_trim_ESF9 (4351951.0.0) {09/11/26 05:25:01}
+09/11/26 05:25:33 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:25:33 Event: ULOG_JOB_HELD for HTCondor Node mothur_asv_mothur_asv (4351952.0.0) {09/11/26 05:25:29}
+09/11/26 05:25:33   Hold reason: submission command failed (exit code = 1) (stdout:Error submitting command python3 /usr/libexec/blahp/sfapi_helpers.py submit     --job-name    bl_BbVNwl     --input-files /home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/00/mothur_asv_mothur_asv.sh,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/pegasus-worker-5.1.3-dev.0-x86_64_rhel_8.tar.gz,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/00/mothur_asv_mothur_asv.in.lof,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/00/mothur_asv_mothur_asv.out.lof,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/00/stage_in_local_compute_0_0.meta,/home/hsafri/hotSprings/PegasusWMS-SubductC
+09/11/26 05:25:33 Number of idle job procs: 36
+09/11/26 05:25:33 DAG status: 0 (DAG_STATUS_OK)
+09/11/26 05:25:33 Of 135 nodes total:
+09/11/26 05:25:33  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+09/11/26 05:25:33   ===     ===      ===     ===     ===        ===      ===      ===
+09/11/26 05:25:33    11       0       37       0       0         87        0        0
+09/11/26 05:25:33 1 job proc(s) currently held
+09/11/26 05:25:33 DAGMan Runtime Statistics: [EventCycleTimeAvg=0.008; EventCycleTimeMax=0.402; EventCycleTimeMin=0.000; EventCycleTimeStd=0.049; EventCycleTimeSum=1.162; SleepCycleTimeAvg=5.009; SleepCycleTimeMax=5.270; SleepCycleTimeMin=4.140; SleepCycleTimeStd=0.086; SleepCycleTimeSum=721.286; SubmitCycleTimeAvg=0.007; SubmitCycleTimeMax=0.402; SubmitCycleTimeMin=0.000; SubmitCycleTimeStd=0.048; SubmitCycleTimeSum=0.987; EventCycleTimeCount=144.000; SleepCycleTimeCount=144.000; SubmitCycleTimeCount=145.000; LogProcessCycleTimeAvg=0.001; LogProcessCycleTimeMax=0.010; LogProcessCycleTimeMin=0.000; LogProcessCycleTimeStd=0.002; LogProcessCycleTimeSum=0.038; LogProcessCycleTimeCount=30.000; ]
+09/11/26 05:25:53 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:25:53 Event: ULOG_EXECUTE for HTCondor Node trim_reads_trim_MTF (4351929.0.0) {09/11/26 05:25:52}
+09/11/26 05:25:53 Number of idle job procs: 35
+09/11/26 05:28:33 Total jobs placed to AP: 48
+09/11/26 05:28:33      Idle     Held     Running     Successful     Failed
+09/11/26 05:28:33       ===      ===         ===            ===        ===
+09/11/26 05:28:33        34        1           2             11          0
+09/11/26 05:30:18 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:30:18 Event: ULOG_EXECUTE for HTCondor Node trim_reads_trim_SLS (4351934.0.0) {09/11/26 05:30:14}
+09/11/26 05:30:18 Number of idle job procs: 34
+09/11/26 05:30:18 Event: ULOG_EXECUTE for HTCondor Node trim_reads_trim_PBS (4351938.0.0) {09/11/26 05:30:17}
+09/11/26 05:30:18 Number of idle job procs: 33
+09/11/26 05:34:28 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:34:28 Event: ULOG_JOB_TERMINATED for HTCondor Node trim_reads_trim_MTF (4351929.0.0) {09/11/26 05:34:26}
+09/11/26 05:34:28 Number of idle job procs: 33
+09/11/26 05:34:28 Node trim_reads_trim_MTF job proc (4351929.0.0) completed successfully.
+09/11/26 05:34:28 Node trim_reads_trim_MTF job(s) have exited the queue
+09/11/26 05:34:28 Running POST script of Node trim_reads_trim_MTF...
+09/11/26 05:34:28 DAG status: 0 (DAG_STATUS_OK)
+09/11/26 05:34:28 Of 135 nodes total:
+09/11/26 05:34:28  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+09/11/26 05:34:28   ===     ===      ===     ===     ===        ===      ===      ===
+09/11/26 05:34:28    11       0       36       1       0         87        0        0
+09/11/26 05:34:28 1 job proc(s) currently held
+09/11/26 05:34:28 DAGMan Runtime Statistics: [EventCycleTimeAvg=0.005; EventCycleTimeMax=0.402; EventCycleTimeMin=0.000; EventCycleTimeStd=0.037; EventCycleTimeSum=1.201; SleepCycleTimeAvg=5.007; SleepCycleTimeMax=5.270; SleepCycleTimeMin=4.140; SleepCycleTimeStd=0.065; SleepCycleTimeSum=1256.786; SubmitCycleTimeAvg=0.004; SubmitCycleTimeMax=0.402; SubmitCycleTimeMin=0.000; SubmitCycleTimeStd=0.037; SubmitCycleTimeSum=0.987; EventCycleTimeCount=251.000; SleepCycleTimeCount=251.000; SubmitCycleTimeCount=252.000; LogProcessCycleTimeAvg=0.001; LogProcessCycleTimeMax=0.010; LogProcessCycleTimeMin=0.000; LogProcessCycleTimeStd=0.002; LogProcessCycleTimeSum=0.040; LogProcessCycleTimeCount=33.000; ]
+09/11/26 05:34:29 Initializing user log writer for /home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/./subductcr-end-to-end-0.dag.nodes.log, (4351929.0.0)
+09/11/26 05:34:33 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:34:33 Event: ULOG_POST_SCRIPT_TERMINATED for HTCondor Node trim_reads_trim_MTF (4351929.0.0) {09/11/26 05:34:29}
+09/11/26 05:34:33 POST Script of node trim_reads_trim_MTF completed successfully.
+09/11/26 05:34:33 DAG status: 0 (DAG_STATUS_OK)
+09/11/26 05:34:33 Of 135 nodes total:
+09/11/26 05:34:33  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+09/11/26 05:34:33   ===     ===      ===     ===     ===        ===      ===      ===
+09/11/26 05:34:33    12       0       36       0       1         86        0        0
+09/11/26 05:34:33 1 job proc(s) currently held
+09/11/26 05:34:33 DAGMan Runtime Statistics: [EventCycleTimeAvg=0.005; EventCycleTimeMax=0.402; EventCycleTimeMin=0.000; EventCycleTimeStd=0.037; EventCycleTimeSum=1.203; SleepCycleTimeAvg=5.004; SleepCycleTimeMax=5.270; SleepCycleTimeMin=4.140; SleepCycleTimeStd=0.084; SleepCycleTimeSum=1260.946; SubmitCycleTimeAvg=0.004; SubmitCycleTimeMax=0.402; SubmitCycleTimeMin=0.000; SubmitCycleTimeStd=0.037; SubmitCycleTimeSum=0.987; EventCycleTimeCount=252.000; SleepCycleTimeCount=252.000; SubmitCycleTimeCount=253.000; LogProcessCycleTimeAvg=0.001; LogProcessCycleTimeMax=0.010; LogProcessCycleTimeMin=0.000; LogProcessCycleTimeStd=0.002; LogProcessCycleTimeSum=0.040; LogProcessCycleTimeCount=34.000; ]
+09/11/26 05:34:38 Submitting HTCondor Node mifaser_mifaser_MTF job(s)...
+09/11/26 05:34:38 Submitting node mifaser_mifaser_MTF from file 00/01/mifaser_mifaser_MTF.sub using direct job submission
+09/11/26 05:34:38 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:34:38 	assigned HTCondor ID (4351963.0.0)
+09/11/26 05:34:38 Just submitted 1 job this cycle...
+09/11/26 05:34:38 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:34:38 Event: ULOG_JOB_TERMINATED for HTCondor Node trim_reads_trim_SLS (4351934.0.0) {09/11/26 05:34:36}
+09/11/26 05:34:38 Number of idle job procs: 33
+09/11/26 05:34:38 Node trim_reads_trim_SLS job proc (4351934.0.0) completed successfully.
+09/11/26 05:34:38 Node trim_reads_trim_SLS job(s) have exited the queue
+09/11/26 05:34:38 Running POST script of Node trim_reads_trim_SLS...
+09/11/26 05:34:38 Reassigning the id of job mifaser_mifaser_MTF from (4351963.0.0) to (4351963.0.0)
+09/11/26 05:34:38 Event: ULOG_SUBMIT for HTCondor Node mifaser_mifaser_MTF (4351963.0.0) {09/11/26 05:34:38}
+09/11/26 05:34:38 Number of idle job procs: 34
+09/11/26 05:34:38 DAG status: 0 (DAG_STATUS_OK)
+09/11/26 05:34:38 Of 135 nodes total:
+09/11/26 05:34:38  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+09/11/26 05:34:38   ===     ===      ===     ===     ===        ===      ===      ===
+09/11/26 05:34:38    12       0       36       1       0         86        0        0
+09/11/26 05:34:38 1 job proc(s) currently held
+09/11/26 05:34:38 DAGMan Runtime Statistics: [EventCycleTimeAvg=0.005; EventCycleTimeMax=0.402; EventCycleTimeMin=0.000; EventCycleTimeStd=0.037; EventCycleTimeSum=1.203; SleepCycleTimeAvg=5.004; SleepCycleTimeMax=5.270; SleepCycleTimeMin=4.140; SleepCycleTimeStd=0.084; SleepCycleTimeSum=1265.951; SubmitCycleTimeAvg=0.004; SubmitCycleTimeMax=0.402; SubmitCycleTimeMin=0.000; SubmitCycleTimeStd=0.037; SubmitCycleTimeSum=1.010; EventCycleTimeCount=253.000; SleepCycleTimeCount=253.000; SubmitCycleTimeCount=254.000; LogProcessCycleTimeAvg=0.001; LogProcessCycleTimeMax=0.010; LogProcessCycleTimeMin=0.000; LogProcessCycleTimeStd=0.002; LogProcessCycleTimeSum=0.042; LogProcessCycleTimeCount=35.000; ]
+09/11/26 05:34:38 Initializing user log writer for /home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/./subductcr-end-to-end-0.dag.nodes.log, (4351934.0.0)
+09/11/26 05:34:43 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:34:43 Event: ULOG_POST_SCRIPT_TERMINATED for HTCondor Node trim_reads_trim_SLS (4351934.0.0) {09/11/26 05:34:38}
+09/11/26 05:34:43 POST Script of node trim_reads_trim_SLS completed successfully.
+09/11/26 05:34:43 DAG status: 0 (DAG_STATUS_OK)
+09/11/26 05:34:43 Of 135 nodes total:
+09/11/26 05:34:43  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+09/11/26 05:34:43   ===     ===      ===     ===     ===        ===      ===      ===
+09/11/26 05:34:43    13       0       36       0       1         85        0        0
+09/11/26 05:34:43 1 job proc(s) currently held
+09/11/26 05:34:43 DAGMan Runtime Statistics: [EventCycleTimeAvg=0.005; EventCycleTimeMax=0.402; EventCycleTimeMin=0.000; EventCycleTimeStd=0.037; EventCycleTimeSum=1.229; SleepCycleTimeAvg=5.004; SleepCycleTimeMax=5.270; SleepCycleTimeMin=4.140; SleepCycleTimeStd=0.084; SleepCycleTimeSum=1271.109; SubmitCycleTimeAvg=0.004; SubmitCycleTimeMax=0.402; SubmitCycleTimeMin=0.000; SubmitCycleTimeStd=0.036; SubmitCycleTimeSum=1.010; EventCycleTimeCount=254.000; SleepCycleTimeCount=254.000; SubmitCycleTimeCount=255.000; LogProcessCycleTimeAvg=0.001; LogProcessCycleTimeMax=0.010; LogProcessCycleTimeMin=0.000; LogProcessCycleTimeStd=0.002; LogProcessCycleTimeSum=0.042; LogProcessCycleTimeCount=36.000; ]
+09/11/26 05:34:48 Submitting HTCondor Node mifaser_mifaser_SLS job(s)...
+09/11/26 05:34:48 Submitting node mifaser_mifaser_SLS from file 00/01/mifaser_mifaser_SLS.sub using direct job submission
+09/11/26 05:34:48 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:34:48 	assigned HTCondor ID (4351964.0.0)
+09/11/26 05:34:48 Just submitted 1 job this cycle...
+09/11/26 05:34:48 DAG status: 0 (DAG_STATUS_OK)
+09/11/26 05:34:48 Of 135 nodes total:
+09/11/26 05:34:48  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+09/11/26 05:34:48   ===     ===      ===     ===     ===        ===      ===      ===
+09/11/26 05:34:48    13       0       37       0       0         85        0        0
+09/11/26 05:34:48 1 job proc(s) currently held
+09/11/26 05:34:48 DAGMan Runtime Statistics: [EventCycleTimeAvg=0.005; EventCycleTimeMax=0.402; EventCycleTimeMin=0.000; EventCycleTimeStd=0.037; EventCycleTimeSum=1.229; SleepCycleTimeAvg=5.004; SleepCycleTimeMax=5.270; SleepCycleTimeMin=4.140; SleepCycleTimeStd=0.084; SleepCycleTimeSum=1276.114; SubmitCycleTimeAvg=0.004; SubmitCycleTimeMax=0.402; SubmitCycleTimeMin=0.000; SubmitCycleTimeStd=0.036; SubmitCycleTimeSum=1.037; EventCycleTimeCount=255.000; SleepCycleTimeCount=255.000; SubmitCycleTimeCount=256.000; LogProcessCycleTimeAvg=0.001; LogProcessCycleTimeMax=0.010; LogProcessCycleTimeMin=0.000; LogProcessCycleTimeStd=0.002; LogProcessCycleTimeSum=0.042; LogProcessCycleTimeCount=36.000; ]
+09/11/26 05:34:53 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:34:53 Reassigning the id of job mifaser_mifaser_SLS from (4351964.0.0) to (4351964.0.0)
+09/11/26 05:34:53 Event: ULOG_SUBMIT for HTCondor Node mifaser_mifaser_SLS (4351964.0.0) {09/11/26 05:34:48}
+09/11/26 05:34:53 Number of idle job procs: 35
+09/11/26 05:35:08 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:35:08 Event: ULOG_JOB_HELD for HTCondor Node mifaser_mifaser_MTF (4351963.0.0) {09/11/26 05:35:08}
+09/11/26 05:35:08   Hold reason: submission command failed (exit code = 1) (stdout:Error submitting command python3 /usr/libexec/blahp/sfapi_helpers.py submit     --job-name    bl_kQEHyR     --input-files /home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/01/mifaser_mifaser_MTF.sh,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/pegasus-worker-5.1.3-dev.0-x86_64_rhel_8.tar.gz,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/01/mifaser_mifaser_MTF.in.lof,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/01/mifaser_mifaser_MTF.out.lof,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/00/trim_reads_trim_MTF.meta,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversi
+09/11/26 05:35:08 Number of idle job procs: 35
+09/11/26 05:35:08 DAG status: 0 (DAG_STATUS_OK)
+09/11/26 05:35:08 Of 135 nodes total:
+09/11/26 05:35:08  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+09/11/26 05:35:08   ===     ===      ===     ===     ===        ===      ===      ===
+09/11/26 05:35:08    13       0       37       0       0         85        0        0
+09/11/26 05:35:08 2 job proc(s) currently held
+09/11/26 05:35:08 DAGMan Runtime Statistics: [EventCycleTimeAvg=0.005; EventCycleTimeMax=0.402; EventCycleTimeMin=0.000; EventCycleTimeStd=0.037; EventCycleTimeSum=1.256; SleepCycleTimeAvg=5.004; SleepCycleTimeMax=5.270; SleepCycleTimeMin=4.140; SleepCycleTimeStd=0.084; SleepCycleTimeSum=1296.135; SubmitCycleTimeAvg=0.004; SubmitCycleTimeMax=0.402; SubmitCycleTimeMin=0.000; SubmitCycleTimeStd=0.036; SubmitCycleTimeSum=1.037; EventCycleTimeCount=259.000; SleepCycleTimeCount=259.000; SubmitCycleTimeCount=260.000; LogProcessCycleTimeAvg=0.001; LogProcessCycleTimeMax=0.010; LogProcessCycleTimeMin=0.000; LogProcessCycleTimeStd=0.002; LogProcessCycleTimeSum=0.043; LogProcessCycleTimeCount=38.000; ]
+09/11/26 05:35:23 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:35:23 Event: ULOG_JOB_HELD for HTCondor Node mifaser_mifaser_SLS (4351964.0.0) {09/11/26 05:35:19}
+09/11/26 05:35:23   Hold reason: submission command failed (exit code = 1) (stdout:Error submitting command python3 /usr/libexec/blahp/sfapi_helpers.py submit     --job-name    bl_ocO3O0     --input-files /home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/01/mifaser_mifaser_SLS.sh,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/pegasus-worker-5.1.3-dev.0-x86_64_rhel_8.tar.gz,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/01/mifaser_mifaser_SLS.in.lof,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/01/mifaser_mifaser_SLS.out.lof,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/00/trim_reads_trim_SLS.meta,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversi
+09/11/26 05:35:23 Number of idle job procs: 35
+09/11/26 05:35:23 DAG status: 0 (DAG_STATUS_OK)
+09/11/26 05:35:23 Of 135 nodes total:
+09/11/26 05:35:23  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+09/11/26 05:35:23   ===     ===      ===     ===     ===        ===      ===      ===
+09/11/26 05:35:23    13       0       37       0       0         85        0        0
+09/11/26 05:35:23 3 job proc(s) currently held
+09/11/26 05:35:23 DAGMan Runtime Statistics: [EventCycleTimeAvg=0.005; EventCycleTimeMax=0.402; EventCycleTimeMin=0.000; EventCycleTimeStd=0.036; EventCycleTimeSum=1.257; SleepCycleTimeAvg=5.004; SleepCycleTimeMax=5.270; SleepCycleTimeMin=4.140; SleepCycleTimeStd=0.083; SleepCycleTimeSum=1311.150; SubmitCycleTimeAvg=0.004; SubmitCycleTimeMax=0.402; SubmitCycleTimeMin=0.000; SubmitCycleTimeStd=0.036; SubmitCycleTimeSum=1.037; EventCycleTimeCount=262.000; SleepCycleTimeCount=262.000; SubmitCycleTimeCount=263.000; LogProcessCycleTimeAvg=0.001; LogProcessCycleTimeMax=0.010; LogProcessCycleTimeMin=0.000; LogProcessCycleTimeStd=0.002; LogProcessCycleTimeSum=0.043; LogProcessCycleTimeCount=39.000; ]
+09/11/26 05:36:33 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:36:33 Event: ULOG_EXECUTE for HTCondor Node trim_reads_trim_CYF (4351933.0.0) {09/11/26 05:36:29}
+09/11/26 05:36:33 Number of idle job procs: 34
+09/11/26 05:36:38 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:36:38 Event: ULOG_EXECUTE for HTCondor Node trim_reads_trim_BRS2 (4351926.0.0) {09/11/26 05:36:36}
+09/11/26 05:36:38 Number of idle job procs: 33
+09/11/26 05:37:43 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:37:43 Event: ULOG_JOB_TERMINATED for HTCondor Node trim_reads_trim_QNF (4351932.0.0) {09/11/26 05:37:43}
+09/11/26 05:37:43 Number of idle job procs: 33
+09/11/26 05:37:43 Node trim_reads_trim_QNF job proc (4351932.0.0) completed successfully.
+09/11/26 05:37:43 Node trim_reads_trim_QNF job(s) have exited the queue
+09/11/26 05:37:43 Running POST script of Node trim_reads_trim_QNF...
+09/11/26 05:37:43 DAG status: 0 (DAG_STATUS_OK)
+09/11/26 05:37:43 Of 135 nodes total:
+09/11/26 05:37:43  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+09/11/26 05:37:43   ===     ===      ===     ===     ===        ===      ===      ===
+09/11/26 05:37:43    13       0       36       1       0         85        0        0
+09/11/26 05:37:43 3 job proc(s) currently held
+09/11/26 05:37:43 DAGMan Runtime Statistics: [EventCycleTimeAvg=0.004; EventCycleTimeMax=0.402; EventCycleTimeMin=0.000; EventCycleTimeStd=0.035; EventCycleTimeSum=1.259; SleepCycleTimeAvg=5.004; SleepCycleTimeMax=5.270; SleepCycleTimeMin=4.140; SleepCycleTimeStd=0.079; SleepCycleTimeSum=1451.288; SubmitCycleTimeAvg=0.004; SubmitCycleTimeMax=0.402; SubmitCycleTimeMin=0.000; SubmitCycleTimeStd=0.034; SubmitCycleTimeSum=1.037; EventCycleTimeCount=290.000; SleepCycleTimeCount=290.000; SubmitCycleTimeCount=291.000; LogProcessCycleTimeAvg=0.001; LogProcessCycleTimeMax=0.010; LogProcessCycleTimeMin=0.000; LogProcessCycleTimeStd=0.002; LogProcessCycleTimeSum=0.045; LogProcessCycleTimeCount=42.000; ]
+09/11/26 05:37:43 Initializing user log writer for /home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/./subductcr-end-to-end-0.dag.nodes.log, (4351932.0.0)
+09/11/26 05:37:48 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:37:48 Event: ULOG_POST_SCRIPT_TERMINATED for HTCondor Node trim_reads_trim_QNF (4351932.0.0) {09/11/26 05:37:43}
+09/11/26 05:37:48 POST Script of node trim_reads_trim_QNF completed successfully.
+09/11/26 05:37:48 DAG status: 0 (DAG_STATUS_OK)
+09/11/26 05:37:48 Of 135 nodes total:
+09/11/26 05:37:48  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+09/11/26 05:37:48   ===     ===      ===     ===     ===        ===      ===      ===
+09/11/26 05:37:48    14       0       36       0       1         84        0        0
+09/11/26 05:37:48 3 job proc(s) currently held
+09/11/26 05:37:48 DAGMan Runtime Statistics: [EventCycleTimeAvg=0.004; EventCycleTimeMax=0.402; EventCycleTimeMin=0.000; EventCycleTimeStd=0.035; EventCycleTimeSum=1.260; SleepCycleTimeAvg=5.005; SleepCycleTimeMax=5.270; SleepCycleTimeMin=4.140; SleepCycleTimeStd=0.079; SleepCycleTimeSum=1456.459; SubmitCycleTimeAvg=0.004; SubmitCycleTimeMax=0.402; SubmitCycleTimeMin=0.000; SubmitCycleTimeStd=0.034; SubmitCycleTimeSum=1.037; EventCycleTimeCount=291.000; SleepCycleTimeCount=291.000; SubmitCycleTimeCount=292.000; LogProcessCycleTimeAvg=0.001; LogProcessCycleTimeMax=0.010; LogProcessCycleTimeMin=0.000; LogProcessCycleTimeStd=0.002; LogProcessCycleTimeSum=0.045; LogProcessCycleTimeCount=43.000; ]
+09/11/26 05:37:53 Submitting HTCondor Node mifaser_mifaser_QNF job(s)...
+09/11/26 05:37:53 Submitting node mifaser_mifaser_QNF from file 00/01/mifaser_mifaser_QNF.sub using direct job submission
+09/11/26 05:37:53 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:37:53 	assigned HTCondor ID (4351965.0.0)
+09/11/26 05:37:53 Just submitted 1 job this cycle...
+09/11/26 05:37:53 DAG status: 0 (DAG_STATUS_OK)
+09/11/26 05:37:53 Of 135 nodes total:
+09/11/26 05:37:53  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+09/11/26 05:37:53   ===     ===      ===     ===     ===        ===      ===      ===
+09/11/26 05:37:53    14       0       37       0       0         84        0        0
+09/11/26 05:37:53 3 job proc(s) currently held
+09/11/26 05:37:53 DAGMan Runtime Statistics: [EventCycleTimeAvg=0.004; EventCycleTimeMax=0.402; EventCycleTimeMin=0.000; EventCycleTimeStd=0.035; EventCycleTimeSum=1.261; SleepCycleTimeAvg=5.005; SleepCycleTimeMax=5.270; SleepCycleTimeMin=4.140; SleepCycleTimeStd=0.079; SleepCycleTimeSum=1461.463; SubmitCycleTimeAvg=0.004; SubmitCycleTimeMax=0.402; SubmitCycleTimeMin=0.000; SubmitCycleTimeStd=0.034; SubmitCycleTimeSum=1.058; EventCycleTimeCount=292.000; SleepCycleTimeCount=292.000; SubmitCycleTimeCount=293.000; LogProcessCycleTimeAvg=0.001; LogProcessCycleTimeMax=0.010; LogProcessCycleTimeMin=0.000; LogProcessCycleTimeStd=0.002; LogProcessCycleTimeSum=0.045; LogProcessCycleTimeCount=43.000; ]
+09/11/26 05:37:58 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:37:58 Reassigning the id of job mifaser_mifaser_QNF from (4351965.0.0) to (4351965.0.0)
+09/11/26 05:37:58 Event: ULOG_SUBMIT for HTCondor Node mifaser_mifaser_QNF (4351965.0.0) {09/11/26 05:37:53}
+09/11/26 05:37:58 Number of idle job procs: 34
+09/11/26 05:37:58 Event: ULOG_JOB_TERMINATED for HTCondor Node trim_reads_trim_PBS (4351938.0.0) {09/11/26 05:37:53}
+09/11/26 05:37:58 Number of idle job procs: 34
+09/11/26 05:37:58 Node trim_reads_trim_PBS job proc (4351938.0.0) completed successfully.
+09/11/26 05:37:58 Node trim_reads_trim_PBS job(s) have exited the queue
+09/11/26 05:37:58 Running POST script of Node trim_reads_trim_PBS...
+09/11/26 05:37:58 DAG status: 0 (DAG_STATUS_OK)
+09/11/26 05:37:58 Of 135 nodes total:
+09/11/26 05:37:58  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+09/11/26 05:37:58   ===     ===      ===     ===     ===        ===      ===      ===
+09/11/26 05:37:58    14       0       36       1       0         84        0        0
+09/11/26 05:37:58 3 job proc(s) currently held
+09/11/26 05:37:58 DAGMan Runtime Statistics: [EventCycleTimeAvg=0.004; EventCycleTimeMax=0.402; EventCycleTimeMin=0.000; EventCycleTimeStd=0.035; EventCycleTimeSum=1.282; SleepCycleTimeAvg=5.005; SleepCycleTimeMax=5.270; SleepCycleTimeMin=4.140; SleepCycleTimeStd=0.079; SleepCycleTimeSum=1466.468; SubmitCycleTimeAvg=0.004; SubmitCycleTimeMax=0.402; SubmitCycleTimeMin=0.000; SubmitCycleTimeStd=0.034; SubmitCycleTimeSum=1.058; EventCycleTimeCount=293.000; SleepCycleTimeCount=293.000; SubmitCycleTimeCount=294.000; LogProcessCycleTimeAvg=0.001; LogProcessCycleTimeMax=0.010; LogProcessCycleTimeMin=0.000; LogProcessCycleTimeStd=0.002; LogProcessCycleTimeSum=0.048; LogProcessCycleTimeCount=44.000; ]
+09/11/26 05:37:58 Initializing user log writer for /home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/./subductcr-end-to-end-0.dag.nodes.log, (4351938.0.0)
+09/11/26 05:38:03 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:38:03 Event: ULOG_POST_SCRIPT_TERMINATED for HTCondor Node trim_reads_trim_PBS (4351938.0.0) {09/11/26 05:37:58}
+09/11/26 05:38:03 POST Script of node trim_reads_trim_PBS completed successfully.
+09/11/26 05:38:03 DAG status: 0 (DAG_STATUS_OK)
+09/11/26 05:38:03 Of 135 nodes total:
+09/11/26 05:38:03  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+09/11/26 05:38:03   ===     ===      ===     ===     ===        ===      ===      ===
+09/11/26 05:38:03    15       0       36       0       1         83        0        0
+09/11/26 05:38:03 3 job proc(s) currently held
+09/11/26 05:38:03 DAGMan Runtime Statistics: [EventCycleTimeAvg=0.004; EventCycleTimeMax=0.402; EventCycleTimeMin=0.000; EventCycleTimeStd=0.034; EventCycleTimeSum=1.285; SleepCycleTimeAvg=5.006; SleepCycleTimeMax=5.270; SleepCycleTimeMin=4.140; SleepCycleTimeStd=0.080; SleepCycleTimeSum=1471.627; SubmitCycleTimeAvg=0.004; SubmitCycleTimeMax=0.402; SubmitCycleTimeMin=0.000; SubmitCycleTimeStd=0.034; SubmitCycleTimeSum=1.058; EventCycleTimeCount=294.000; SleepCycleTimeCount=294.000; SubmitCycleTimeCount=295.000; LogProcessCycleTimeAvg=0.001; LogProcessCycleTimeMax=0.010; LogProcessCycleTimeMin=0.000; LogProcessCycleTimeStd=0.002; LogProcessCycleTimeSum=0.048; LogProcessCycleTimeCount=45.000; ]
+09/11/26 05:38:08 Submitting HTCondor Node mifaser_mifaser_PBS job(s)...
+09/11/26 05:38:08 Submitting node mifaser_mifaser_PBS from file 00/01/mifaser_mifaser_PBS.sub using direct job submission
+09/11/26 05:38:08 Submit warning: Submit:0:the line 'pegasus_gpus = 0' was unused by DAGMAN. Is it a typo?
+|Submit:0:the line 'pegasus_diskspace_mb = 5120' was unused by DAGMAN. Is it a typo?
+09/11/26 05:38:08 	assigned HTCondor ID (4351966.0.0)
+09/11/26 05:38:08 Just submitted 1 job this cycle...
+09/11/26 05:38:08 DAG status: 0 (DAG_STATUS_OK)
+09/11/26 05:38:08 Of 135 nodes total:
+09/11/26 05:38:08  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+09/11/26 05:38:08   ===     ===      ===     ===     ===        ===      ===      ===
+09/11/26 05:38:08    15       0       37       0       0         83        0        0
+09/11/26 05:38:08 3 job proc(s) currently held
+09/11/26 05:38:08 DAGMan Runtime Statistics: [EventCycleTimeAvg=0.004; EventCycleTimeMax=0.402; EventCycleTimeMin=0.000; EventCycleTimeStd=0.034; EventCycleTimeSum=1.285; SleepCycleTimeAvg=5.006; SleepCycleTimeMax=5.270; SleepCycleTimeMin=4.140; SleepCycleTimeStd=0.079; SleepCycleTimeSum=1476.629; SubmitCycleTimeAvg=0.004; SubmitCycleTimeMax=0.402; SubmitCycleTimeMin=0.000; SubmitCycleTimeStd=0.034; SubmitCycleTimeSum=1.081; EventCycleTimeCount=295.000; SleepCycleTimeCount=295.000; SubmitCycleTimeCount=296.000; LogProcessCycleTimeAvg=0.001; LogProcessCycleTimeMax=0.010; LogProcessCycleTimeMin=0.000; LogProcessCycleTimeStd=0.002; LogProcessCycleTimeSum=0.048; LogProcessCycleTimeCount=45.000; ]
+09/11/26 05:38:13 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:38:13 Reassigning the id of job mifaser_mifaser_PBS from (4351966.0.0) to (4351966.0.0)
+09/11/26 05:38:13 Event: ULOG_SUBMIT for HTCondor Node mifaser_mifaser_PBS (4351966.0.0) {09/11/26 05:38:08}
+09/11/26 05:38:13 Number of idle job procs: 35
+09/11/26 05:38:28 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:38:28 Event: ULOG_JOB_HELD for HTCondor Node mifaser_mifaser_QNF (4351965.0.0) {09/11/26 05:38:24}
+09/11/26 05:38:28   Hold reason: submission command failed (exit code = 1) (stdout:Error submitting command python3 /usr/libexec/blahp/sfapi_helpers.py submit     --job-name    bl_T8Q9Un     --input-files /home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/01/mifaser_mifaser_QNF.sh,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/pegasus-worker-5.1.3-dev.0-x86_64_rhel_8.tar.gz,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/01/mifaser_mifaser_QNF.in.lof,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/01/mifaser_mifaser_QNF.out.lof,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/01/stage_in_local_compute_1_0.meta,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-
+09/11/26 05:38:28 Number of idle job procs: 35
+09/11/26 05:38:28 DAG status: 0 (DAG_STATUS_OK)
+09/11/26 05:38:28 Of 135 nodes total:
+09/11/26 05:38:28  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+09/11/26 05:38:28   ===     ===      ===     ===     ===        ===      ===      ===
+09/11/26 05:38:28    15       0       37       0       0         83        0        0
+09/11/26 05:38:28 4 job proc(s) currently held
+09/11/26 05:38:28 DAGMan Runtime Statistics: [EventCycleTimeAvg=0.004; EventCycleTimeMax=0.402; EventCycleTimeMin=0.000; EventCycleTimeStd=0.034; EventCycleTimeSum=1.308; SleepCycleTimeAvg=5.006; SleepCycleTimeMax=5.270; SleepCycleTimeMin=4.140; SleepCycleTimeStd=0.079; SleepCycleTimeSum=1496.647; SubmitCycleTimeAvg=0.004; SubmitCycleTimeMax=0.402; SubmitCycleTimeMin=0.000; SubmitCycleTimeStd=0.034; SubmitCycleTimeSum=1.081; EventCycleTimeCount=299.000; SleepCycleTimeCount=299.000; SubmitCycleTimeCount=300.000; LogProcessCycleTimeAvg=0.001; LogProcessCycleTimeMax=0.010; LogProcessCycleTimeMin=0.000; LogProcessCycleTimeStd=0.002; LogProcessCycleTimeSum=0.048; LogProcessCycleTimeCount=47.000; ]
+09/11/26 05:38:43 Currently monitoring 1 HTCondor log file(s)
+09/11/26 05:38:43 Event: ULOG_JOB_HELD for HTCondor Node mifaser_mifaser_PBS (4351966.0.0) {09/11/26 05:38:40}
+09/11/26 05:38:43   Hold reason: submission command failed (exit code = 1) (stdout:Error submitting command python3 /usr/libexec/blahp/sfapi_helpers.py submit     --job-name    bl_1jwzvQ     --input-files /home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/01/mifaser_mifaser_PBS.sh,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/pegasus-worker-5.1.3-dev.0-x86_64_rhel_8.tar.gz,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/01/mifaser_mifaser_PBS.in.lof,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/01/mifaser_mifaser_PBS.out.lof,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/00/trim_reads_trim_PBS.meta,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversi
+09/11/26 05:38:43 Number of idle job procs: 35
+09/11/26 05:38:43 DAG status: 0 (DAG_STATUS_OK)
+09/11/26 05:38:43 Of 135 nodes total:
+09/11/26 05:38:43  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+09/11/26 05:38:43   ===     ===      ===     ===     ===        ===      ===      ===
+09/11/26 05:38:43    15       0       37       0       0         83        0        0
+09/11/26 05:38:43 5 job proc(s) currently held
+09/11/26 05:38:43 DAGMan Runtime Statistics: [EventCycleTimeAvg=0.004; EventCycleTimeMax=0.402; EventCycleTimeMin=0.000; EventCycleTimeStd=0.034; EventCycleTimeSum=1.325; SleepCycleTimeAvg=5.006; SleepCycleTimeMax=5.270; SleepCycleTimeMin=4.140; SleepCycleTimeStd=0.078; SleepCycleTimeSum=1511.663; SubmitCycleTimeAvg=0.004; SubmitCycleTimeMax=0.402; SubmitCycleTimeMin=0.000; SubmitCycleTimeStd=0.034; SubmitCycleTimeSum=1.081; EventCycleTimeCount=302.000; SleepCycleTimeCount=302.000; SubmitCycleTimeCount=303.000; LogProcessCycleTimeAvg=0.001; LogProcessCycleTimeMax=0.010; LogProcessCycleTimeMin=0.000; LogProcessCycleTimeStd=0.002; LogProcessCycleTimeSum=0.049; LogProcessCycleTimeCount=48.000; ]
+09/11/26 05:40:22 Received SIGUSR1
+09/11/26 05:40:22 Aborting DAG...
+09/11/26 05:40:22 Writing Rescue DAG to subductcr-end-to-end-0.dag.rescue001...
+09/11/26 05:40:22 Removing submitted jobs...
+09/11/26 05:40:22 Removing any/all submitted HTCondor jobs...
+09/11/26 05:40:22 Running: /usr/bin/condor_rm -const DAGManJobId==4351914 -reason DAG' 'Removed:' 'User' 'removed' 'scheduler' 'job' 'from' 'queue.
+09/11/26 05:40:22 Note: 0 total node deferrals because of -MaxJobs limit (0)
+09/11/26 05:40:22 Note: 0 total node deferrals because of -MaxIdle limit (1000)
+09/11/26 05:40:22 Note: 0 total node deferrals because of node category throttles
+09/11/26 05:40:22 Note: 0 total PRE script deferrals because of -MaxPre limit (20) or DEFER
+09/11/26 05:40:22 Note: 0 total POST script deferrals because of -MaxPost limit (20) or DEFER
+09/11/26 05:40:22 Note: 0 total HOLD script deferrals because of -MaxHold limit (20) or DEFER
+09/11/26 05:40:22 DAG status: 4 (DAG_STATUS_RM)
+09/11/26 05:40:22 Of 135 nodes total:
+09/11/26 05:40:22  Done     Pre   Queued    Post   Ready   Un-Ready   Failed   Futile
+09/11/26 05:40:22   ===     ===      ===     ===     ===        ===      ===      ===
+09/11/26 05:40:22    15       0       37       0       0         83        0        0
+09/11/26 05:40:22 5 job proc(s) currently held
+09/11/26 05:40:22 DAGMan Runtime Statistics: [EventCycleTimeAvg=0.004; EventCycleTimeMax=0.402; EventCycleTimeMin=0.000; EventCycleTimeStd=0.033; EventCycleTimeSum=1.326; SleepCycleTimeAvg=5.005; SleepCycleTimeMax=5.270; SleepCycleTimeMin=4.140; SleepCycleTimeStd=0.076; SleepCycleTimeSum=1606.757; SubmitCycleTimeAvg=0.003; SubmitCycleTimeMax=0.402; SubmitCycleTimeMin=0.000; SubmitCycleTimeStd=0.033; SubmitCycleTimeSum=1.081; EventCycleTimeCount=322.000; SleepCycleTimeCount=321.000; SubmitCycleTimeCount=322.000; LogProcessCycleTimeAvg=0.001; LogProcessCycleTimeMax=0.010; LogProcessCycleTimeMin=0.000; LogProcessCycleTimeStd=0.002; LogProcessCycleTimeSum=0.049; LogProcessCycleTimeCount=48.000; ]
+09/11/26 05:40:22 Wrote metrics file subductcr-end-to-end-0.dag.metrics.
+09/11/26 05:40:22 DAGMan Runtime Statistics: [EventCycleTimeAvg=0.004; EventCycleTimeMax=0.402; EventCycleTimeMin=0.000; EventCycleTimeStd=0.033; EventCycleTimeSum=1.326; SleepCycleTimeAvg=5.005; SleepCycleTimeMax=5.270; SleepCycleTimeMin=4.140; SleepCycleTimeStd=0.076; SleepCycleTimeSum=1606.757; SubmitCycleTimeAvg=0.003; SubmitCycleTimeMax=0.402; SubmitCycleTimeMin=0.000; SubmitCycleTimeStd=0.033; SubmitCycleTimeSum=1.081; EventCycleTimeCount=322.000; SleepCycleTimeCount=321.000; SubmitCycleTimeCount=322.000; LogProcessCycleTimeAvg=0.001; LogProcessCycleTimeMax=0.010; LogProcessCycleTimeMin=0.000; LogProcessCycleTimeStd=0.002; LogProcessCycleTimeSum=0.049; LogProcessCycleTimeCount=48.000; ]
+09/11/26 05:40:22 **** condor_scheduniv_exec.4351914.0 (condor_DAGMAN) pid 4132622 EXITING WITH STATUS 2

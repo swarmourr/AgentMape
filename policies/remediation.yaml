@@ -1,0 +1,70 @@
+version: "1.0.0"
+
+# Per-failure-type policy entries.
+# decision: AUTO | ASK | STOP
+# AUTO  = system applies fix without waiting for human
+# ASK   = system pauses and requests explicit approval
+# STOP  = action is prohibited
+
+failure_policies:
+  OUT_OF_MEMORY:
+    action: INCREASE_MEMORY
+    decision: AUTO
+    multiplier: 1.5
+    maximum_memory_mb: 524288     # 512 GB ceiling (NERSC Perlmutter node max)
+    maximum_attempts: 3
+
+  DISK_EXCEEDED:
+    action: INCREASE_DISK
+    decision: AUTO
+    multiplier: 2.0
+    maximum_disk_mb: 1048576      # 1 TB ceiling
+    maximum_attempts: 2
+
+  WALLTIME_EXCEEDED:
+    action: INCREASE_RUNTIME
+    decision: ASK                 # cost implications → require approval
+    multiplier: 1.5
+    maximum_runtime_seconds: 172800  # 48 h hard ceiling
+    maximum_attempts: 2
+
+  TRANSIENT_INFRASTRUCTURE:
+    action: NO_ACTION_TRANSIENT_RETRY
+    decision: AUTO
+    maximum_attempts: 3
+
+  SCHEDULER_ADMISSION:
+    action: CORRECT_SCHEDULER_CONFIG
+    decision: ASK
+    maximum_attempts: 2
+
+  MISSING_INPUT:
+    action: CORRECT_DATA_BINDING
+    decision: ASK
+    maximum_attempts: 1
+
+  DATA_MISMATCH:
+    action: FIX_DATA_BINDING
+    decision: ASK                 # wrong format/dimensions — always needs human confirmation
+    maximum_attempts: 1
+
+  SCRIPT_ERROR:
+    action: PATCH_TRANSFORMATION_SCRIPT
+    decision: ASK                 # script patches always require human approval
+    maximum_attempts: 1
+
+  APPLICATION_ERROR:
+    decision: ASK                 # requires LLM diagnosis + human confirmation
+    maximum_attempts: 2
+
+  LOGIC_VALIDATION:
+    decision: STOP                # never auto-fix scientific logic
+
+  UNKNOWN:
+    decision: ESCALATE
+
+global:
+  one_fix_per_attempt: true
+  require_configuration_diff: true
+  require_output_validation: true
+  maximum_attempts: 5             # global fallback across all types
