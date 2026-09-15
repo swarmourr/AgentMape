@@ -378,6 +378,9 @@ async def _run_agent(
     Imports app modules at call time so the script still works standalone
     when --agent is not used.
     """
+    import logging
+    logging.disable(logging.WARNING)   # silence structlog/app package logs
+
     from uuid import uuid4
 
     from app.agents.diagnosis import DiagnosisAgent

@@ -123,6 +123,27 @@ Diagnostic rules:
   • Never suggest modifying scientific algorithms or scientific parameters
   • DATA_MISMATCH: wrong file format, mismatched dimensions, corrupted input
   • SCRIPT_ERROR: missing module, wrong env, incorrect argument, script bug
+
+PegasusLite exit code rules (exit codes from the PegasusLite wrapper script):
+  • exitcode 71  = the user application inside the container exited with code 1
+                   → focus on WHY the application failed, not the wrapper
+  • exitcode 72  = PegasusLite setup failure (worker package, staging)
+  • exitcode 73  = data staging failure (transfer_input_files could not be fetched)
+  • exitcode 74  = output transfer failure
+  • exitcode 75  = cleanup failure (usually ignorable)
+
+Missing-file triage rules:
+  • Files named *.lof, *.meta, pegasus-worker-*.tar.gz, pegasus-lite-common.sh
+    are Pegasus INFRASTRUCTURE files — their absence is normal on the compute node
+    (they are staged by PegasusLite itself). Do NOT conclude MISSING_INPUT for these.
+  • Only conclude MISSING_INPUT if SCIENTIFIC input files (fasta, fastq, db, csv, …) are missing.
+
+Repeated fast-failure rule:
+  • If kickstart shows N ≥ 3 attempts all with wall_time < 60 s and exit_code != 0
+    → the job fails immediately on every retry
+    → likely a container environment issue (wrong image, missing binary, bad env var)
+    → conclude APPLICATION_ERROR with note "repeated fast failures suggest container/env problem"
+    → confidence 0.80 is sufficient; do not exhaust all tools searching for more evidence
 """
 
 
