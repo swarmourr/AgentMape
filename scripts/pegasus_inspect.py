@@ -159,7 +159,7 @@ def _read(path: Path | None, max_bytes: int = 200_000) -> str:
 
 # ── Parsers ────────────────────────────────────────────────────────────────────
 
-def _parse_sub(content: str) -> ResourceRequests:
+def _parse_sub(content: str, submit_dir: Path | None = None) -> ResourceRequests:
     r = ResourceRequests()
     if not content:
         return r
@@ -185,6 +185,11 @@ def _parse_sub(content: str) -> ResourceRequests:
                 except (ValueError, TypeError):
                     pass
 
+    # Resolve the HTCondor ClassAd variable $(wf_submit_dir) that Pegasus
+    # injects into transfer_input_files.  Its value equals the submit directory.
+    # Without resolution every path containing $(wf_submit_dir) looks MISSING.
+    wf_submit_dir_value = str(submit_dir.resolve()) if submit_dir else ""
+
     # transfer_input_files (may span lines with backslash continuation)
     m = re.search(
         r"^\s*transfer_input_files\s*=\s*(.+?)(?=\n\S|\Z)",
@@ -192,7 +197,14 @@ def _parse_sub(content: str) -> ResourceRequests:
     )
     if m:
         raw = m.group(1).replace("\\\n", " ")
-        r.transfer_inputs = [f.strip() for f in raw.split(",") if f.strip()]
+        files = [f.strip() for f in raw.split(",") if f.strip()]
+        if wf_submit_dir_value:
+            files = [
+                f.replace("$(wf_submit_dir)", wf_submit_dir_value)
+                 .replace("$(wf_submit_DIR)", wf_submit_dir_value)
+                for f in files
+            ]
+        r.transfer_inputs = files
 
     return r
 
@@ -687,7 +699,7 @@ def inspect_job(submit_dir: Path, job_id: str) -> JobReport | None:
     if not sub_content and not err_content and not out_files:
         return None   # job files not found
 
-    requests = _parse_sub(sub_content)
+    requests = _parse_sub(sub_content, submit_dir=submit_dir)
     kickstart_records = [
         _parse_kickstart(_read(p), attempt=i)
         for i, p in enumerate(out_files)
