@@ -184,11 +184,13 @@ async def run_diagnosis_agent(state: dict[str, Any]) -> dict[str, Any]:
 
     Runs a multi-step Reason→Act→Observe loop using the raw file evidence
     collected by the POST script (or AMQP path if available).
+
+    Uses svc["diagnosis_llm"] when available; falls back to svc["llm"].
     """
     from app.agents.diagnosis import DiagnosisAgent
 
     svc = _svc()
-    llm = svc["llm"]
+    llm = svc.get("diagnosis_llm") or svc["llm"]
     agent = DiagnosisAgent(llm)
     ctx = _ctx(state)
     memories = state.get("retrieved_memories", [])
@@ -234,11 +236,13 @@ async def run_fix_planner(state: dict[str, Any]) -> dict[str, Any]:
     """
     LLM-powered fix planning for complex/unfamiliar failure types.
     Only invoked when the catalog has no match.
+
+    Uses svc["fix_planning_llm"] when available; falls back to svc["llm"].
     """
     from app.agents.fix_planning import FixPlanningAgent
 
     svc = _svc()
-    llm = svc["llm"]
+    llm = svc.get("fix_planning_llm") or svc["llm"]
     agent = FixPlanningAgent(llm)
     ctx = _ctx(state)
     diagnosis = _diagnosis(state)

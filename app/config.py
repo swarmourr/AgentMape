@@ -33,15 +33,27 @@ class Settings(BaseSettings):
     redis_lock_ttl_seconds: int = 300
     redis_dedup_ttl_seconds: int = 86400  # 24 h
 
-    # ── LLM — provider-agnostic via LiteLLM ──────────────────────────────────
-    # Set LLM_MODEL to any model string LiteLLM supports.
-    # Set the provider-specific key in env (OPENAI_API_KEY, ANTHROPIC_API_KEY, etc.)
-    # or pass it via LLM_API_KEY for custom endpoints.
+    # ── LLM — shared defaults ─────────────────────────────────────────────────
+    # Used by any agent that does not have its own override below.
     llm_model: str = "gpt-4o"
     llm_api_key: str | None = None    # optional: overrides provider-specific key
     llm_base_url: str | None = None   # optional: for local/institutional endpoints
     llm_max_retries: int = 3
     llm_temperature: float = 0.0
+
+    # ── LLM — DiagnosisAgent overrides ───────────────────────────────────────
+    # Falls back to the shared llm_* values when not set.
+    # DiagnosisAgent does multi-step ReAct — use a strong reasoning model.
+    diagnosis_llm_model: str | None = None
+    diagnosis_llm_api_key: str | None = None
+    diagnosis_llm_base_url: str | None = None
+
+    # ── LLM — FixPlanningAgent overrides ─────────────────────────────────────
+    # Falls back to the shared llm_* values when not set.
+    # FixPlanning is a single call — a cheaper/faster model is often sufficient.
+    fix_planning_llm_model: str | None = None
+    fix_planning_llm_api_key: str | None = None
+    fix_planning_llm_base_url: str | None = None
 
     # ── Policy ────────────────────────────────────────────────────────────────
     policy_file: str = "policies/remediation.yaml"

@@ -80,6 +80,17 @@ class KickstartRecord:
 
 
 @dataclass
+class StagingEntry:
+    """One input file's staging/replica status."""
+    lfn:            str              # logical file name
+    pfn:            str              # physical location (URL or path)
+    size_bytes:     int | None = None   # from .meta
+    checksum:       str | None = None   # sha256 or similar, from .meta
+    exists_local:   bool | None = None  # True/False if pfn is file://; None if remote
+    staging_error:  str | None = None   # error line from stage_in_* stderr
+
+
+@dataclass
 class JobReport:
     job_id:       str
     exit_code:    int | None
@@ -88,6 +99,7 @@ class JobReport:
     kickstart:    list[KickstartRecord]   # one per .out.00* attempt, last = most recent
     stderr_tail:  str
     sub_path:     str | None
+    staging:      list[StagingEntry] = field(default_factory=list)
     has_walltime_warning: bool = False
     has_memory_warning:   bool = False
 
@@ -299,6 +311,140 @@ def _categorise(exit_code: int | None, stderr: str, requests: ResourceRequests,
     if exit_code is not None and exit_code != 0:
         return f"APPLICATION_ERROR (exit {exit_code})"
     return "UNKNOWN"
+
+
+# ── Data / replica inspection ──────────────────────────────────────────────────
+
+def _parse_lof(content: str) -> list[tuple[str, str]]:
+    """
+    Parse a Pegasus .in.lof staging manifest into (lfn, pfn) pairs.
+
+    Handled formats:
+      • "lfn pfn"   — two-token lines (Pegasus 5.x standard)
+      • "pfn"       — single URL; lfn derived from URL basename
+      • Lines beginning with # or blank lines are skipped.
+    """
+    pairs: list[tuple[str, str]] = []
+    for raw in content.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split(None, 1)
+        if len(parts) == 2:
+            lfn, pfn = parts
+        else:
+            pfn = parts[0]
+            lfn = pfn.rstrip("/").rsplit("/", 1)[-1].split("?")[0]
+        pairs.append((lfn, pfn))
+    return pairs
+
+
+def _read_meta(meta_path: Path) -> tuple[int | None, str | None]:
+    """Parse a Pegasus .meta JSON file; return (size_bytes, checksum_value)."""
+    try:
+        data = json.loads(meta_path.read_text(encoding="utf-8", errors="replace"))
+        size = data.get("size") or data.get("file_size")
+        chk  = data.get("checksum.value") or data.get("checksum")
+        return (int(size) if size is not None else None, str(chk) if chk else None)
+    except Exception:
+        return (None, None)
+
+
+def _pfn_to_local_path(pfn: str) -> str | None:
+    """Return local path for file:// or absolute PFNs; None for remote URLs."""
+    if pfn.startswith("file://"):
+        return pfn[7:]
+    if pfn.startswith("/") or pfn.startswith("./"):
+        return pfn
+    return None
+
+
+def _find_stage_in_errors(submit_dir: Path, lfns: set[str]) -> dict[str, str]:
+    """
+    Scan stage_in_*.err files under submit_dir for transfer failures that
+    mention any of the given LFNs.  Returns {lfn: first_error_line}.
+    """
+    if not lfns:
+        return {}
+
+    err_files: list[Path] = []
+    # stage_in jobs can be at the root or inside XX/YY buckets
+    for pattern in ("stage_in_*.err", "*stage_in*.err"):
+        err_files.extend(submit_dir.glob(pattern))
+        for d in _find_job_dirs(submit_dir):
+            err_files.extend(d.glob(pattern))
+
+    errors: dict[str, str] = {}
+    seen: set[Path] = set()
+    _error_kw = ("fail", "error", "exception", "no such", "timeout",
+                 "refused", "denied", "could not", "unable")
+    for err_path in sorted(set(err_files)):
+        if err_path in seen or not err_path.exists():
+            continue
+        seen.add(err_path)
+        content = _read(err_path, max_bytes=50_000)
+        for lfn in lfns:
+            if lfn in errors or lfn not in content:
+                continue
+            for line in content.splitlines():
+                if lfn in line and any(k in line.lower() for k in _error_kw):
+                    errors[lfn] = line.strip()
+                    break
+    return errors
+
+
+def _inspect_data_staging(
+    submit_dir: Path,
+    job_id: str,
+    dirs: list[Path],
+) -> list[StagingEntry]:
+    """
+    Read the job's .in.lof staging manifest and enrich each entry with
+    size/checksum from .meta files, local existence check, and any
+    transfer errors found in stage_in_* job stderr.
+
+    Returns an empty list when no .in.lof is found (job has no staged inputs).
+    """
+    # Locate the .in.lof file — Pegasus places it alongside the .sub file
+    lof_path: Path | None = None
+    for d in dirs + [submit_dir]:
+        for pat in (f"{job_id}.in.lof", f"{job_id}_ID*.in.lof", f"{job_id}.lof"):
+            candidates = sorted(d.glob(pat))
+            if candidates:
+                lof_path = candidates[0]
+                break
+        if lof_path:
+            break
+
+    if lof_path is None:
+        return []
+
+    pairs = _parse_lof(_read(lof_path))
+    if not pairs:
+        return []
+
+    lfns = {lfn for lfn, _ in pairs}
+    stage_errors = _find_stage_in_errors(submit_dir, lfns)
+
+    entries: list[StagingEntry] = []
+    for lfn, pfn in pairs:
+        entry = StagingEntry(lfn=lfn, pfn=pfn)
+
+        # Try to read .meta (placed next to the lof or in submit_dir root)
+        for meta_p in (lof_path.parent / f"{lfn}.meta", submit_dir / f"{lfn}.meta"):
+            if meta_p.exists():
+                entry.size_bytes, entry.checksum = _read_meta(meta_p)
+                break
+
+        # Check local existence for file:// or absolute PFNs
+        local = _pfn_to_local_path(pfn)
+        if local is not None:
+            entry.exists_local = Path(local).exists()
+
+        entry.staging_error = stage_errors.get(lfn)
+        entries.append(entry)
+
+    return entries
 
 
 # ── Job grouping ───────────────────────────────────────────────────────────────
@@ -527,30 +673,41 @@ async def _run_agent(
         "explanation": diagnosis.explanation or "",
         "requires_human_review": diagnosis.requires_human_review,
         "missing_evidence": diagnosis.missing_evidence,
+        # fix plan fields (populated below)
+        "fix_action": None,
+        "fix_justification": None,
+        "fix_parameters": {},
+        "fix_proposed_configuration": {},
+        "fix_confidence": None,
+        "fix_requires_approval": None,
         "script_patches": [],
     }
 
-    # If the agent identified a script error and the script is local,
-    # run the FixPlanningAgent to generate a suggested patch.
-    if diagnosis.failure_type.value == "SCRIPT_ERROR" and evidence.transformation_script_content:
+    # Always run FixPlanningAgent so the operator sees what would be executed.
+    if verbose:
+        print("    [fix-planner] planning fix …", flush=True)
+    try:
+        from app.agents.fix_planning import FixPlanningAgent
+        fix_planner = FixPlanningAgent(llm)
+        proposal = await fix_planner.run(ctx, diagnosis, raw_evidence=evidence)
+        result["fix_action"] = proposal.action.value
+        result["fix_justification"] = proposal.justification
+        result["fix_parameters"] = proposal.parameters or {}
+        result["fix_proposed_configuration"] = proposal.proposed_configuration or {}
+        result["fix_confidence"] = proposal.confidence
+        result["fix_requires_approval"] = proposal.requires_approval
+        result["script_patches"] = [
+            {
+                "file_path":         p.file_path,
+                "patch_description": p.patch_description,
+                "original_content":  p.original_content,
+                "patched_content":   p.patched_content,
+            }
+            for p in proposal.script_patches
+        ]
+    except Exception as exc:
         if verbose:
-            print("    [fix-planner] SCRIPT_ERROR detected — generating patch suggestion …", flush=True)
-        try:
-            from app.agents.fix_planning import FixPlanningAgent
-            fix_planner = FixPlanningAgent(llm)
-            proposal = await fix_planner.run(ctx, diagnosis, raw_evidence=evidence)
-            result["script_patches"] = [
-                {
-                    "file_path":         p.file_path,
-                    "patch_description": p.patch_description,
-                    "original_content":  p.original_content,
-                    "patched_content":   p.patched_content,
-                }
-                for p in proposal.script_patches
-            ]
-        except Exception as exc:
-            if verbose:
-                print(f"    [fix-planner] failed: {exc}", flush=True)
+            print(f"    [fix-planner] failed: {exc}", flush=True)
 
     return result
 
@@ -587,6 +744,37 @@ def _print_agent_diagnosis(diag: dict) -> None:
         print("    ⚠  requires human review")
     for ev in diag.get("missing_evidence", [])[:3]:
         print(f"    missing      : {ev}")
+
+    # ── Fix plan ──────────────────────────────────────────────────────────────
+    if diag.get("fix_action"):
+        approval = diag.get("fix_requires_approval")
+        approval_str = "  (requires approval)" if approval else "  (AUTO — no approval needed)"
+        fix_conf = diag.get("fix_confidence")
+        fix_conf_str = f"  confidence={fix_conf:.0%}" if fix_conf is not None else ""
+        print(f"\n  Fix Plan  (FixPlanningAgent):")
+        print(f"    action       : {_c('bold', diag['fix_action'])}{approval_str}{fix_conf_str}")
+        if diag.get("fix_justification"):
+            words = diag["fix_justification"].split()
+            line, out = [], []
+            for w in words:
+                if sum(len(x) + 1 for x in line) + len(w) > 65:
+                    out.append("    " + " ".join(line))
+                    line = [w]
+                else:
+                    line.append(w)
+            if line:
+                out.append("    " + " ".join(line))
+            label = "    justification: "
+            print(label + out[0].lstrip())
+            for rest in out[1:]:
+                print(" " * len(label) + rest.lstrip())
+        cfg = diag.get("fix_proposed_configuration") or {}
+        params = diag.get("fix_parameters") or {}
+        changes = {**params, **cfg}
+        if changes:
+            print(f"    changes      :")
+            for k, v in changes.items():
+                print(f"      {k} = {v}")
 
     # ── Suggested script patches ──────────────────────────────────────────────
     for patch in diag.get("script_patches", []):
@@ -774,6 +962,8 @@ def inspect_job(submit_dir: Path, job_id: str) -> JobReport | None:
         ratio = last_ks.peak_memory_mb / requests.memory_mb
         has_memory_warn = ratio >= WARN_MEMORY
 
+    staging = _inspect_data_staging(submit_dir, job_id, dirs)
+
     return JobReport(
         job_id=job_id,
         exit_code=exit_code,
@@ -782,6 +972,7 @@ def inspect_job(submit_dir: Path, job_id: str) -> JobReport | None:
         kickstart=kickstart_records,
         stderr_tail=stderr_tail,
         sub_path=str(sub_path) if sub_path else None,
+        staging=staging,
         has_walltime_warning=has_walltime_warn,
         has_memory_warning=has_memory_warn,
     )
@@ -887,6 +1078,35 @@ def _print_report(report: JobReport, agent_diag: dict | None = None) -> None:
             print(f"    {mark}  {f}{size}")
         if len(req.transfer_inputs) > 6:
             print(f"    … and {len(req.transfer_inputs) - 6} more")
+
+    # ── Data staging (replica/LFN tracking) ──────────────────────────────────
+    if r.staging:
+        missing_cnt = sum(1 for e in r.staging if e.exists_local is False)
+        error_cnt   = sum(1 for e in r.staging if e.staging_error)
+        header_suffix = ""
+        if missing_cnt:
+            header_suffix += f"  ⚠ {missing_cnt} MISSING"
+        if error_cnt:
+            header_suffix += f"  ⚠ {error_cnt} TRANSFER ERROR"
+        print(f"\n  Input staging  ({len(r.staging)} file(s){header_suffix}):")
+        for entry in r.staging[:10]:
+            if entry.exists_local is False:
+                mark = "✗ MISSING"
+            elif entry.exists_local:
+                mark = "✓"
+            else:
+                mark = "~"    # remote URL — existence not checkable locally
+            size_str = f"  ({entry.size_bytes // 1024} KB)" if entry.size_bytes else ""
+            chk_str  = f"  sha256:{entry.checksum[:12]}…" if entry.checksum else ""
+            print(f"    {mark}  {entry.lfn}{size_str}{chk_str}")
+            # Show PFN only when it differs meaningfully from the LFN
+            pfn_base = entry.pfn.rstrip("/").rsplit("/", 1)[-1].split("?")[0]
+            if pfn_base != entry.lfn:
+                print(f"         pfn: {entry.pfn}")
+            if entry.staging_error:
+                print(f"         ⚠  transfer error: {entry.staging_error}")
+        if len(r.staging) > 10:
+            print(f"    … and {len(r.staging) - 10} more")
 
     # ── Stderr tail ───────────────────────────────────────────────────────────
     if not ok:

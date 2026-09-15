@@ -36,7 +36,7 @@ from app.db.session import async_session_factory, get_session
 from app.events.consumer import AMQPConsumer
 from app.events.persistence import get_or_create_incident, persist_event
 from app.graph import create_graph_with_checkpointer
-from app.llm import build_llm_provider
+from app.llm import build_diagnosis_provider, build_fix_planning_provider, build_llm_provider
 from app.models.events import WorkflowEvent
 from app.models.fixes import FixOutcome
 from app.observability import configure_logging, metrics
@@ -58,13 +58,20 @@ async def lifespan(app: FastAPI):  # type: ignore[no-untyped-def]
     global _graph, _amqp_consumer, _redis
     configure_logging()
 
-    log.info("service_starting", model=settings.llm_model)
+    log.info(
+        "service_starting",
+        model=settings.llm_model,
+        diagnosis_model=settings.diagnosis_llm_model or settings.llm_model,
+        fix_planning_model=settings.fix_planning_llm_model or settings.llm_model,
+    )
 
     # Build services
     _redis = aioredis.from_url(settings.redis_url, decode_responses=True)
     policy_config = load_policy(settings.policy_file)
     policy_engine = PolicyEngine(policy_config, settings.confidence_threshold)
     llm_provider = build_llm_provider()
+    diagnosis_llm  = build_diagnosis_provider()
+    fix_planning_llm = build_fix_planning_provider()
     retry_controller = FakePegasusRetryController()  # swap for real adapter
 
     # Build LangGraph — PostgreSQL if configured, SQLite otherwise
@@ -76,7 +83,9 @@ async def lifespan(app: FastAPI):  # type: ignore[no-untyped-def]
 
     # Wire services into node kwargs via a closure
     node_services = {
-        "llm": llm_provider,
+        "llm": llm_provider,             # shared fallback
+        "diagnosis_llm": diagnosis_llm,  # DiagnosisAgent (multi-step ReAct)
+        "fix_planning_llm": fix_planning_llm,  # FixPlanningAgent (single call)
         "policy": policy_config,
         "policy_engine": policy_engine,
         "retry_controller": retry_controller,
