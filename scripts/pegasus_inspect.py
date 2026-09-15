@@ -15,13 +15,29 @@ Usage
     python scripts/pegasus_inspect.py  /path/to/run/submit_dir
     python scripts/pegasus_inspect.py  /path/to/run/submit_dir  --job mifaser_mifaser_ARS
     python scripts/pegasus_inspect.py  /path/to/run/submit_dir  --all    # include succeeded jobs
+    python scripts/pegasus_inspect.py  /path/to/run/submit_dir  --agent  # run AI diagnosis
 
-The script is self-contained — no imports from the app package.
+AI mode (--agent)
+─────────────────
+Requires the app package to be importable (i.e. run from the project root).
+Reads LLM_MODEL / LLM_API_KEY / LLM_BASE_URL from environment or .env file.
+Override on the command line with --model / --api-key / --base-url.
+
+    # Ollama (local)
+    python scripts/pegasus_inspect.py submit_dir --agent --model ollama/llama3.3:70b
+
+    # OpenAI
+    LLM_API_KEY=sk-... python scripts/pegasus_inspect.py submit_dir --agent --model gpt-4o
+
+The static analysis is always shown; AI diagnosis is appended beneath it.
+
+The script is self-contained in static mode — no app package imports needed.
 """
 
 from __future__ import annotations
 
 import argparse
+import asyncio
 import glob
 import json
 import os
@@ -80,11 +96,14 @@ class JobReport:
 
 def _find_job_dirs(submit_dir: Path) -> list[Path]:
     """
-    Pegasus 5.x stores job files under 00/00/.
-    Fall back to the submit_dir root for older layouts.
+    Return all XX/YY job subdirectories found under submit_dir, sorted.
+
+    Pegasus distributes jobs across multiple buckets to avoid filesystem
+    inode limits: 00/00, 00/01, ..., 01/00, 01/01, ...
+    Falls back to the submit_dir root for flat/legacy layouts.
     """
-    deep = submit_dir / "00" / "00"
-    return [deep] if deep.is_dir() else [submit_dir]
+    subdirs = sorted(submit_dir.glob("[0-9][0-9]/[0-9][0-9]"))
+    return subdirs if subdirs else [submit_dir]
 
 
 def _find_file(dirs: list[Path], job_id: str, ext: str) -> Path | None:
@@ -270,24 +289,136 @@ def _categorise(exit_code: int | None, stderr: str, requests: ResourceRequests,
     return "UNKNOWN"
 
 
+# ── Agent integration ──────────────────────────────────────────────────────────
+
+def _load_dotenv(project_root: Path) -> None:
+    """Load .env file from project_root if present (no dotenv package required)."""
+    env_file = project_root / ".env"
+    if not env_file.exists():
+        return
+    for line in env_file.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, val = line.partition("=")
+        key = key.strip()
+        val = val.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = val
+
+
+async def _run_agent(
+    submit_dir: Path,
+    report: JobReport,
+    model: str,
+    api_key: str | None,
+    base_url: str | None,
+) -> dict:
+    """
+    Run DiagnosisAgent on a single failed job.
+
+    Imports app modules at call time so the script still works standalone
+    when --agent is not used.
+    """
+    from uuid import uuid4
+
+    from app.agents.diagnosis import DiagnosisAgent
+    from app.collectors.submit_dir import collect_evidence, parse_instance_id
+    from app.llm.litellm_provider import LiteLLMProvider
+    from app.models.context import FailureContext, ResourceRequest, ResourceUsage
+
+    llm = LiteLLMProvider(model=model, api_key=api_key, base_url=base_url)
+    agent = DiagnosisAgent(llm)
+
+    ks = report.kickstart[-1] if report.kickstart else None
+    req = report.requests
+    instance_id = parse_instance_id(report.job_id)
+
+    ctx = FailureContext(
+        incident_id=uuid4(),
+        workflow_id=str(submit_dir.name),
+        job_id=report.job_id,
+        job_instance_id=instance_id,
+        exit_code=report.exit_code,
+        requested_resources=ResourceRequest(
+            memory_mb=req.memory_mb,
+            disk_mb=req.disk_mb,
+            cpus=req.cpus,
+            runtime_seconds=req.runtime_seconds,
+        ),
+        measured_resources=ResourceUsage(
+            peak_memory_mb=int(ks.peak_memory_mb) if ks and ks.peak_memory_mb else None,
+            runtime_seconds=int(ks.wall_time_s) if ks and ks.wall_time_s else None,
+        ),
+    )
+
+    evidence = collect_evidence(
+        submit_dir=str(submit_dir),
+        job_id=report.job_id,
+        instance_id=instance_id,
+    )
+
+    diagnosis = await agent.run(ctx, evidence, retrieved_memories=[])
+    return {
+        "failure_type": str(diagnosis.failure_type.value),
+        "confidence": diagnosis.confidence,
+        "explanation": diagnosis.explanation or "",
+        "requires_human_review": diagnosis.requires_human_review,
+        "missing_evidence": diagnosis.missing_evidence,
+    }
+
+
+def _print_agent_diagnosis(diag: dict) -> None:
+    conf_pct = f"{diag['confidence']:.0%}" if diag.get("confidence") is not None else "—"
+    print(f"\n  AI Diagnosis  (DiagnosisAgent):")
+    print(f"    failure_type : {diag['failure_type']}")
+    print(f"    confidence   : {conf_pct}")
+    # Wrap explanation at ~65 chars
+    explanation = diag.get("explanation", "")
+    if explanation:
+        words = explanation.split()
+        line, out = [], []
+        for w in words:
+            if sum(len(x) + 1 for x in line) + len(w) > 65:
+                out.append("    " + " ".join(line))
+                line = [w]
+            else:
+                line.append(w)
+        if line:
+            out.append("    " + " ".join(line))
+        label = "    explanation : "
+        print(label + out[0].lstrip())
+        for rest in out[1:]:
+            print(" " * len(label) + rest.lstrip())
+    if diag.get("requires_human_review"):
+        print("    ⚠  requires human review")
+    for ev in diag.get("missing_evidence", [])[:3]:
+        print(f"    missing      : {ev}")
+
+
 # ── DAG scanner ────────────────────────────────────────────────────────────────
 
 def _discover_jobs(submit_dir: Path) -> list[str]:
     """
-    Find all job IDs from .dag files. Falls back to scanning .sub files.
+    Find all job IDs from .dag files. Falls back to scanning .sub files
+    across all XX/YY subdirectories.
     """
     job_ids: list[str] = []
+
+    # Primary: parse JOB lines from .dag files in the root
     for dag_file in sorted(submit_dir.glob("*.dag")):
         for line in dag_file.read_text(errors="replace").splitlines():
             m = re.match(r"^\s*JOB\s+(\S+)", line, re.IGNORECASE)
             if m:
                 job_ids.append(m.group(1))
+
     if not job_ids:
-        # Fallback: scan for .sub files
-        dirs = _find_job_dirs(submit_dir)
-        for d in dirs:
-            for sub in d.glob("*.sub"):
-                job_ids.append(sub.stem.split("_ID")[0])
+        # Fallback: scan all XX/YY subdirs for .sub files
+        for d in _find_job_dirs(submit_dir):
+            for sub in sorted(d.glob("*.sub")):
+                # Strip _ID0000001 instance suffix to get the base job_id
+                job_ids.append(re.sub(r"_ID\d+$", "", sub.stem))
+
     return list(dict.fromkeys(job_ids))   # deduplicate, preserve order
 
 
@@ -370,7 +501,7 @@ def _fmt_seconds(s: float | None) -> str:
     return f"{sec}s"
 
 
-def _print_report(report: JobReport) -> None:
+def _print_report(report: JobReport, agent_diag: dict | None = None) -> None:
     r = report
     ks = r.kickstart[-1] if r.kickstart else None   # most recent attempt
 
@@ -456,6 +587,10 @@ def _print_report(report: JobReport) -> None:
             for line in show:
                 print(f"    {line}")
 
+    # ── AI diagnosis (optional) ───────────────────────────────────────────────
+    if agent_diag is not None:
+        _print_agent_diagnosis(agent_diag)
+
     print(f"{'═' * W}")
 
 
@@ -503,6 +638,22 @@ def main() -> int:
         "--summary-only", action="store_true",
         help="Print only the summary table, no per-job details",
     )
+    parser.add_argument(
+        "--agent", action="store_true",
+        help="Run AI DiagnosisAgent on each failed job (requires app package + LLM config)",
+    )
+    parser.add_argument(
+        "--model", metavar="MODEL", default=None,
+        help="LLM model for --agent mode (default: $LLM_MODEL or ollama/llama3.3:70b)",
+    )
+    parser.add_argument(
+        "--api-key", metavar="KEY", default=None,
+        help="LLM API key for --agent mode (default: $LLM_API_KEY)",
+    )
+    parser.add_argument(
+        "--base-url", metavar="URL", default=None,
+        help="LLM base URL override for --agent mode (default: $LLM_BASE_URL)",
+    )
     args = parser.parse_args()
 
     submit_dir = Path(args.submit_dir)
@@ -510,7 +661,41 @@ def main() -> int:
         print(f"ERROR: not a directory: {submit_dir}", file=sys.stderr)
         return 1
 
-    # Discover jobs
+    # ── Agent mode setup ──────────────────────────────────────────────────────
+    agent_enabled = False
+    agent_model: str = ""
+    agent_api_key: str | None = None
+    agent_base_url: str | None = None
+
+    if args.agent:
+        # Make sure the project root (parent of scripts/) is on sys.path
+        project_root = Path(__file__).parent.parent
+        if str(project_root) not in sys.path:
+            sys.path.insert(0, str(project_root))
+        _load_dotenv(project_root)
+
+        agent_model = (
+            args.model
+            or os.environ.get("LLM_MODEL", "")
+            or "ollama/llama3.3:70b"
+        )
+        agent_api_key = args.api_key or os.environ.get("LLM_API_KEY") or None
+        agent_base_url = args.base_url or os.environ.get("LLM_BASE_URL") or None
+
+        try:
+            import app.agents.diagnosis  # noqa: F401 — import check only
+            agent_enabled = True
+        except ImportError as exc:
+            print(
+                f"WARNING: --agent disabled — cannot import app package: {exc}",
+                file=sys.stderr,
+            )
+            print(
+                "  Run from the project root:  python scripts/pegasus_inspect.py ...",
+                file=sys.stderr,
+            )
+
+    # ── Discover jobs ─────────────────────────────────────────────────────────
     if args.job:
         job_ids = [args.job]
     else:
@@ -521,6 +706,8 @@ def main() -> int:
 
     print(f"\npegasus_inspect  →  {submit_dir}")
     print(f"Jobs discovered : {len(job_ids)}")
+    if agent_enabled:
+        print(f"Agent model     : {agent_model}")
 
     reports: list[JobReport] = []
     for jid in job_ids:
@@ -537,7 +724,23 @@ def main() -> int:
 
     if not args.summary_only:
         for rep in reports:
-            _print_report(rep)
+            agent_diag: dict | None = None
+            if agent_enabled and rep.failure_cat != "SUCCESS":
+                print(f"\n  [agent] diagnosing {rep.job_id} …", end="", flush=True)
+                try:
+                    agent_diag = asyncio.run(
+                        _run_agent(
+                            submit_dir, rep,
+                            agent_model, agent_api_key, agent_base_url,
+                        )
+                    )
+                    print(" done")
+                except Exception as exc:
+                    print(f" ERROR: {exc}")
+                    agent_diag = {"failure_type": "AGENT_ERROR", "confidence": 0.0,
+                                  "explanation": str(exc), "requires_human_review": False,
+                                  "missing_evidence": []}
+            _print_report(rep, agent_diag=agent_diag)
 
     _print_summary(reports)
 

@@ -35,6 +35,18 @@ def _read_file(path: Path, max_bytes: int = MAX_FILE_BYTES) -> str | None:
         return None
 
 
+def _all_job_subdirs(submit_dir: Path) -> list[Path]:
+    """
+    Return all XX/YY job subdirectories found under submit_dir, sorted.
+
+    Pegasus distributes jobs across multiple buckets to avoid filesystem
+    limits: 00/00, 00/01, 00/02, ..., 01/00, 01/01, ...
+    Falls back to the submit_dir root for flat/legacy layouts.
+    """
+    subdirs = sorted(submit_dir.glob("[0-9][0-9]/[0-9][0-9]"))
+    return subdirs if subdirs else [submit_dir]
+
+
 def _find_job_file(
     submit_dir: Path,
     job_id: str,
@@ -42,29 +54,34 @@ def _find_job_file(
     ext: str,
 ) -> str | None:
     """
-    Locate a per-job file trying multiple Pegasus naming conventions.
+    Locate a per-job file searching all XX/YY subdirectories.
 
-    Pegasus 5.x with _ID suffix:  submit_dir/00/00/{job_id}_ID{n:07d}.{ext}
-    Pegasus BLAH/grid jobs:        submit_dir/00/00/{job_id}.{ext}.000
-    Older Pegasus:                 submit_dir/00/00/{job_id}.{ext}
+    Pegasus 5.x with _ID suffix:  submit_dir/XX/YY/{job_id}_ID{n:07d}.{ext}
+    Pegasus BLAH/grid jobs:        submit_dir/XX/YY/{job_id}.{ext}.000
+    Older Pegasus:                 submit_dir/XX/YY/{job_id}.{ext}
+    Legacy flat layout:            submit_dir/{job_id}.{ext}
     """
-    job_dir = submit_dir / "00" / "00"
-    candidates = [
-        # Pegasus 5.x with _ID instance suffix
-        job_dir / f"{job_id}_ID{instance_id:07d}.{ext}",
-        # Pegasus grid/BLAH jobs: .err.000, .out.000
-        job_dir / f"{job_id}.{ext}.000",
-        # Plain naming (no instance suffix)
-        job_dir / f"{job_id}.{ext}",
-        # Legacy: flat directory
-        submit_dir / f"{job_id}_ID{instance_id:07d}.{ext}",
-        submit_dir / f"{job_id}.{ext}.000",
-        submit_dir / f"{job_id}.{ext}",
-    ]
-    for p in candidates:
-        content = _read_file(p)
+    for job_dir in _all_job_subdirs(submit_dir):
+        candidates = [
+            job_dir / f"{job_id}_ID{instance_id:07d}.{ext}",
+            job_dir / f"{job_id}.{ext}.000",
+            job_dir / f"{job_id}.{ext}",
+        ]
+        for p in candidates:
+            content = _read_file(p)
+            if content is not None:
+                return content
+
+    # Flat fallback (submit_dir root)
+    for name in (
+        f"{job_id}_ID{instance_id:07d}.{ext}",
+        f"{job_id}.{ext}.000",
+        f"{job_id}.{ext}",
+    ):
+        content = _read_file(submit_dir / name)
         if content is not None:
             return content
+
     return None
 
 

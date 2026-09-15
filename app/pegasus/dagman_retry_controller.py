@@ -56,16 +56,27 @@ class DAGManRetryController:
     # ── Internal helpers ──────────────────────────────────────────────────────
 
     def _find_sub_file(self) -> Path | None:
-        """Locate the .sub file using the same candidate order as file_collector."""
-        candidates = [
-            self._submit_dir / "00" / "00" / f"{self._job_id}_ID{self._job_instance_id:07d}.sub",
-            self._submit_dir / "00" / "00" / f"{self._job_id}.sub",
-            self._submit_dir / f"{self._job_id}_ID{self._job_instance_id:07d}.sub",
-            self._submit_dir / f"{self._job_id}.sub",
-        ]
-        for candidate in candidates:
-            if candidate.exists():
-                return candidate
+        """
+        Locate the .sub file searching all XX/YY subdirectories.
+        Pegasus distributes jobs across 00/00, 00/01, 00/02, ... buckets.
+        """
+        from app.collectors.submit_dir import _all_job_subdirs
+        for job_dir in _all_job_subdirs(self._submit_dir):
+            for name in (
+                f"{self._job_id}_ID{self._job_instance_id:07d}.sub",
+                f"{self._job_id}.sub",
+            ):
+                p = job_dir / name
+                if p.exists():
+                    return p
+        # Flat fallback
+        for name in (
+            f"{self._job_id}_ID{self._job_instance_id:07d}.sub",
+            f"{self._job_id}.sub",
+        ):
+            p = self._submit_dir / name
+            if p.exists():
+                return p
         return None
 
     # ── RetryController Protocol ──────────────────────────────────────────────
