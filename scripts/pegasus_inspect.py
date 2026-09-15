@@ -307,12 +307,47 @@ def _load_dotenv(project_root: Path) -> None:
             os.environ[key] = val
 
 
+class _VerboseLLMProvider:
+    """
+    Wraps any LLMProvider and prints each call + result to stdout.
+    Used by --verbose to show which model is being called and what action
+    the agent chose at each ReAct step.
+    """
+    def __init__(self, inner, model: str) -> None:
+        self._inner = inner
+        self._model = model
+        self._step = 0
+
+    async def complete(self, messages, response_model, *, temperature=0.0):
+        self._step += 1
+        print(
+            f"    [llm step {self._step}] model={self._model}"
+            f"  messages={len(messages)}",
+            flush=True,
+        )
+        result = await self._inner.complete(
+            messages, response_model, temperature=temperature
+        )
+        action = getattr(result, "action", "?")
+        confidence = getattr(result, "confidence", None)
+        conf_str = f"  confidence={confidence:.2f}" if confidence is not None else ""
+        thought = getattr(result, "thought", "") or ""
+        thought_preview = (thought[:80] + "…") if len(thought) > 80 else thought
+        print(
+            f"    [llm step {self._step}] → action={action}{conf_str}",
+            flush=True,
+        )
+        print(f"               thought: {thought_preview}", flush=True)
+        return result
+
+
 async def _run_agent(
     submit_dir: Path,
     report: JobReport,
     model: str,
     api_key: str | None,
     base_url: str | None,
+    verbose: bool = False,
 ) -> dict:
     """
     Run DiagnosisAgent on a single failed job.
@@ -327,7 +362,8 @@ async def _run_agent(
     from app.llm.litellm_provider import LiteLLMProvider
     from app.models.context import FailureContext, ResourceRequest, ResourceUsage
 
-    llm = LiteLLMProvider(model=model, api_key=api_key, base_url=base_url)
+    llm_base = LiteLLMProvider(model=model, api_key=api_key, base_url=base_url)
+    llm = _VerboseLLMProvider(llm_base, model) if verbose else llm_base
     agent = DiagnosisAgent(llm)
 
     ks = report.kickstart[-1] if report.kickstart else None
@@ -357,6 +393,19 @@ async def _run_agent(
         job_id=report.job_id,
         instance_id=instance_id,
     )
+
+    if verbose:
+        has_analyzer = evidence.pegasus_analyzer_output is not None
+        print(
+            f"    [evidence] pegasus-analyzer : "
+            f"{'called ✓' if has_analyzer else 'not available / not found ✗'}",
+            flush=True,
+        )
+        sources = evidence.available_sources
+        print(
+            f"    [evidence] sources          : {', '.join(sources) or 'none'}",
+            flush=True,
+        )
 
     diagnosis = await agent.run(ctx, evidence, retrieved_memories=[])
     return {
@@ -654,6 +703,10 @@ def main() -> int:
         "--base-url", metavar="URL", default=None,
         help="LLM base URL override for --agent mode (default: $LLM_BASE_URL)",
     )
+    parser.add_argument(
+        "--verbose", "-v", action="store_true",
+        help="With --agent: print each LLM call, action, and evidence debug info",
+    )
     args = parser.parse_args()
 
     submit_dir = Path(args.submit_dir)
@@ -732,6 +785,7 @@ def main() -> int:
                         _run_agent(
                             submit_dir, rep,
                             agent_model, agent_api_key, agent_base_url,
+                            verbose=args.verbose,
                         )
                     )
                     print(" done")
