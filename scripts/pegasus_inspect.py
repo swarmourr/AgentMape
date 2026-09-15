@@ -359,10 +359,10 @@ async def _run_agent(
 
     from app.agents.diagnosis import DiagnosisAgent
     from app.collectors.submit_dir import collect_evidence, parse_instance_id
-    from app.llm.litellm_provider import LiteLLMProvider
+    from app.llm.universal_provider import UniversalProvider
     from app.models.context import FailureContext, ResourceRequest, ResourceUsage
 
-    llm_base = LiteLLMProvider(model=model, api_key=api_key, base_url=base_url)
+    llm_base = UniversalProvider(model=model, api_key=api_key, base_url=base_url)
     llm = _VerboseLLMProvider(llm_base, model) if verbose else llm_base
     agent = DiagnosisAgent(llm)
 
