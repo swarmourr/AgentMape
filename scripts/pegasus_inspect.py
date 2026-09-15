@@ -949,32 +949,43 @@ def main() -> int:
                 file=sys.stderr,
             )
 
-    # ── Discover jobs ─────────────────────────────────────────────────────────
-    if args.job:
-        job_ids = [args.job]
-    else:
-        job_ids = _discover_jobs(submit_dir)
-        if not job_ids:
-            print(f"No jobs found in {submit_dir}", file=sys.stderr)
-            return 1
-
-    # ── Workflow-level failure detection ─────────────────────────────────────────
-    all_ids, fast_failed_ids, status_source = _discover_failed_jobs(submit_dir)
-
     print(f"\npegasus_inspect  →  {submit_dir}")
-    print(f"Jobs total      : {len(all_ids)}")
-    print(f"Status source   : {status_source}")
-    if fast_failed_ids:
-        print(f"Failed detected : {len(fast_failed_ids)}  (skipping {len(all_ids) - len(fast_failed_ids)} succeeded/other jobs)")
     if agent_enabled:
         print(f"Agent model     : {agent_model}")
 
-    # Inspect only the jobs we need to inspect
-    # - fast path: only failed_ids (identified from workflow status)
-    # - fallback: all ids (filter by failure_cat afterward)
-    inspect_ids = fast_failed_ids if fast_failed_ids else all_ids
-    if args.show_all:
-        inspect_ids = all_ids
+    if args.job:
+        # ── Single-job mode: skip workflow discovery entirely ─────────────────
+        inspect_ids = [args.job]
+        all_ids     = inspect_ids
+        print(f"Job             : {args.job}")
+        _at_risk_names: list[str] = []
+    else:
+        # ── Workflow-level failure detection ──────────────────────────────────
+        all_ids, fast_failed_ids, status_source = _discover_failed_jobs(submit_dir)
+        if not all_ids:
+            print(f"No jobs found in {submit_dir}", file=sys.stderr)
+            return 1
+        print(f"Jobs total      : {len(all_ids)}")
+        print(f"Status source   : {status_source}")
+        if fast_failed_ids:
+            print(
+                f"Failed detected : {len(fast_failed_ids)}"
+                f"  (skipping {len(all_ids) - len(fast_failed_ids)} succeeded/other)"
+            )
+
+        inspect_ids = fast_failed_ids if (fast_failed_ids and not args.show_all) else all_ids
+
+        # At-risk: jobs NOT being inspected that share a transformation family
+        # with a known failing job — identified by name prefix, no file reads.
+        _failed_families = {
+            re.sub(r"[_-]?\d+$", "", jid) for jid in (fast_failed_ids or [])
+        }
+        _already_inspected = set(inspect_ids)
+        _at_risk_names = [
+            jid for jid in all_ids
+            if jid not in _already_inspected
+            and re.sub(r"[_-]?\d+$", "", jid) in _failed_families
+        ]
 
     all_reports: list[JobReport] = []
     for jid in inspect_ids:
@@ -982,22 +993,8 @@ def main() -> int:
         if rep is not None:
             all_reports.append(rep)
 
-    failed_reports  = [r for r in all_reports if r.failure_cat != "SUCCESS"]
-    success_reports = [r for r in all_reports if r.failure_cat == "SUCCESS"]
-    reports = all_reports if args.show_all else failed_reports
-
-    # At-risk: jobs in all_ids that are NOT in failed/inspect set but share a
-    # transformation name family with a known failed job.  We do this by name
-    # prefix comparison (no file reading needed for the at-risk candidates).
-    _failed_families = {
-        re.sub(r"[_-]?\d+$", "", jid) for jid in (fast_failed_ids or [r.job_id for r in failed_reports])
-    }
-    _already_inspected = set(inspect_ids)
-    _at_risk_names = [
-        jid for jid in all_ids
-        if jid not in _already_inspected
-        and re.sub(r"[_-]?\d+$", "", jid) in _failed_families
-    ]
+    failed_reports = [r for r in all_reports if r.failure_cat != "SUCCESS"]
+    reports        = all_reports if args.show_all else failed_reports
 
     if not reports:
         print("\nAll jobs succeeded (use --all to show them).")
