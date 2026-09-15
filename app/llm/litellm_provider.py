@@ -12,6 +12,28 @@ litellm.suppress_debug_info = True
 # Ollama model prefixes recognised for auto-mode detection
 _OLLAMA_PREFIXES = ("ollama/", "ollama_chat/")
 
+# All provider prefixes LiteLLM recognises natively.
+# Any model string that doesn't start with one of these AND has a custom
+# base_url is assumed to be an OpenAI-compatible endpoint and is
+# auto-prefixed with "openai/" so LiteLLM routes it correctly.
+_KNOWN_PREFIXES = (
+    "openai/", "anthropic/", "azure/", "bedrock/", "vertex_ai/",
+    "ollama/", "ollama_chat/", "huggingface/", "cohere/", "mistral/",
+    "together_ai/", "groq/", "anyscale/", "vllm/", "sagemaker/",
+    "petals/", "palm/", "gemini/", "replicate/",
+)
+
+
+def _normalise_model(model: str, base_url: str | None) -> str:
+    """
+    If a custom base_url is provided and the model has no recognised
+    provider prefix, prepend 'openai/' so LiteLLM uses the
+    OpenAI-compatible chat/completions endpoint.
+    """
+    if base_url and not any(model.startswith(p) for p in _KNOWN_PREFIXES):
+        return f"openai/{model}"
+    return model
+
 
 def _pick_instructor_mode(model: str, base_url: str | None) -> instructor.Mode:
     """
@@ -62,7 +84,7 @@ class LiteLLMProvider:
         base_url: str | None = None,
         max_retries: int = 3,
     ) -> None:
-        self._model = model
+        self._model = _normalise_model(model, base_url)
         self._api_key = api_key
         self._base_url = base_url
         self._max_retries = max_retries
