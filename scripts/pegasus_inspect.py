@@ -289,6 +289,29 @@ def _categorise(exit_code: int | None, stderr: str, requests: ResourceRequests,
     return "UNKNOWN"
 
 
+# ── Job grouping ───────────────────────────────────────────────────────────────
+
+def _job_group_key(report: JobReport) -> str:
+    """
+    Return a deduplication key for agent analysis.
+
+    Jobs that share (transformation_script, failure_category, exit_code) have
+    the same root cause and need only ONE agent analysis — the rest are
+    fast-pathed by reusing the result.
+
+    Uses the executable basename when available (most reliable), falling back
+    to the job_id with trailing digits stripped.
+    """
+    exe = report.requests.executable or ""
+    if exe:
+        # Same script file → same transformation, regardless of instance number
+        exe_key = Path(exe).name
+    else:
+        # Strip trailing _0, _1, _ARS, _ID0000001, … to get transformation family
+        exe_key = re.sub(r"[_-]?(?:\d+|ID\d+)$", "", report.job_id)
+    return f"{exe_key}|{report.failure_cat}|{report.exit_code}"
+
+
 # ── Agent integration ──────────────────────────────────────────────────────────
 
 def _load_dotenv(project_root: Path) -> None:
@@ -418,8 +441,14 @@ async def _run_agent(
 
 
 def _print_agent_diagnosis(diag: dict) -> None:
+    reused_from = diag.get("_reused_from")
+    header = (
+        f"  AI Diagnosis  (reused from {reused_from})"
+        if reused_from else
+        "  AI Diagnosis  (DiagnosisAgent)"
+    )
     conf_pct = f"{diag['confidence']:.0%}" if diag.get("confidence") is not None else "—"
-    print(f"\n  AI Diagnosis  (DiagnosisAgent):")
+    print(f"\n{header}:")
     print(f"    failure_type : {diag['failure_type']}")
     print(f"    confidence   : {conf_pct}")
     # Wrap explanation at ~65 chars
@@ -762,44 +791,104 @@ def main() -> int:
     if agent_enabled:
         print(f"Agent model     : {agent_model}")
 
-    reports: list[JobReport] = []
+    # Inspect ALL jobs (we need the full picture for at-risk detection)
+    all_reports: list[JobReport] = []
     for jid in job_ids:
         rep = inspect_job(submit_dir, jid)
-        if rep is None:
-            continue
-        if not args.show_all and rep.failure_cat == "SUCCESS":
-            continue
-        reports.append(rep)
+        if rep is not None:
+            all_reports.append(rep)
+
+    failed_reports  = [r for r in all_reports if r.failure_cat != "SUCCESS"]
+    success_reports = [r for r in all_reports if r.failure_cat == "SUCCESS"]
+    reports = all_reports if args.show_all else failed_reports
 
     if not reports:
         print("\nAll jobs succeeded (use --all to show them).")
         return 0
 
+    # ── Build group map: key → list of failed reports ────────────────────────
+    # Used to: (a) run agent once per unique failure pattern,
+    #          (b) identify SUCCESS jobs at risk of the same failure.
+    from collections import defaultdict
+    failed_groups: dict[str, list[JobReport]] = defaultdict(list)
+    for r in failed_reports:
+        failed_groups[_job_group_key(r)].append(r)
+
+    # SUCCESS jobs whose transformation already has failures elsewhere
+    at_risk: list[JobReport] = [
+        r for r in success_reports
+        if _job_group_key(r) in failed_groups
+    ]
+
+    # ── Agent analysis: one LLM call per unique group ─────────────────────────
+    # group_key → diagnosis dict (result is reused for all group members)
+    group_diagnoses: dict[str, dict] = {}
+
     if not args.summary_only:
         for rep in reports:
             agent_diag: dict | None = None
+
             if agent_enabled and rep.failure_cat != "SUCCESS":
-                print(f"\n  [agent] diagnosing {rep.job_id} …", end="", flush=True)
-                try:
-                    agent_diag = asyncio.run(
-                        _run_agent(
-                            submit_dir, rep,
-                            agent_model, agent_api_key, agent_base_url,
-                            verbose=args.verbose,
-                        )
+                key = _job_group_key(rep)
+
+                if key in group_diagnoses:
+                    # Fast-path: reuse the representative's diagnosis
+                    representative = failed_groups[key][0].job_id
+                    agent_diag = {
+                        **group_diagnoses[key],
+                        "_reused_from": representative,
+                    }
+                else:
+                    # Full analysis for the first (representative) job in this group
+                    n_similar = len(failed_groups[key])
+                    label = (
+                        f"(+{n_similar - 1} similar)" if n_similar > 1 else ""
                     )
-                    print(" done")
-                except Exception as exc:
-                    print(f" ERROR: {exc}")
-                    agent_diag = {"failure_type": "AGENT_ERROR", "confidence": 0.0,
-                                  "explanation": str(exc), "requires_human_review": False,
-                                  "missing_evidence": []}
+                    print(
+                        f"\n  [agent] diagnosing {rep.job_id} {label} …",
+                        end="", flush=True,
+                    )
+                    try:
+                        agent_diag = asyncio.run(
+                            _run_agent(
+                                submit_dir, rep,
+                                agent_model, agent_api_key, agent_base_url,
+                                verbose=args.verbose,
+                            )
+                        )
+                        print(" done")
+                        group_diagnoses[key] = agent_diag
+                    except Exception as exc:
+                        print(f" ERROR: {exc}")
+                        agent_diag = {
+                            "failure_type": "AGENT_ERROR",
+                            "confidence": 0.0,
+                            "explanation": str(exc),
+                            "requires_human_review": False,
+                            "missing_evidence": [],
+                        }
+                        group_diagnoses[key] = agent_diag
+
             _print_report(rep, agent_diag=agent_diag)
 
     _print_summary(reports)
 
+    # ── At-risk jobs warning ──────────────────────────────────────────────────
+    if at_risk:
+        print(f"{'━' * W}")
+        print(f"  ⚠  AT-RISK JOBS  —  same transformation as a failing group")
+        print(f"{'━' * W}")
+        for r in at_risk:
+            key  = _job_group_key(r)
+            diag = group_diagnoses.get(key, {})
+            ft   = diag.get("failure_type", failed_groups[key][0].failure_cat)
+            n    = len(failed_groups[key])
+            print(f"  {r.job_id}")
+            print(f"    currently SUCCESS  |  {n} sibling job(s) failed with: {ft}")
+        print(f"{'━' * W}\n")
+
     # Exit non-zero if any failures
-    return 1 if any(r.failure_cat != "SUCCESS" for r in reports) else 0
+    return 1 if failed_reports else 0
 
 
 if __name__ == "__main__":
