@@ -312,6 +312,37 @@ def _job_group_key(report: JobReport) -> str:
     return f"{exe_key}|{report.failure_cat}|{report.exit_code}"
 
 
+# ── Terminal colors ────────────────────────────────────────────────────────────
+
+def _c(color: str, text: str) -> str:
+    """Wrap text in an ANSI color code; pass-through if stdout is not a TTY."""
+    if not sys.stdout.isatty():
+        return text
+    codes = {
+        "reset":   "\033[0m",
+        "bold":    "\033[1m",
+        "dim":     "\033[2m",
+        "blue":    "\033[34m",
+        "cyan":    "\033[36m",
+        "yellow":  "\033[33m",
+        "green":   "\033[32m",
+        "red":     "\033[31m",
+        "magenta": "\033[35m",
+        "white":   "\033[37m",
+    }
+    return codes.get(color, "") + text + codes["reset"]
+
+
+def _print_block(header: str, text: str, color: str, max_chars: int = 800) -> None:
+    """Print a labeled text block with a colored header and indented content."""
+    print(f"\n  {header}")
+    snippet = text[:max_chars]
+    for line in snippet.splitlines():
+        print(f"  {_c(color, line)}")
+    if len(text) > max_chars:
+        print(f"  {_c('dim', f'… [{len(text) - max_chars} chars truncated]')}")
+
+
 # ── Agent integration ──────────────────────────────────────────────────────────
 
 def _load_dotenv(project_root: Path) -> None:
@@ -343,24 +374,67 @@ class _VerboseLLMProvider:
 
     async def complete(self, messages, response_model, *, temperature=0.0):
         self._step += 1
+
+        # ── Print the prompt fed in (last message = new observation or seed) ──
+        last_msg = messages[-1] if messages else {}
+        role    = last_msg.get("role", "user")
+        content = str(last_msg.get("content", ""))
+        _print_block(
+            _c("bold", _c("blue", f"── Prompt [{role}]  step {self._step} ──")),
+            content,
+            "blue",
+            max_chars=600,
+        )
+
         print(
-            f"    [llm step {self._step}] model={self._model}"
+            f"\n  {_c('cyan', f'[llm call {self._step}]')}"
+            f"  model={_c('bold', self._model)}"
             f"  messages={len(messages)}",
             flush=True,
         )
+
         result = await self._inner.complete(
             messages, response_model, temperature=temperature
         )
-        action = getattr(result, "action", "?")
+
+        # ── Print the response ─────────────────────────────────────────────────
+        action     = getattr(result, "action", "?")
         confidence = getattr(result, "confidence", None)
-        conf_str = f"  confidence={confidence:.2f}" if confidence is not None else ""
-        thought = getattr(result, "thought", "") or ""
-        thought_preview = (thought[:80] + "…") if len(thought) > 80 else thought
+        thought    = getattr(result, "thought", "") or ""
+
+        action_color = "red" if action == "conclude" else "green"
+        conf_str = (
+            f"  confidence={_c('bold', f'{confidence:.2f}')}"
+            if confidence is not None else ""
+        )
         print(
-            f"    [llm step {self._step}] → action={action}{conf_str}",
+            f"  {_c('cyan', f'[llm call {self._step}]')}"
+            f" → action={_c(action_color, _c('bold', action))}{conf_str}",
             flush=True,
         )
-        print(f"               thought: {thought_preview}", flush=True)
+
+        if thought:
+            _print_block(
+                _c("bold", _c("yellow", "── Thought ──")),
+                thought,
+                "yellow",
+                max_chars=700,
+            )
+
+        # On conclude: show the full structured diagnosis in magenta
+        if action == "conclude":
+            failure_type = getattr(result, "failure_type", None)
+            explanation  = getattr(result, "explanation", "") or ""
+            missing      = getattr(result, "missing_evidence", []) or []
+            print(f"\n  {_c('bold', _c('magenta', '── Diagnosis ──'))}")
+            print(f"  {_c('magenta', f'failure_type : {failure_type}')}")
+            if confidence is not None:
+                print(f"  {_c('magenta', f'confidence   : {confidence:.0%}')}")
+            if explanation:
+                _print_block("", explanation, "magenta", max_chars=500)
+            for ev in missing[:3]:
+                print(f"  {_c('dim', f'missing : {ev}')}")
+
         return result
 
 
