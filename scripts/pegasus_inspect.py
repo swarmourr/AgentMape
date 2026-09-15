@@ -577,6 +577,101 @@ def _discover_jobs(submit_dir: Path) -> list[str]:
     return list(dict.fromkeys(job_ids))   # deduplicate, preserve order
 
 
+# ── Workflow-level failure detection ───────────────────────────────────────────
+
+def _failed_from_rescue_dag(submit_dir: Path, all_ids: list[str]) -> list[str] | None:
+    """
+    Parse the latest *.dag.rescue* file.
+
+    DAGMan writes `DONE <job>` for every node that succeeded.
+    Anything in all_ids that is NOT listed as DONE = failed or not yet run.
+    Returns None if no rescue DAG exists.
+    """
+    rescue_files = sorted(submit_dir.glob("*.dag.rescue[0-9]*"))
+    if not rescue_files:
+        return None
+    done: set[str] = set()
+    for line in rescue_files[-1].read_text(errors="replace").splitlines():
+        m = re.match(r"^\s*DONE\s+(\S+)", line, re.IGNORECASE)
+        if m:
+            done.add(m.group(1))
+    if not done:
+        return None
+    return [j for j in all_ids if j not in done]
+
+
+def _failed_from_analyzer(submit_dir: Path) -> list[str] | None:
+    """
+    Run pegasus-analyzer and parse ====<job>==== section headers.
+    Returns None if the tool is not available or produces no output.
+    """
+    import subprocess
+    try:
+        proc = subprocess.run(
+            ["pegasus-analyzer", "--submit-dir", str(submit_dir)],
+            capture_output=True, text=True, timeout=60,
+        )
+        output = (proc.stdout + proc.stderr).strip()
+        failed = re.findall(r"={5,}(\S+?)={5,}", output)
+        return failed if failed else None
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        return None
+
+
+def _failed_from_workflow_db(submit_dir: Path) -> list[str] | None:
+    """
+    Query the Pegasus workflow SQLite database for failed job instances.
+    Pegasus writes <label>-0.db (STAMPEDE schema) in the submit directory.
+    Returns None if no usable database is found.
+    """
+    import sqlite3
+    db_files = sorted(submit_dir.glob("*.db"))
+    for db_path in db_files:
+        try:
+            con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+            # STAMPEDE schema: job_instance links to job via job_id
+            cur = con.execute("""
+                SELECT DISTINCT j.name
+                FROM   job_instance ji
+                JOIN   job j ON j.job_id = ji.job_id
+                WHERE  ji.exitcode IS NOT NULL
+                  AND  ji.exitcode != 0
+            """)
+            names = [row[0] for row in cur.fetchall()]
+            con.close()
+            if names:
+                return names
+        except Exception:
+            pass
+    return None
+
+
+def _discover_failed_jobs(submit_dir: Path) -> tuple[list[str], list[str], str]:
+    """
+    Return (all_job_ids, failed_job_ids, source) using the fastest available
+    workflow-level status file.  Falls back to returning an empty failed list
+    so main() can do full per-file inspection.
+
+    Priority:
+      1. Rescue DAG   — written by DAGMan, zero subprocess cost
+      2. Workflow DB  — Pegasus SQLite (STAMPEDE schema)
+      3. pegasus-analyzer — subprocess, parses failed job sections
+      4. None found   — caller falls back to full inspection
+    """
+    all_ids = _discover_jobs(submit_dir)
+
+    for source, fn in (
+        ("rescue DAG",         lambda: _failed_from_rescue_dag(submit_dir, all_ids)),
+        ("workflow DB",        lambda: _failed_from_workflow_db(submit_dir)),
+        ("pegasus-analyzer",   lambda: _failed_from_analyzer(submit_dir)),
+    ):
+        result = fn()
+        if result is not None:
+            return all_ids, result, source
+
+    return all_ids, [], "full inspection (no status file found)"
+
+
 # ── Report builder ─────────────────────────────────────────────────────────────
 
 def inspect_job(submit_dir: Path, job_id: str) -> JobReport | None:
@@ -863,14 +958,26 @@ def main() -> int:
             print(f"No jobs found in {submit_dir}", file=sys.stderr)
             return 1
 
+    # ── Workflow-level failure detection ─────────────────────────────────────────
+    all_ids, fast_failed_ids, status_source = _discover_failed_jobs(submit_dir)
+
     print(f"\npegasus_inspect  →  {submit_dir}")
-    print(f"Jobs discovered : {len(job_ids)}")
+    print(f"Jobs total      : {len(all_ids)}")
+    print(f"Status source   : {status_source}")
+    if fast_failed_ids:
+        print(f"Failed detected : {len(fast_failed_ids)}  (skipping {len(all_ids) - len(fast_failed_ids)} succeeded/other jobs)")
     if agent_enabled:
         print(f"Agent model     : {agent_model}")
 
-    # Inspect ALL jobs (we need the full picture for at-risk detection)
+    # Inspect only the jobs we need to inspect
+    # - fast path: only failed_ids (identified from workflow status)
+    # - fallback: all ids (filter by failure_cat afterward)
+    inspect_ids = fast_failed_ids if fast_failed_ids else all_ids
+    if args.show_all:
+        inspect_ids = all_ids
+
     all_reports: list[JobReport] = []
-    for jid in job_ids:
+    for jid in inspect_ids:
         rep = inspect_job(submit_dir, jid)
         if rep is not None:
             all_reports.append(rep)
@@ -879,23 +986,29 @@ def main() -> int:
     success_reports = [r for r in all_reports if r.failure_cat == "SUCCESS"]
     reports = all_reports if args.show_all else failed_reports
 
+    # At-risk: jobs in all_ids that are NOT in failed/inspect set but share a
+    # transformation name family with a known failed job.  We do this by name
+    # prefix comparison (no file reading needed for the at-risk candidates).
+    _failed_families = {
+        re.sub(r"[_-]?\d+$", "", jid) for jid in (fast_failed_ids or [r.job_id for r in failed_reports])
+    }
+    _already_inspected = set(inspect_ids)
+    _at_risk_names = [
+        jid for jid in all_ids
+        if jid not in _already_inspected
+        and re.sub(r"[_-]?\d+$", "", jid) in _failed_families
+    ]
+
     if not reports:
         print("\nAll jobs succeeded (use --all to show them).")
         return 0
 
     # ── Build group map: key → list of failed reports ────────────────────────
-    # Used to: (a) run agent once per unique failure pattern,
-    #          (b) identify SUCCESS jobs at risk of the same failure.
+    # Used to run agent once per unique failure pattern.
     from collections import defaultdict
     failed_groups: dict[str, list[JobReport]] = defaultdict(list)
     for r in failed_reports:
         failed_groups[_job_group_key(r)].append(r)
-
-    # SUCCESS jobs whose transformation already has failures elsewhere
-    at_risk: list[JobReport] = [
-        r for r in success_reports
-        if _job_group_key(r) in failed_groups
-    ]
 
     # ── Agent analysis: one LLM call per unique group ─────────────────────────
     # group_key → diagnosis dict (result is reused for all group members)
@@ -951,17 +1064,24 @@ def main() -> int:
     _print_summary(reports)
 
     # ── At-risk jobs warning ──────────────────────────────────────────────────
-    if at_risk:
+    if _at_risk_names:
         print(f"{'━' * W}")
         print(f"  ⚠  AT-RISK JOBS  —  same transformation as a failing group")
         print(f"{'━' * W}")
-        for r in at_risk:
-            key  = _job_group_key(r)
-            diag = group_diagnoses.get(key, {})
-            ft   = diag.get("failure_type", failed_groups[key][0].failure_cat)
-            n    = len(failed_groups[key])
-            print(f"  {r.job_id}")
-            print(f"    currently SUCCESS  |  {n} sibling job(s) failed with: {ft}")
+        for jid in _at_risk_names:
+            family = re.sub(r"[_-]?\d+$", "", jid)
+            # Find one failed sibling to show the failure type
+            sibling_report = next(
+                (r for r in failed_reports if re.sub(r"[_-]?\d+$", "", r.job_id) == family),
+                None,
+            )
+            ft = sibling_report.failure_cat if sibling_report else "unknown"
+            n_failed = sum(
+                1 for r in failed_reports
+                if re.sub(r"[_-]?\d+$", "", r.job_id) == family
+            )
+            print(f"  {jid}")
+            print(f"    not yet inspected  |  {n_failed} sibling(s) failed with: {ft}")
         print(f"{'━' * W}\n")
 
     # Exit non-zero if any failures
