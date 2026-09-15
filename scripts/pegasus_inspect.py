@@ -520,13 +520,39 @@ async def _run_agent(
         )
 
     diagnosis = await agent.run(ctx, evidence, retrieved_memories=[])
-    return {
+
+    result: dict = {
         "failure_type": str(diagnosis.failure_type.value),
         "confidence": diagnosis.confidence,
         "explanation": diagnosis.explanation or "",
         "requires_human_review": diagnosis.requires_human_review,
         "missing_evidence": diagnosis.missing_evidence,
+        "script_patches": [],
     }
+
+    # If the agent identified a script error and the script is local,
+    # run the FixPlanningAgent to generate a suggested patch.
+    if diagnosis.failure_type.value == "SCRIPT_ERROR" and evidence.transformation_script_content:
+        if verbose:
+            print("    [fix-planner] SCRIPT_ERROR detected — generating patch suggestion …", flush=True)
+        try:
+            from app.agents.fix_planning import FixPlanningAgent
+            fix_planner = FixPlanningAgent(llm)
+            proposal = await fix_planner.run(ctx, diagnosis, raw_evidence=evidence)
+            result["script_patches"] = [
+                {
+                    "file_path":         p.file_path,
+                    "patch_description": p.patch_description,
+                    "original_content":  p.original_content,
+                    "patched_content":   p.patched_content,
+                }
+                for p in proposal.script_patches
+            ]
+        except Exception as exc:
+            if verbose:
+                print(f"    [fix-planner] failed: {exc}", flush=True)
+
+    return result
 
 
 def _print_agent_diagnosis(diag: dict) -> None:
@@ -561,6 +587,30 @@ def _print_agent_diagnosis(diag: dict) -> None:
         print("    ⚠  requires human review")
     for ev in diag.get("missing_evidence", [])[:3]:
         print(f"    missing      : {ev}")
+
+    # ── Suggested script patches ──────────────────────────────────────────────
+    for patch in diag.get("script_patches", []):
+        import difflib
+        print(f"\n  {_c('bold', _c('cyan', '── Suggested patch ──'))}")
+        print(f"    file        : {patch['file_path']}")
+        print(f"    description : {patch['patch_description']}")
+        print(f"    ⚠  requires human approval before applying")
+        diff = list(difflib.unified_diff(
+            patch["original_content"].splitlines(),
+            patch["patched_content"].splitlines(),
+            fromfile="original",
+            tofile="patched",
+            lineterm="",
+        ))
+        if diff:
+            print()
+            for line in diff:
+                if line.startswith("+") and not line.startswith("+++"):
+                    print(f"  {_c('green', line)}")
+                elif line.startswith("-") and not line.startswith("---"):
+                    print(f"  {_c('red', line)}")
+                else:
+                    print(f"  {_c('dim', line)}")
 
 
 # ── DAG scanner ────────────────────────────────────────────────────────────────
