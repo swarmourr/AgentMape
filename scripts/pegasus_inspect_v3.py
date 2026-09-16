@@ -23,12 +23,10 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import hashlib
 import logging
 import os
 import re
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
@@ -125,61 +123,35 @@ async def _run_graph(
     checkpoint_path: str,
 ) -> dict:
     """
-    Build a WorkflowEvent from the JobReport, run the LangGraph graph,
-    and return the final state dict.
+    Run the LangGraph remediation graph for one failed job.
+    Job identity is passed directly in state — no WorkflowEvent/AMQP needed.
     """
     from app.langgraph import create_graph_with_checkpointer
     from app.utils.collectors.submit_dir import collect_evidence, parse_healer_tags
-    from app.utils.models.events import WorkflowEvent
 
-    # Collect evidence
     instance_id = int(re.search(r"_ID(\d+)$", report.job_id).group(1)) \
                   if re.search(r"_ID(\d+)$", report.job_id) else 1
+
     evidence = collect_evidence(
         submit_dir=str(submit_dir),
         job_id=report.job_id,
         instance_id=instance_id,
     )
 
-    # Parse healer tags from .sub content
     tags = parse_healer_tags(evidence.sub_file_content)
     if verbose and tags:
         print(f"    [tags] {', '.join(tags)}", flush=True)
 
-    # Construct a minimal WorkflowEvent
-    event_raw = {
-        "job_id":          report.job_id,
-        "workflow_id":     submit_dir.name,
-        "exit_code":       report.exit_code,
-        "submit_dir":      str(submit_dir),
-    }
-    event = WorkflowEvent(
-        event_id=hashlib.sha256(str(event_raw).encode()).hexdigest(),
-        event_type="JOB_FAILED",
-        workflow_id=submit_dir.name,
-        job_id=report.job_id,
-        job_instance_id=instance_id,
-        status=report.exit_code,
-        timestamp=datetime.now(timezone.utc),
-        raw_event=event_raw,
-    )
-
-    # Inject pre-collected evidence + tags via services.
-    # scheduler_client uses parsed JobReport data — no live condor/slurm needed.
     svc = {
         **services,
         "scheduler_client": _ReportSchedulerClient(report),
-        "raw_evidence": {
-            **evidence.model_dump(mode="json"),
-        },
-        "submit_dir":   str(submit_dir),
-        "job_tags":     tags,   # picked up by collect_context
+        "raw_evidence":     evidence.model_dump(mode="json"),
+        "submit_dir":       str(submit_dir),
+        "job_tags":         tags,
     }
 
-    # Build graph with SQLite checkpointer
     graph = await create_graph_with_checkpointer(sqlite_path=checkpoint_path)
 
-    # Thread ID — one per job so state is isolated
     thread_id = f"{submit_dir.name}/{report.job_id}"
     config = {"configurable": {**svc, "thread_id": thread_id}}
 
@@ -188,7 +160,8 @@ async def _run_graph(
         "workflow_id":            submit_dir.name,
         "job_id":                 report.job_id,
         "source_job_instance_id": instance_id,
-        "failure_event":          event.model_dump(mode="json"),
+        "exit_code":              report.exit_code,
+        "scheduler_id":           None,   # no live scheduler in inspector
         "attempt":                1,
     }
 

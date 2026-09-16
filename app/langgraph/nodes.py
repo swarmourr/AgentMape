@@ -36,7 +36,6 @@ from app.utils.models.context import (
     PolicySnapshot,
 )
 from app.utils.models.diagnosis import Diagnosis
-from app.utils.models.events import WorkflowEvent
 from app.utils.models.evidence import RawEvidence
 from app.utils.models.fixes import FixOutcome, FixProposal, PolicyDecision
 from app.utils.policies import PolicyEngine
@@ -74,12 +73,13 @@ async def collect_context(state: dict[str, Any]) -> dict[str, Any]:
     Runs before both the rule classifier and (on re-entry) the LLM agent.
     """
     svc = _svc()
-    event = WorkflowEvent.model_validate(state["failure_event"])
-    incident_id = UUID(state["incident_id"])
+    incident_id     = UUID(state["incident_id"])
+    job_id          = state["job_id"]
+    workflow_id     = state["workflow_id"]
+    job_instance_id = state.get("source_job_instance_id", 1)
+    exit_code       = state.get("exit_code")
+    scheduler_id    = state.get("scheduler_id")
 
-    # On re-entry after an ineffective fix, retry_outcome is already set in
-    # state (written by evaluate_outcome on the previous invocation).
-    # Increment attempt so the classifier and planner know this is attempt N+1.
     attempt = state.get("attempt", 1)
     if state.get("retry_outcome"):
         attempt += 1
@@ -101,7 +101,11 @@ async def collect_context(state: dict[str, Any]) -> dict[str, Any]:
 
     scheduler = svc.get("scheduler_client") or get_scheduler_client()
     ctx = await ContextCollector(scheduler).collect(
-        event=event,
+        job_id=job_id,
+        workflow_id=workflow_id,
+        job_instance_id=job_instance_id,
+        exit_code=exit_code,
+        scheduler_id=scheduler_id,
         incident_id=incident_id,
         attempt_number=attempt,
         previous_diagnoses=previous_diagnoses,

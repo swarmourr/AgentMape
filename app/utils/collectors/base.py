@@ -32,7 +32,6 @@ from app.utils.models.context import (
     ResourceRequest,
     ResourceUsage,
 )
-from app.utils.models.events import WorkflowEvent
 from app.utils.scheduler.base import JobHistory, SchedulerClient
 
 log = structlog.get_logger(__name__)
@@ -55,7 +54,11 @@ class ContextCollector:
 
     async def collect(
         self,
-        event: WorkflowEvent,
+        job_id: str,
+        workflow_id: str,
+        job_instance_id: int,
+        exit_code: int | None,
+        scheduler_id: str | None,
         incident_id: uuid.UUID,
         attempt_number: int,
         previous_diagnoses: list[DiagnosisSummary],
@@ -66,20 +69,18 @@ class ContextCollector:
         """
         Collect all evidence and return a FailureContext.
 
+        All job identity fields are passed directly — no WorkflowEvent needed.
         submit_dir: Pegasus submit directory (.out/.err/.kickstart files).
         """
-        assert event.job_id is not None
-        assert event.job_instance_id is not None
-
         missing_evidence: list[str] = []
 
         # ── Scheduler history ─────────────────────────────────────────────────
-        history = self._fetch_history(event.scheduler_id, missing_evidence)
+        history = self._fetch_history(scheduler_id, missing_evidence)
 
         # ── Exit code / termination signal ────────────────────────────────────
-        exit_code: int | None = event.status or history.exit_code
+        resolved_exit_code: int | None = exit_code if exit_code is not None else history.exit_code
         termination_signal: int | None = history.exit_signal
-        if exit_code is None:
+        if resolved_exit_code is None:
             missing_evidence.append("mandatory:exit_code")
 
         # ── Hold state ────────────────────────────────────────────────────────
@@ -102,15 +103,15 @@ class ContextCollector:
             condor_event_log_ref, submit_file_ref,
             dagman_out_ref, dagman_err_ref,
             workflow_log_ref, monitord_log_ref,
-        ) = self._collect_files(event, submit_dir, missing_evidence)
+        ) = self._collect_files(job_id, workflow_id, job_instance_id, submit_dir, missing_evidence)
 
         ctx = FailureContext(
             incident_id=incident_id,
-            workflow_id=event.workflow_id,
-            job_id=event.job_id,
-            job_instance_id=event.job_instance_id,
-            scheduler_id=event.scheduler_id,
-            exit_code=exit_code,
+            workflow_id=workflow_id,
+            job_id=job_id,
+            job_instance_id=job_instance_id,
+            scheduler_id=scheduler_id,
+            exit_code=resolved_exit_code,
             termination_signal=termination_signal,
             scheduler_state=scheduler_state,
             scheduler_reason=scheduler_reason,
@@ -185,7 +186,9 @@ class ContextCollector:
 
     def _collect_files(
         self,
-        event: WorkflowEvent,
+        job_id: str,
+        workflow_id: str,
+        job_instance_id: int,
         submit_dir: str | None,
         missing_evidence: list[str],
     ) -> tuple[
@@ -198,23 +201,13 @@ class ContextCollector:
             return (None,) * 9  # type: ignore[return-value]
 
         return (
-            file_collector.collect_stdout(
-                submit_dir, event.workflow_id, event.job_id, event.job_instance_id
-            ),
-            file_collector.collect_stderr(
-                submit_dir, event.workflow_id, event.job_id, event.job_instance_id
-            ),
-            file_collector.collect_kickstart(
-                submit_dir, event.workflow_id, event.job_id, event.job_instance_id
-            ),
-            file_collector.collect_condor_event_log(
-                submit_dir, event.job_id, event.job_instance_id
-            ),
-            file_collector.collect_submit_file(
-                submit_dir, event.job_id, event.job_instance_id
-            ),
-            file_collector.collect_dagman_out(submit_dir, event.workflow_id),
-            file_collector.collect_dagman_err(submit_dir, event.workflow_id),
+            file_collector.collect_stdout(submit_dir, workflow_id, job_id, job_instance_id),
+            file_collector.collect_stderr(submit_dir, workflow_id, job_id, job_instance_id),
+            file_collector.collect_kickstart(submit_dir, workflow_id, job_id, job_instance_id),
+            file_collector.collect_condor_event_log(submit_dir, job_id, job_instance_id),
+            file_collector.collect_submit_file(submit_dir, job_id, job_instance_id),
+            file_collector.collect_dagman_out(submit_dir, workflow_id),
+            file_collector.collect_dagman_err(submit_dir, workflow_id),
             file_collector.collect_workflow_log(submit_dir),
             file_collector.collect_monitord_log(submit_dir),
         )

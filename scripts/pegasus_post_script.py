@@ -123,7 +123,6 @@ def _resolve_thread(
 
 async def _run(args: argparse.Namespace) -> int:
     from app.utils.collectors.submit_dir import collect_evidence, parse_instance_id, parse_healer_tags
-    from app.utils.models.events import WorkflowEvent, EventType
     from app.utils.policies.loader import load_policy
     from app.utils.policies.engine import PolicyEngine
     from app.utils.pegasus.dagman_retry_controller import DAGManRetryController
@@ -221,24 +220,14 @@ async def _run(args: argparse.Namespace) -> int:
         input_data: dict = {"retry_outcome": outcome}
         _log(f"retry outcome: {outcome}")
     else:
-        # Invocation 1: build the initial failure event
-        event = WorkflowEvent(
-            event_type=EventType.JOB_FAILED,
-            workflow_id=args.workflow_id,
-            job_id=args.job_id,
-            job_instance_id=instance_id,
-            exit_code=args.exit_code,
-            execution_site=args.execution_site or "unknown",
-            transformation=transformation,
-            submit_dir=str(submit_dir),
-            condor_job_id=args.condor_job_id,
-        )
+        # Invocation 1: put job identity directly in state — no WorkflowEvent needed
         input_data = {
-            "failure_event":          event.model_dump(mode="json"),
             "incident_id":            str(uuid4()),
             "workflow_id":            args.workflow_id,
             "job_id":                 args.job_id,
             "source_job_instance_id": instance_id,
+            "exit_code":              args.exit_code,
+            "scheduler_id":           args.condor_job_id,
             "attempt":                1,
         }
 

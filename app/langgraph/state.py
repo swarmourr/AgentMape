@@ -10,8 +10,11 @@ class RemediationState(TypedDict, total=False):
     job_id: str
     source_job_instance_id: int
 
+    # ── Job identity (set by caller — no AMQP/WorkflowEvent needed) ─────────
+    exit_code: int | None
+    scheduler_id: str | None            # HTCondor cluster.proc or SLURM job ID
+
     # ── Diagnostic loop ───────────────────────────────────────────────────────
-    failure_event: dict[str, Any]       # serialised WorkflowEvent
     context: dict[str, Any]             # serialised FailureContext
     raw_evidence: dict[str, Any]        # serialised RawEvidence (file contents)
     retrieved_memories: list[dict[str, Any]]
