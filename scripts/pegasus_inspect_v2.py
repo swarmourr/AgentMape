@@ -109,8 +109,8 @@ async def _run_orchestrator(
     logging.disable(logging.WARNING)
 
     from uuid import uuid4
-    from app.collectors.submit_dir import collect_evidence, parse_instance_id
-    from app.models.context import FailureContext, ResourceRequest, ResourceUsage
+    from app.utils.collectors.submit_dir import collect_evidence, parse_instance_id
+    from app.utils.models.context import FailureContext, ResourceRequest, ResourceUsage
 
     ks  = report.kickstart[-1] if report.kickstart else None
     req = report.requests
@@ -410,8 +410,8 @@ def main() -> int:
         conf_thresh   = float(os.environ.get("CONFIDENCE_THRESHOLD", "0.80"))
 
         try:
-            from app.llm.universal_provider import UniversalProvider
-            from app.pipeline.orchestrator import RemediationOrchestrator
+            from app.utils.llm.universal_provider import UniversalProvider
+            from app.agents.orchestrator import RemediationOrchestrator
 
             llm_base = UniversalProvider(model=agent_model, api_key=agent_api_key, base_url=agent_base_url)
             llm      = _VerboseLLMProvider(llm_base, agent_model) if args.verbose else llm_base

@@ -18,11 +18,11 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from app.llm.provider import LLMProvider
-from app.models.context import FailureContext
-from app.models.diagnosis import Diagnosis
-from app.models.evidence import RawEvidence
-from app.models.fixes import FixAction, FixProposal, ScriptPatch
+from app.utils.llm.provider import LLMProvider
+from app.utils.models.context import FailureContext
+from app.utils.models.diagnosis import Diagnosis
+from app.utils.models.evidence import RawEvidence
+from app.utils.models.fixes import FixAction, FixProposal, ScriptPatch
 
 _SYSTEM_PROMPT = """You are a fix-planning agent for the Pegasus Workflow Management System.
 You receive a diagnosed job failure and must propose ONE bounded remediation.

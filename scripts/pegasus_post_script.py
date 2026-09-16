@@ -1,28 +1,40 @@
 #!/usr/bin/env python3
 """
-Pegasus/DAGMan POST script for agentic failure remediation.
+Pegasus/DAGMan POST script — direct LangGraph remediation.
 
-Responsibilities
-────────────────
-1. Collect all diagnostic evidence from the Pegasus submit directory:
-     • Run pegasus-analyzer  → structured failure summary
-     • Read raw files        → .err / .out / .sub / .log / dagman.out / workflow.log
-     • Run condor_history    → resource usage classads
-2. POST everything to the remediation service (/diagnose-and-fix)
-3. Exit with the right code so DAGMan retries or stops
+Runs the remediation graph in-process. No API server needed.
+State persists across DAGMan invocations via SQLite checkpointer,
+keyed on thread_id = workflow_id / source_job_instance_id.
+
+EXECUTION MODEL
+───────────────
+Each invocation is one pass through the graph:
+
+  Invocation 1  (first failure, $RETRY=0)
+    Fresh thread → diagnose → fix → apply
+    → AUTO : patch .sub + broadcast siblings → exit 1  (DAGMan retries)
+    → ASK  : write proposal report            → exit 0  (human applies manually)
+    → STOP : write report                     → exit 0
+
+  Invocation 2+  (retried job fails/succeeds)
+    Thread resumes → evaluate outcome
+    → EFFECTIVE   : write memory → exit 0
+    → INEFFECTIVE : re-diagnose (attempt+1) → new fix → exit 1
+    → LIMIT       : escalate → exit 0
+
+SIBLING FAST PATH
+─────────────────
+When a sibling was RUNNING during the broadcast, its .sub was patched but
+it ran with the old ClassAd. If it fails with the same error:
+  .healer_{transformation}_{failure_type}.applied marker exists
+  + this job's .sub already has the patched value
+  + exit code matches the failure type
+→ skip agent entirely → exit 1 (retry with patched .sub)
 
 EXIT CODE CONTRACT
 ──────────────────
-  0  → DAGMan marks node DONE/SUCCESS (no more automatic retries)
-  1  → DAGMan marks node FAILED (will retry if RETRY count allows)
-
-decision → exit code:
-  RETRY    → 1  (.sub already patched; DAGMan retries with new resources)
-  ASK      → 0  (fix ready but needs human approval)
-  STOP     → 0  (terminal; no value in retrying)
-  ESCALATE → 0  (operator notified)
-
-Service unreachable → passes through original exit code unchanged.
+  1 → DAGMan retries (AUTO fix applied / fast path)
+  0 → DAGMan stops   (ASK, STOP, ESCALATE, success)
 
 USAGE
 ─────
@@ -30,214 +42,292 @@ In pegasus.properties:
     pegasus.dagman.post=/path/to/pegasus_post_script.py
     pegasus.dagman.post.arguments=$RETURN $JOB $RETRY $MAX_RETRIES \\
         /path/to/submit_dir ${wf.uuid}
-
-Or in the .dag file:
-    SCRIPT POST job_name /path/to/pegasus_post_script.py \\
-        $RETURN $JOB $RETRY $MAX_RETRIES /submit_dir WORKFLOW_ID
-
-Environment variables:
-    PEGASUS_REMEDIATION_URL      service base URL (default: http://localhost:8000)
-    PEGASUS_REMEDIATION_TIMEOUT  HTTP timeout in seconds (default: 120)
-    PEGASUS_REMEDIATION_MODE     path|inline (default: inline)
 """
 
 from __future__ import annotations
 
 import argparse
-import json
+import asyncio
 import os
-import re
 import sys
-import urllib.error
-import urllib.request
 from pathlib import Path
-from typing import Any
+from uuid import uuid4
 
-# Add project root to path so we can import app modules
+# Project root on path for app.* imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from app.collectors.submit_dir import collect_evidence, parse_instance_id
-from app.reporters.agent_report import generate_report, write_report
 
-# ── Configuration ──────────────────────────────────────────────────────────────
-SERVICE_URL = os.environ.get("PEGASUS_REMEDIATION_URL", "http://localhost:8000")
-REQUEST_TIMEOUT = int(os.environ.get("PEGASUS_REMEDIATION_TIMEOUT", "120"))
-TAG = "[pegasus-remediation]"
+TAG = "[pegasus-healer]"
 
-
-# ── Logging ────────────────────────────────────────────────────────────────────
 
 def _log(msg: str) -> None:
     print(f"{TAG} {msg}", file=sys.stderr, flush=True)
 
 
-# ── HTTP call ─────────────────────────────────────────────────────────────────
+# ── Marker fast path ──────────────────────────────────────────────────────────
 
-def _call_service(payload: dict[str, Any]) -> dict[str, Any] | None:
-    url = f"{SERVICE_URL}/diagnose-and-fix"
-    data = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(
-        url, data=data,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
+def _marker_fast_path(
+    submit_dir: Path,
+    transformation: str | None,
+    exit_code: int,
+    sub_content: str | None,
+) -> bool:
+    """
+    Return True when a family fix was already broadcast to this sibling and
+    the current failure is consistent with that fix.
+    No agent run needed — just retry with the already-patched .sub.
+    """
+    if not transformation or not sub_content:
+        return False
+
+    from app.utils.pegasus.sibling_fixer import check_fast_path
+    from app.utils.pegasus.sub_file import read_resource_requests
+    import tempfile
+
+    # Parse current resource values from .sub content
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".sub", delete=False) as tmp:
+        tmp.write(sub_content)
+        tmp_path = Path(tmp.name)
     try:
-        with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        _log(f"service HTTP {exc.code}: {exc.reason}")
-        try:
-            _log(f"  body: {exc.read().decode('utf-8', errors='replace')[:400]}")
-        except Exception:
-            pass
-        return None
-    except urllib.error.URLError as exc:
-        _log(f"service unreachable: {exc.reason}")
-        return None
-    except Exception as exc:
-        _log(f"unexpected error: {exc}")
-        return None
+        current_resources = read_resource_requests(tmp_path)
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+    return check_fast_path(submit_dir, transformation, exit_code, current_resources)
 
 
-# ── Main ───────────────────────────────────────────────────────────────────────
+# ── Thread file ───────────────────────────────────────────────────────────────
 
-def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Pegasus/DAGMan POST script — agentic failure remediation"
-    )
-    parser.add_argument("exit_code",     type=int, help="Job exit code ($RETURN)")
-    parser.add_argument("job_id",                  help="DAGMan node name ($JOB)")
-    parser.add_argument("retry_number",  type=int, help="Current retry number ($RETRY)")
-    parser.add_argument("max_retries",   type=int, help="Max retries ($MAX_RETRIES)")
-    parser.add_argument("submit_dir",              help="Pegasus submit directory")
-    parser.add_argument("workflow_id",             help="Pegasus workflow ID (wf_uuid)")
-    parser.add_argument("--job-instance-id", type=int, default=None,
-                        help="Instance ID (parsed from job_id if omitted)")
-    parser.add_argument("--condor-job-id",   default=None,
-                        help="HTCondor cluster.proc (e.g. '1234.0')")
-    parser.add_argument("--execution-site",  default=None)
-    parser.add_argument("--transformation",  default=None)
-    args = parser.parse_args()
+def _resolve_thread(
+    submit_dir: Path,
+    job_id: str,
+    workflow_id: str,
+    instance_id: int,
+) -> tuple[str, bool]:
+    """
+    Return (thread_id, is_resume).
 
-    # Job succeeded — nothing to do
-    if args.exit_code == 0:
-        return 0
+    Thread file: {submit_dir}/{job_id}.healer_thread
+    Written on first invocation, read on subsequent ones.
+    Anchored to source_job_instance_id so thread_id is globally unique
+    even when multiple workflows share the same job_id string.
+    """
+    thread_file = submit_dir / f"{job_id}.healer_thread"
+    if thread_file.exists():
+        return thread_file.read_text().strip(), True
+    thread_id = f"{workflow_id}/{instance_id}"
+    thread_file.write_text(thread_id)
+    return thread_id, False
 
-    instance_id = args.job_instance_id or parse_instance_id(args.job_id)
+
+# ── Graph runner ──────────────────────────────────────────────────────────────
+
+async def _run(args: argparse.Namespace) -> int:
+    from app.utils.collectors.submit_dir import collect_evidence, parse_instance_id, parse_healer_tags
+    from app.utils.models.events import WorkflowEvent, EventType
+    from app.utils.policies.loader import load_policy
+    from app.utils.policies.engine import PolicyEngine
+    from app.utils.pegasus.dagman_retry_controller import DAGManRetryController
+    from app.utils.pegasus.sibling_fixer import _parse_transformation_from_content
+    from app.utils.llm.universal_provider import UniversalProvider
+    from app.langgraph.graph import create_graph_with_checkpointer
+
     submit_dir = Path(args.submit_dir)
+    instance_id = args.job_instance_id or parse_instance_id(args.job_id)
 
-    _log(
-        f"job_id={args.job_id} instance={instance_id} "
-        f"exit_code={args.exit_code} retry={args.retry_number}/{args.max_retries}"
-    )
-
-    # Retry budget exhausted on our side — let DAGMan handle it
-    if args.retry_number >= args.max_retries:
-        _log(f"retry budget exhausted, skipping service call")
-        return args.exit_code
-
-    # ── Collect all evidence ──────────────────────────────────────────────────
-    _log("collecting evidence from submit directory...")
+    # ── Collect evidence ──────────────────────────────────────────────────────
+    _log("collecting evidence...")
     evidence = collect_evidence(
         submit_dir=submit_dir,
         job_id=args.job_id,
         instance_id=instance_id,
         condor_job_id=args.condor_job_id,
     )
-    raw_evidence = evidence.model_dump()
-    sources = evidence.available_sources
-    _log(f"evidence collected: {sources}")
+    _log(f"evidence: {evidence.available_sources}")
 
-    # ── Build request payload ─────────────────────────────────────────────────
-    payload: dict[str, Any] = {
-        "job_id":           args.job_id,
-        "job_instance_id":  instance_id,
-        "workflow_id":      args.workflow_id,
-        "exit_code":        args.exit_code,
-        "submit_dir":       str(submit_dir),
-        "condor_job_id":    args.condor_job_id,
-        "retry_number":     args.retry_number,
-        "max_retries":      args.max_retries,
-        "execution_site":   args.execution_site,
-        "transformation":   args.transformation,
-        "raw_evidence":     raw_evidence,
-    }
+    # Resolve transformation (arg takes priority, then .sub file)
+    transformation = args.transformation
+    if not transformation and evidence.sub_file_content:
+        transformation = _parse_transformation_from_content(evidence.sub_file_content)
 
-    _log(f"calling service: POST {SERVICE_URL}/diagnose-and-fix")
-    result = _call_service(payload)
+    # ── Healer tag early exit ─────────────────────────────────────────────────
+    # 'stop' and 'stop-jobs' are also enforced inside the graph's validate_policy
+    # node, but checking here avoids an unnecessary full graph run.
+    if evidence.sub_file_content:
+        tags = parse_healer_tags(evidence.sub_file_content)
+        if "stop" in tags:
+            _log("tag 'stop': terminal — aborting workflow")
+            return 0
+        if "no-fix" in tags:
+            _log("tag 'no-fix': diagnose-only run")
+            # Let graph run but policy will block fix; fall through to full run
 
-    if result is None:
-        _log("service unreachable — passing through original exit code")
-        return args.exit_code
+    # ── Sibling marker fast path ──────────────────────────────────────────────
+    # This job may be a sibling that was RUNNING when the first fix was broadcast.
+    # If its .sub is already patched and exit code matches the failure type,
+    # skip agent entirely — just retry with the patched .sub.
+    if _marker_fast_path(submit_dir, transformation, args.exit_code,
+                         evidence.sub_file_content):
+        _log("marker fast path: fix already applied → retrying with patched .sub")
+        return 1
 
-    # ── Parse response ────────────────────────────────────────────────────────
-    decision         = result.get("decision", "ESCALATE")
-    incident_id      = result.get("incident_id", "unknown")
-    failure_type     = result.get("failure_type")
-    confidence       = result.get("confidence")
-    explanation      = result.get("explanation")
-    evidence_sources = result.get("evidence_sources", [])
-    missing_evidence = result.get("missing_evidence", [])
-    fix_id           = result.get("fix_id")
-    fix_proposed     = result.get("fix_proposed")
-    approval_url     = result.get("approval_url")
-    justification    = result.get("justification", "")
+    # ── Thread ID (incident continuity) ──────────────────────────────────────
+    thread_id, is_resume = _resolve_thread(submit_dir, args.job_id,
+                                           args.workflow_id, instance_id)
+    _log(f"{'resuming' if is_resume else 'fresh'} thread: {thread_id}")
 
-    _log(
-        f"incident={incident_id} failure_type={failure_type} "
-        f"confidence={confidence} decision={decision}"
+    # ── Services ──────────────────────────────────────────────────────────────
+    policy = load_policy(os.environ.get("POLICY_FILE", "policies/remediation.yaml"))
+    policy_engine = PolicyEngine(policy)
+
+    retry_ctrl = DAGManRetryController(
+        submit_dir=str(submit_dir),
+        job_id=args.job_id,
+        job_instance_id=instance_id,
     )
 
-    # ── Write agent report to submit directory ────────────────────────────────
+    def _llm(model_env: str, key_env: str, url_env: str) -> UniversalProvider:
+        return UniversalProvider(
+            model=os.environ.get(model_env) or os.environ.get("LLM_MODEL", ""),
+            api_key=os.environ.get(key_env) or os.environ.get("LLM_API_KEY", ""),
+            base_url=os.environ.get(url_env) or os.environ.get("LLM_BASE_URL", ""),
+        )
+
+    llm           = _llm("LLM_MODEL",           "LLM_API_KEY",           "LLM_BASE_URL")
+    diagnosis_llm = _llm("DIAGNOSIS_LLM_MODEL",  "DIAGNOSIS_LLM_API_KEY", "DIAGNOSIS_LLM_BASE_URL")
+    fix_llm       = _llm("FIX_PLANNING_LLM_MODEL","FIX_PLANNING_LLM_API_KEY","FIX_PLANNING_LLM_BASE_URL")
+
+    graph = await create_graph_with_checkpointer(
+        sqlite_path=os.environ.get("SQLITE_PATH", "checkpoints.db"),
+    )
+
+    config = {
+        "configurable": {
+            "thread_id":        thread_id,
+            "llm":              llm,
+            "diagnosis_llm":    diagnosis_llm,
+            "fix_planning_llm": fix_llm,
+            "policy":           policy,
+            "policy_engine":    policy_engine,
+            "retry_controller": retry_ctrl,
+            "submit_dir":       str(submit_dir),
+            "raw_evidence":     evidence.model_dump(),
+        }
+    }
+
+    # ── Graph input ───────────────────────────────────────────────────────────
+    if is_resume:
+        # Invocation 2+: the retried job just finished — inject its outcome
+        outcome = "EFFECTIVE" if args.exit_code == 0 else "INEFFECTIVE"
+        input_data: dict = {"retry_outcome": outcome}
+        _log(f"retry outcome: {outcome}")
+    else:
+        # Invocation 1: build the initial failure event
+        event = WorkflowEvent(
+            event_type=EventType.JOB_FAILED,
+            workflow_id=args.workflow_id,
+            job_id=args.job_id,
+            job_instance_id=instance_id,
+            exit_code=args.exit_code,
+            execution_site=args.execution_site or "unknown",
+            transformation=transformation,
+            submit_dir=str(submit_dir),
+            condor_job_id=args.condor_job_id,
+        )
+        input_data = {
+            "failure_event":          event.model_dump(mode="json"),
+            "incident_id":            str(uuid4()),
+            "workflow_id":            args.workflow_id,
+            "job_id":                 args.job_id,
+            "source_job_instance_id": instance_id,
+            "attempt":                1,
+        }
+
+    # ── Run graph ─────────────────────────────────────────────────────────────
+    _log("running remediation graph...")
+    final_state = await graph.ainvoke(input_data, config=config)
+
+    decision = final_state.get("policy_decision")
+    _log(f"decision={decision} terminal={final_state.get('terminal', False)}")
+
+    # ── Agent report ──────────────────────────────────────────────────────────
     try:
+        from app.utils.reporters.agent_report import generate_report, write_report
         report = generate_report(
             job_id=args.job_id,
             workflow_id=args.workflow_id,
             submit_dir=str(submit_dir),
-            incident_id=incident_id,
+            incident_id=final_state.get("incident_id", "unknown"),
             exit_code=args.exit_code,
-            attempt=args.retry_number + 1,
+            attempt=final_state.get("attempt", 1),
             max_retries=args.max_retries,
             decision=decision,
-            failure_type=failure_type,
-            confidence=confidence,
-            explanation=explanation,
-            evidence_sources=evidence_sources,
-            fix_proposed=fix_proposed,
-            approval_url=approval_url,
-            service_url=SERVICE_URL,
-            missing_evidence=missing_evidence,
+            failure_type=(final_state.get("diagnosis") or {}).get("failure_type"),
+            confidence=(final_state.get("diagnosis") or {}).get("confidence"),
+            explanation=(final_state.get("diagnosis") or {}).get("explanation"),
+            evidence_sources=evidence.available_sources,
+            fix_proposed=final_state.get("proposed_fix"),
+            approval_url=None,
+            service_url=None,
+            missing_evidence=final_state.get("insufficient_evidence_fields", []),
         )
         report_path = write_report(report, submit_dir, args.job_id)
-        _log(f"report written → {report_path}")
+        _log(f"report → {report_path}")
     except Exception as exc:
-        _log(f"warning: could not write agent report: {exc}")
+        _log(f"warning: could not write report: {exc}")
 
-    # ── Decide DAGMan exit code ───────────────────────────────────────────────
-    if decision == "RETRY":
-        _log("exiting 1 → DAGMan will retry with patched submit file")
+    # ── Exit code ─────────────────────────────────────────────────────────────
+    # AUTO: fix applied to .sub (and siblings) → exit 1 so DAGMan retries
+    # ASK:  proposal written to report, human applies manually → exit 0
+    # STOP / ESCALATE / effective outcome → exit 0
+    if decision == "AUTO":
+        _log("exit 1 → DAGMan retries with patched .sub")
         return 1
 
     if decision == "ASK":
-        _log(
-            "HUMAN APPROVAL REQUIRED — see agent report for instructions\n"
-            f"  Report: {submit_dir}/{args.job_id}.agent_report\n"
-            f"  Approve: POST {SERVICE_URL}{approval_url}"
-        )
+        _log("exit 0 → proposal in report; apply manually and re-submit")
         return 0
 
-    if decision == "STOP":
-        _log(
-            f"STOP — terminal failure ({failure_type})\n"
-            f"  Report: {submit_dir}/{args.job_id}.agent_report"
-        )
-        return 0
-
-    # ESCALATE or unknown
-    _log(
-        f"ESCALATE — could not resolve ({failure_type or 'UNKNOWN'})\n"
-        f"  Report: {submit_dir}/{args.job_id}.agent_report"
-    )
+    _log("exit 0 → terminal")
     return 0
+
+
+# ── Entry point ───────────────────────────────────────────────────────────────
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Pegasus/DAGMan POST script — direct LangGraph remediation"
+    )
+    parser.add_argument("exit_code",    type=int, help="Job exit code ($RETURN)")
+    parser.add_argument("job_id",                 help="DAGMan node name ($JOB)")
+    parser.add_argument("retry_number", type=int, help="Current retry ($RETRY)")
+    parser.add_argument("max_retries",  type=int, help="Max retries ($MAX_RETRIES)")
+    parser.add_argument("submit_dir",             help="Pegasus submit directory")
+    parser.add_argument("workflow_id",            help="Pegasus workflow UUID (wf_uuid)")
+    parser.add_argument("--job-instance-id", type=int, default=None,
+                        help="HTCondor job instance ID (parsed from job_id if omitted)")
+    parser.add_argument("--condor-job-id",   default=None,
+                        help="HTCondor cluster.proc (e.g. '1234.0')")
+    parser.add_argument("--execution-site",  default=None)
+    parser.add_argument("--transformation",  default=None)
+    args = parser.parse_args()
+
+    # Job succeeded on this invocation
+    if args.exit_code == 0:
+        # Could still be a resume invocation (successful retry) — let graph evaluate
+        # Only skip if there is no thread file (truly no prior incident)
+        submit_dir = Path(args.submit_dir)
+        thread_file = submit_dir / f"{args.job_id}.healer_thread"
+        if not thread_file.exists():
+            return 0
+        # Resume: graph records EFFECTIVE outcome + writes memory
+        return asyncio.run(_run(args))
+
+    # Retry budget exhausted — hand back to DAGMan
+    if args.retry_number >= args.max_retries:
+        _log("retry budget exhausted — no agent run")
+        return args.exit_code
+
+    return asyncio.run(_run(args))
 
 
 if __name__ == "__main__":

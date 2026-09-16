@@ -36,3 +36,6 @@ checkpoints.db
 
 # Memory (Claude-specific)
 memory/
+
+# Pegasus workflow run directories (test/fixture data, not source)
+run*/

@@ -16,7 +16,7 @@ import re
 import xml.etree.ElementTree as ET
 from typing import Any
 
-from app.models.evidence import RawEvidence
+from app.utils.models.evidence import RawEvidence
 
 
 # ── 1. parse_failure_summary ──────────────────────────────────────────────────

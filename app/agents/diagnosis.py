@@ -31,10 +31,10 @@ import structlog
 from pydantic import BaseModel, Field
 
 from app.agents.tools import TOOL_DESCRIPTIONS, TOOL_MAP
-from app.llm.provider import LLMProvider
-from app.models.context import FailureContext
-from app.models.diagnosis import FAILURE_FIX_CATEGORY, Diagnosis, FailureType
-from app.models.evidence import RawEvidence
+from app.utils.llm.provider import LLMProvider
+from app.utils.models.context import FailureContext
+from app.utils.models.diagnosis import FAILURE_FIX_CATEGORY, Diagnosis, FailureType
+from app.utils.models.evidence import RawEvidence
 
 log = structlog.get_logger(__name__)
 
