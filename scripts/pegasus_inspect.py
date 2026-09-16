@@ -681,11 +681,16 @@ async def _run_agent(
         "fix_confidence": None,
         "fix_requires_approval": None,
         "script_patches": [],
+        # policy decision (populated below)
+        "policy_decision": None,
+        "policy_reason": None,
+        "policy_checks_failed": [],
     }
 
-    # Always run FixPlanningAgent so the operator sees what would be executed.
+    # ── FixPlanningAgent ──────────────────────────────────────────────────────
     if verbose:
         print("    [fix-planner] planning fix …", flush=True)
+    proposal = None
     try:
         from app.agents.fix_planning import FixPlanningAgent
         fix_planner = FixPlanningAgent(llm)
@@ -709,86 +714,87 @@ async def _run_agent(
         if verbose:
             print(f"    [fix-planner] failed: {exc}", flush=True)
 
+    # ── PolicyEngine — validate the fix proposal ──────────────────────────────
+    if proposal is not None:
+        if verbose:
+            print("    [policy] validating fix …", flush=True)
+        try:
+            from app.policies.engine import PolicyEngine
+            from app.policies.loader import load_policy
+            _policy_file = os.environ.get("POLICY_FILE", "policies/remediation.yaml")
+            _threshold   = float(os.environ.get("CONFIDENCE_THRESHOLD", "0.80"))
+            policy_cfg    = load_policy(_policy_file)
+            policy_engine = PolicyEngine(policy_cfg, _threshold)
+            record = policy_engine.validate(proposal, diagnosis, ctx)
+            result["policy_decision"]     = record.decision.value
+            result["policy_reason"]       = record.reason
+            result["policy_checks_failed"] = record.checks_failed
+        except Exception as exc:
+            if verbose:
+                print(f"    [policy] failed: {exc}", flush=True)
+
     return result
 
 
 def _print_agent_diagnosis(diag: dict) -> None:
     reused_from = diag.get("_reused_from")
-    header = (
-        f"  AI Diagnosis  (reused from {reused_from})"
-        if reused_from else
-        "  AI Diagnosis  (DiagnosisAgent)"
-    )
+    reused_note = f"reused from {reused_from}" if reused_from else ""
+
+    # ── AI Diagnosis ──────────────────────────────────────────────────────────
     conf_pct = f"{diag['confidence']:.0%}" if diag.get("confidence") is not None else "—"
-    print(f"\n{header}:")
-    print(f"    failure_type : {diag['failure_type']}")
-    print(f"    confidence   : {conf_pct}")
-    # Wrap explanation at ~65 chars
-    explanation = diag.get("explanation", "")
-    if explanation:
-        words = explanation.split()
-        line, out = [], []
-        for w in words:
-            if sum(len(x) + 1 for x in line) + len(w) > 65:
-                out.append("    " + " ".join(line))
-                line = [w]
-            else:
-                line.append(w)
-        if line:
-            out.append("    " + " ".join(line))
-        label = "    explanation : "
-        print(label + out[0].lstrip())
-        for rest in out[1:]:
-            print(" " * len(label) + rest.lstrip())
+    _sec(_c("bold", _c("yellow", "AI Diagnosis")), conf_pct)
+    if reused_note:
+        print(f"  {_c('dim', reused_note)}")
+    ft_color = "green" if diag["failure_type"] == "SUCCESS" else "red"
+    print(f"  type    : {_c('bold', _c(ft_color, diag['failure_type']))}")
+    if diag.get("explanation"):
+        _wrap(diag["explanation"], "  reason  : ")
     if diag.get("requires_human_review"):
-        print("    ⚠  requires human review")
+        print(f"  {_c('red', '⚠  requires human review')}")
     for ev in diag.get("missing_evidence", [])[:3]:
-        print(f"    missing      : {ev}")
+        print(f"  missing : {_c('dim', ev)}")
 
-    # ── Fix plan ──────────────────────────────────────────────────────────────
+    # ── Fix Plan ──────────────────────────────────────────────────────────────
     if diag.get("fix_action"):
-        approval = diag.get("fix_requires_approval")
-        approval_str = "  (requires approval)" if approval else "  (AUTO — no approval needed)"
         fix_conf = diag.get("fix_confidence")
-        fix_conf_str = f"  confidence={fix_conf:.0%}" if fix_conf is not None else ""
-        print(f"\n  Fix Plan  (FixPlanningAgent):")
-        print(f"    action       : {_c('bold', diag['fix_action'])}{approval_str}{fix_conf_str}")
-        if diag.get("fix_justification"):
-            words = diag["fix_justification"].split()
-            line, out = [], []
-            for w in words:
-                if sum(len(x) + 1 for x in line) + len(w) > 65:
-                    out.append("    " + " ".join(line))
-                    line = [w]
-                else:
-                    line.append(w)
-            if line:
-                out.append("    " + " ".join(line))
-            label = "    justification: "
-            print(label + out[0].lstrip())
-            for rest in out[1:]:
-                print(" " * len(label) + rest.lstrip())
-        cfg = diag.get("fix_proposed_configuration") or {}
-        params = diag.get("fix_parameters") or {}
-        changes = {**params, **cfg}
-        if changes:
-            print(f"    changes      :")
-            for k, v in changes.items():
-                print(f"      {k} = {v}")
+        fix_conf_str = f"{fix_conf:.0%}" if fix_conf is not None else ""
+        _sec(_c("bold", _c("cyan", "Fix Plan")), fix_conf_str)
 
-    # ── Suggested script patches ──────────────────────────────────────────────
+        approval     = diag.get("fix_requires_approval")
+        approval_tag = _c("yellow", "[ASK]") if approval else _c("green", "[AUTO]")
+        print(f"  action  : {_c('bold', diag['fix_action'])}  {approval_tag}")
+
+        if diag.get("fix_justification"):
+            _wrap(diag["fix_justification"], "  reason  : ")
+
+        changes = {**(diag.get("fix_parameters") or {}), **(diag.get("fix_proposed_configuration") or {})}
+        if changes:
+            print(f"  changes :")
+            for k, v in changes.items():
+                print(f"    {_c('dim', k)} = {_c('bold', str(v))}")
+
+    # ── Policy ────────────────────────────────────────────────────────────────
+    policy_decision = diag.get("policy_decision")
+    if policy_decision:
+        dc = {"AUTO": "green", "ASK": "yellow", "STOP": "red", "ESCALATE": "red"}.get(policy_decision, "white")
+        _sec(_c("bold", "Policy"), _c("bold", _c(dc, f"→ {policy_decision}")))
+        reason = diag.get("policy_reason", "")
+        if reason and reason != "All policy checks passed.":
+            _wrap(reason, "  ")
+        for chk in diag.get("policy_checks_failed", []):
+            print(f"  {_c('red', '✗')} {chk}")
+
+    # ── Script patches ────────────────────────────────────────────────────────
     for patch in diag.get("script_patches", []):
         import difflib
-        print(f"\n  {_c('bold', _c('cyan', '── Suggested patch ──'))}")
-        print(f"    file        : {patch['file_path']}")
-        print(f"    description : {patch['patch_description']}")
-        print(f"    ⚠  requires human approval before applying")
+        _sec(_c("bold", _c("cyan", "Suggested Patch")))
+        print(f"  file    : {patch['file_path']}")
+        print(f"  desc    : {patch['patch_description']}")
+        print(f"  {_c('dim', '⚠  requires human approval before applying')}")
         diff = list(difflib.unified_diff(
             patch["original_content"].splitlines(),
             patch["patched_content"].splitlines(),
-            fromfile="original",
-            tofile="patched",
-            lineterm="",
+            fromfile="original", tofile="patched", lineterm="",
         ))
         if diff:
             print()
@@ -980,7 +986,8 @@ def inspect_job(submit_dir: Path, job_id: str) -> JobReport | None:
 
 # ── Renderer ───────────────────────────────────────────────────────────────────
 
-W = 70   # line width
+W = 72   # line width
+
 
 def _bar(used: float | None, total: float | None, width: int = BAR_WIDTH) -> str:
     if used is None or total is None or total == 0:
@@ -988,8 +995,7 @@ def _bar(used: float | None, total: float | None, width: int = BAR_WIDTH) -> str
     ratio = min(used / total, 1.0)
     filled = round(ratio * width)
     bar = "█" * filled + "░" * (width - filled)
-    pct = ratio * 100
-    return f"[{bar}] {pct:.0f}%"
+    return f"[{bar}] {ratio * 100:.0f}%"
 
 
 def _fmt_seconds(s: float | None) -> str:
@@ -1004,126 +1010,136 @@ def _fmt_seconds(s: float | None) -> str:
     return f"{sec}s"
 
 
+def _sec(title: str, suffix: str = "") -> None:
+    """Print a ── Title ──────── suffix section header."""
+    left = f"── {title} "
+    right = f" {suffix}" if suffix else ""
+    fill = max(W - len(left) - len(suffix) - (2 if suffix else 0), 2)
+    print(f"\n{left}{'─' * fill}{right}")
+
+
+def _wrap(text: str, indent: str, width: int = 62) -> None:
+    """Print word-wrapped text with a fixed indent on continuation lines."""
+    words = text.split()
+    line: list[str] = []
+    first = True
+    for w in words:
+        if sum(len(x) + 1 for x in line) + len(w) > width:
+            print((" " * len(indent) if not first else indent) + " ".join(line))
+            line = [w]
+            first = False
+        else:
+            line.append(w)
+    if line:
+        print((" " * len(indent) if not first else indent) + " ".join(line))
+
+
 def _print_report(report: JobReport, agent_diag: dict | None = None) -> None:
-    r = report
-    ks = r.kickstart[-1] if r.kickstart else None   # most recent attempt
+    r   = report
+    ks  = r.kickstart[-1] if r.kickstart else None
+    ok  = r.failure_cat == "SUCCESS"
+    req = r.requests
 
-    ok   = r.failure_cat == "SUCCESS"
-    flag = "✓" if ok else "✗"
-
+    # ══ Header ════════════════════════════════════════════════════════════════
+    flag = _c("green", "✓") if ok else _c("red", "✗")
     print(f"\n{'═' * W}")
-    print(f"  {flag}  {r.job_id}")
-    print(f"{'─' * W}")
-    print(f"  exit_code  : {r.exit_code}")
-    print(f"  category   : {r.failure_cat}")
+    print(f"  {flag}  {_c('bold', r.job_id)}")
+    print(f"{'═' * W}")
+
+    # ── Job ──────────────────────────────────────────────────────────────────
+    _sec("Job")
+    cat_color = "green" if ok else "red"
+    print(f"  exit_code  : {r.exit_code}    category : {_c(cat_color, _c('bold', r.failure_cat))}")
     if r.sub_path:
         print(f"  sub_file   : {r.sub_path}")
 
-    # ── Resource utilisation ──────────────────────────────────────────────────
-    req = r.requests
-    print(f"\n  Resource utilisation  (last attempt):")
-
-    # Memory
+    # ── Resources ─────────────────────────────────────────────────────────────
+    _sec("Resources", "(last attempt)")
     used_mem = ks.peak_memory_mb if ks else None
-    warn_m   = " ⚠ HIGH" if r.has_memory_warning else ""
-    print(
-        f"    memory   : {_bar(used_mem, req.memory_mb)}"
-        f"  {used_mem or '—'} / {req.memory_mb or '—'} MB{warn_m}"
-    )
+    warn_m   = _c("red", "  ⚠ HIGH") if r.has_memory_warning else ""
+    print(f"  memory   {_bar(used_mem, req.memory_mb)}  {used_mem or '—'} / {req.memory_mb or '—'} MB{warn_m}")
 
-    # Runtime
     used_rt = ks.wall_time_s if ks else None
-    warn_t  = " ⚠ NEAR LIMIT" if r.has_walltime_warning else ""
-    print(
-        f"    runtime  : {_bar(used_rt, req.runtime_seconds)}"
-        f"  {_fmt_seconds(used_rt)} / {_fmt_seconds(req.runtime_seconds)}{warn_t}"
-    )
+    warn_t  = _c("red", "  ⚠ NEAR LIMIT") if r.has_walltime_warning else ""
+    print(f"  runtime  {_bar(used_rt, req.runtime_seconds)}  {_fmt_seconds(used_rt)} / {_fmt_seconds(req.runtime_seconds)}{warn_t}")
 
-    # Disk (only if available)
     if req.disk_mb:
-        print(f"    disk     : {req.disk_mb} MB requested  (actual usage not in kickstart)")
-
-    # CPUs
+        print(f"  disk     {req.disk_mb} MB requested  (actual not in kickstart)")
     if req.cpus:
         cpu_time = ks.cpu_time_s if ks else None
-        print(f"    cpus     : {req.cpus} requested  |  cpu_time={_fmt_seconds(cpu_time)}")
+        print(f"  cpus     {req.cpus} requested  │  cpu_time={_fmt_seconds(cpu_time)}")
 
-    # ── Kickstart attempts ────────────────────────────────────────────────────
+    # ── Attempts ──────────────────────────────────────────────────────────────
     if r.kickstart:
-        print(f"\n  Kickstart records  ({len(r.kickstart)} attempt(s), newest last):")
+        _sec("Attempts", f"({len(r.kickstart)} total)")
         for k in r.kickstart:
-            suffix = "  ← LAST" if k is r.kickstart[-1] else ""
+            last = _c("dim", "  ← last") if k is r.kickstart[-1] else ""
             print(
-                f"    attempt {k.attempt:02d}"
-                f"  exit={k.exit_code}"
+                f"  {k.attempt:02d}  exit={k.exit_code}"
                 f"  wall={_fmt_seconds(k.wall_time_s)}"
-                f"  mem={k.peak_memory_mb or '—'} MB"
-                f"{suffix}"
+                f"  mem={k.peak_memory_mb or '—'} MB{last}"
             )
-            if k.input_files:
-                for f in k.input_files[:4]:
-                    print(f"      input: {f}")
-                if len(k.input_files) > 4:
-                    print(f"      … and {len(k.input_files) - 4} more")
-    else:
-        print("\n  Kickstart records  : none found (.out / .out.00* not available)")
+            for f in k.input_files[:4]:
+                print(f"      input: {f}")
+            if len(k.input_files) > 4:
+                print(f"      … and {len(k.input_files) - 4} more")
 
-    # ── Transfer inputs ───────────────────────────────────────────────────────
-    if req.transfer_inputs:
-        print(f"\n  transfer_input_files  ({len(req.transfer_inputs)}):")
-        for f in req.transfer_inputs[:6]:
-            exists = Path(f).exists()
-            mark   = "✓" if exists else "✗ MISSING"
-            size   = f"  ({Path(f).stat().st_size // 1024} KB)" if exists else ""
-            print(f"    {mark}  {f}{size}")
-        if len(req.transfer_inputs) > 6:
-            print(f"    … and {len(req.transfer_inputs) - 6} more")
+    # ── Input Files ───────────────────────────────────────────────────────────
+    has_tf  = bool(req.transfer_inputs)
+    has_stg = bool(r.staging)
+    if has_tf or has_stg:
+        missing_tf  = sum(1 for f in req.transfer_inputs if not Path(f).exists())
+        missing_stg = sum(1 for e in r.staging if e.exists_local is False)
+        err_stg     = sum(1 for e in r.staging if e.staging_error)
+        issues      = missing_tf + missing_stg + err_stg
+        warn_sfx    = _c("red", f"⚠ {issues} issue(s)") if issues else ""
+        _sec("Input Files", warn_sfx)
 
-    # ── Data staging (replica/LFN tracking) ──────────────────────────────────
-    if r.staging:
-        missing_cnt = sum(1 for e in r.staging if e.exists_local is False)
-        error_cnt   = sum(1 for e in r.staging if e.staging_error)
-        header_suffix = ""
-        if missing_cnt:
-            header_suffix += f"  ⚠ {missing_cnt} MISSING"
-        if error_cnt:
-            header_suffix += f"  ⚠ {error_cnt} TRANSFER ERROR"
-        print(f"\n  Input staging  ({len(r.staging)} file(s){header_suffix}):")
-        for entry in r.staging[:10]:
-            if entry.exists_local is False:
-                mark = "✗ MISSING"
-            elif entry.exists_local:
-                mark = "✓"
-            else:
-                mark = "~"    # remote URL — existence not checkable locally
-            size_str = f"  ({entry.size_bytes // 1024} KB)" if entry.size_bytes else ""
-            chk_str  = f"  sha256:{entry.checksum[:12]}…" if entry.checksum else ""
-            print(f"    {mark}  {entry.lfn}{size_str}{chk_str}")
-            # Show PFN only when it differs meaningfully from the LFN
-            pfn_base = entry.pfn.rstrip("/").rsplit("/", 1)[-1].split("?")[0]
-            if pfn_base != entry.lfn:
-                print(f"         pfn: {entry.pfn}")
-            if entry.staging_error:
-                print(f"         ⚠  transfer error: {entry.staging_error}")
-        if len(r.staging) > 10:
-            print(f"    … and {len(r.staging) - 10} more")
+        if has_tf:
+            print(f"  transfer_input_files  ({len(req.transfer_inputs)}):")
+            for f in req.transfer_inputs[:6]:
+                exists = Path(f).exists()
+                mark   = _c("green", "✓") if exists else _c("red", "✗ MISSING")
+                size   = f"  ({Path(f).stat().st_size // 1024} KB)" if exists else ""
+                print(f"    {mark}  {f}{size}")
+            if len(req.transfer_inputs) > 6:
+                print(f"    {_c('dim', f'… and {len(req.transfer_inputs) - 6} more')}")
 
-    # ── Stderr tail ───────────────────────────────────────────────────────────
+        if has_stg:
+            print(f"  staging  ({len(r.staging)} file(s)):")
+            for entry in r.staging[:10]:
+                if entry.exists_local is False:
+                    mark = _c("red", "✗ MISSING")
+                elif entry.exists_local:
+                    mark = _c("green", "✓")
+                else:
+                    mark = _c("dim", "~")
+                size_str = f"  ({entry.size_bytes // 1024} KB)" if entry.size_bytes else ""
+                chk_str  = f"  sha256:{entry.checksum[:12]}…" if entry.checksum else ""
+                print(f"    {mark}  {entry.lfn}{size_str}{chk_str}")
+                pfn_base = entry.pfn.rstrip("/").rsplit("/", 1)[-1].split("?")[0]
+                if pfn_base != entry.lfn:
+                    print(f"         pfn: {_c('dim', entry.pfn)}")
+                if entry.staging_error:
+                    print(f"         {_c('red', '⚠')}  {entry.staging_error}")
+            if len(r.staging) > 10:
+                print(f"    {_c('dim', f'… and {len(r.staging) - 10} more')}")
+
+    # ── Stderr ────────────────────────────────────────────────────────────────
     if not ok:
         tail = r.stderr_tail.strip()
         if tail and tail != "(no stderr)":
             lines = tail.splitlines()
-            # Show last 15 lines
-            show = lines[-15:]
-            print(f"\n  stderr (last {len(show)} lines):")
+            show  = lines[-15:]
+            _sec("Stderr", f"(last {len(show)} lines)")
             for line in show:
-                print(f"    {line}")
+                print(f"  {line}")
 
-    # ── AI diagnosis (optional) ───────────────────────────────────────────────
+    # ── AI sections ───────────────────────────────────────────────────────────
     if agent_diag is not None:
         _print_agent_diagnosis(agent_diag)
 
-    print(f"{'═' * W}")
+    print(f"\n{'═' * W}")
 
 
 # ── Summary table ──────────────────────────────────────────────────────────────
@@ -1132,20 +1148,21 @@ def _print_summary(reports: list[JobReport]) -> None:
     print(f"\n{'━' * W}")
     print(f"  SUMMARY  —  {len(reports)} job(s)")
     print(f"{'━' * W}")
-    col = "{:<45} {:<25} {:>5}"
-    print(col.format("JOB", "CATEGORY", "EXIT"))
-    print("  " + "─" * 68)
+    col = "  {:<3} {:<44} {:<22} {:>5}"
+    print(col.format("", "JOB", "CATEGORY", "EXIT"))
+    print("  " + "─" * (W - 2))
     for r in reports:
+        ok   = r.failure_cat == "SUCCESS"
+        flag = _c("green", "✓") if ok else _c("red", "✗")
         warn = ""
         if r.has_walltime_warning:
-            warn += " ⚠RT"
+            warn += _c("red", " ⚠RT")
         if r.has_memory_warning:
-            warn += " ⚠MEM"
-        ok = r.failure_cat == "SUCCESS"
-        flag = "✓" if ok else "✗"
+            warn += _c("red", " ⚠MEM")
         print(col.format(
-            f"  {flag} {r.job_id[:43]}",
-            r.failure_cat[:24] + warn,
+            flag,
+            r.job_id[:43],
+            r.failure_cat[:21] + warn,
             str(r.exit_code or "—"),
         ))
     print(f"{'━' * W}\n")
