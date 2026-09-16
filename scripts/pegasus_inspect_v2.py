@@ -411,7 +411,7 @@ def main() -> int:
 
         try:
             from app.llm.universal_provider import UniversalProvider
-            from app.agents.orchestrator import RemediationOrchestrator
+            from app.pipeline.orchestrator import RemediationOrchestrator
 
             llm_base = UniversalProvider(model=agent_model, api_key=agent_api_key, base_url=agent_base_url)
             llm      = _VerboseLLMProvider(llm_base, agent_model) if args.verbose else llm_base

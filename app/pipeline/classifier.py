@@ -17,7 +17,7 @@ from typing import Any
 import structlog
 from pydantic import BaseModel, Field
 
-from app.agents.observator import ObservationReport
+from app.pipeline.observator import ObservationReport
 from app.llm.provider import LLMProvider
 from app.models.context import FailureContext
 from app.models.diagnosis import FAILURE_FIX_CATEGORY, Diagnosis, FailureType

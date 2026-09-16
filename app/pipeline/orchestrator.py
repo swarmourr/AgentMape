@@ -19,9 +19,9 @@ from typing import Any
 
 import structlog
 
-from app.agents.classifier import ClassifierAgent
+from app.pipeline.classifier import ClassifierAgent
 from app.agents.fix_planning import FixPlanningAgent
-from app.agents.observator import ObservationReport, ObservatorAgent
+from app.pipeline.observator import ObservationReport, ObservatorAgent
 from app.llm.provider import LLMProvider
 from app.models.context import FailureContext
 from app.models.diagnosis import Diagnosis
