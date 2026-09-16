@@ -88,6 +88,61 @@ class _ReportSchedulerClient:
         return False
 
 
+# ── Verbose LLM wrapper ───────────────────────────────────────────────────────
+
+class _VerboseLLMProvider:
+    """
+    Wraps any LLMProvider and prints each call to stdout.
+
+    Shows: prompt tail, model name, and key response fields
+    (thought, action, confidence) so you can follow the agent's reasoning.
+    """
+
+    def __init__(self, inner, model: str, label: str = "") -> None:
+        self._inner = inner
+        self._model = model
+        self._label = label
+        self._step  = 0
+
+    def for_label(self, label: str) -> "_VerboseLLMProvider":
+        v = _VerboseLLMProvider(self._inner, self._model, label)
+        v._step = self._step
+        return v
+
+    async def complete(self, messages, response_model, *, temperature=0.0):
+        self._step += 1
+        tag = f"[{self._label} step {self._step}]" if self._label else f"[step {self._step}]"
+
+        # Print tail of last prompt
+        last_content = ""
+        if messages:
+            last = messages[-1]
+            last_content = last.get("content", "") if isinstance(last, dict) else str(last)
+        print(f"\n  {_c('blue', tag)}  model={_c('bold', self._model)}", flush=True)
+        if last_content:
+            tail = last_content[-400:].strip()
+            for line in tail.splitlines()[-8:]:
+                print(f"    {_c('dim', line)}", flush=True)
+
+        result = await self._inner.complete(messages, response_model, temperature=temperature)
+
+        thought    = getattr(result, "thought", "") or ""
+        action     = getattr(result, "action", None)
+        confidence = getattr(result, "confidence", None)
+
+        if thought:
+            short = thought[:300].replace("\n", " ")
+            print(f"  {_c('yellow', '→ thought')}: {short}", flush=True)
+        if action is not None:
+            ac = "red" if str(action) in ("conclude", "report", "ESCALATE") else "green"
+            cs = f"  conf={confidence:.2f}" if confidence is not None else ""
+            print(f"  {_c('cyan', '→ action')}: {_c(ac, _c('bold', str(action)))}{cs}", flush=True)
+        elif confidence is not None:
+            print(f"  {_c('cyan', '→ confidence')}: {confidence:.2f}", flush=True)
+
+        return result
+
+
 # ── Node label colours ─────────────────────────────────────────────────────────
 
 _NODE_COLORS: dict[str, str] = {
@@ -142,8 +197,20 @@ async def _run_graph(
     if verbose and tags:
         print(f"    [tags] {', '.join(tags)}", flush=True)
 
+    # Wrap LLM providers with verbose output when requested
+    wrapped = dict(services)
+    if verbose:
+        for key, label in (
+            ("llm",              "llm"),
+            ("diagnosis_llm",    "diagnosis"),
+            ("fix_planning_llm", "fix-plan"),
+        ):
+            if key in wrapped:
+                model_name = getattr(wrapped[key], "model", "?")
+                wrapped[key] = _VerboseLLMProvider(wrapped[key], model_name, label)
+
     svc = {
-        **services,
+        **wrapped,
         "scheduler_client": _ReportSchedulerClient(report),
         "raw_evidence":     evidence.model_dump(mode="json"),
         "submit_dir":       str(submit_dir),
@@ -171,8 +238,10 @@ async def _run_graph(
         # Stream node-by-node outputs
         async for chunk in graph.astream(initial_state, config=config):
             for node_name, node_output in chunk.items():
-                print(f"\n  {_node_label(node_name)}")
-                # Show key state changes
+                if not isinstance(node_output, dict):
+                    continue   # skip LangGraph internal routing events
+                print(f"\n  {_node_label(node_name)}", flush=True)
+                # Show key state changes produced by this node
                 for key in ("diagnosis", "proposed_fix", "policy_decision", "overlay"):
                     if key in node_output:
                         val = node_output[key]
