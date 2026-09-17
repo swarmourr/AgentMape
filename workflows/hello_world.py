@@ -25,9 +25,6 @@ OUTPUT_DIR = Path(BASE_DIR /  "output").resolve()
 # from an ACCESS site such as jetstream.
 EXEC_SITE = "local"
 
-# What compute backend we are using based on Pegasus configuration
-props = Properties()
-
 # --- Healer post script -------------------------------------------------------
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
@@ -35,7 +32,16 @@ if str(_PROJECT_ROOT) not in sys.path:
 
 from workflows.healer import configure_healer_properties, add_healer_to_job
 
-configure_healer_properties(props, submit_dir=".", max_retries=3)
+# Write pegasus.properties directly — bypass Properties validator for dagman keys
+_post_script = str((_PROJECT_ROOT / "scripts" / "pegasus_post_script.py").resolve())
+Path("pegasus.properties").write_text(
+    f"pegasus.dagman.post = {_post_script}\n"
+    f"pegasus.dagman.post.arguments = $RETURN $JOB $RETRY 3 . ${{wf.uuid}}\n"
+)
+
+# generate a simple input file for the workflow
+with open("{}/f.in".format(INPUT_DIR), "w") as f:
+    f.write("This is the contents of the input file for the hello world workflow!")
 
 # --- Transformation catalog ---------------------------------------------------
 tc = TransformationCatalog()
@@ -47,16 +53,10 @@ tc.add_transformations(
         TransformationSite("local", str(EXECUTABLES_DIR / "world"), is_stageable=False)
     ),
 )
-tc.write()
-props["pegasus.catalog.transformation.file"] = "tc.yml"
-props.write()
-
-# generate a simple input file for the workflow
-with open("{}/f.in".format(INPUT_DIR), "w") as f:
-    f.write("This is the contents of the input file for the hello world workflow!")
 
 # --- Workflow -----------------------------------------------------------------
 wf = Workflow("hello-world")
+wf.add_transformation_catalog(tc)
 
 fin = File("f.in")
 finter = File("f.inter")
