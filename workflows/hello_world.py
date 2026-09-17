@@ -151,13 +151,16 @@ def generate() -> None:
         print(e, file=sys.stderr)
         sys.exit(1)
 
-    print("\nWorkflow generated successfully.")
-    print("\nTo plan and run:")
-    print(
-        f"  pegasus-plan --conf pegasus.properties "
-        f"--dir {SUBMIT_DIR} --dax workflow.yml "
-        f"--exec-site local --submit"
-    )
+    try:
+        wf.plan(
+            input_dirs=[INPUT_DIR],
+            sites=[EXEC_SITE],
+            transformations_dir=EXECUTABLES_DIR,
+            output_dir=OUTPUT_DIR,
+            submit=True,
+        )
+    except PegasusClientError as e:
+        print(e)
 
 
 if __name__ == "__main__":
