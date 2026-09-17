@@ -97,8 +97,9 @@ except PegasusClientError as e:
 
 # --- Inject healer into the generated .dag ------------------------------------
 _INFRA = ("create_dir", "stage_in", "stage_out", "register", "clean_up", "cleanup")
-_submit_base = BASE_DIR / "submit" / "hello-world"
-_dag_files = sorted(_submit_base.glob("run*/*.dag")) if _submit_base.exists() else []
+
+# Find the generated .dag — Pegasus submit dir location varies by site config
+_dag_files = sorted(BASE_DIR.glob("**/hello-world-0.dag"), key=lambda p: p.stat().st_mtime)
 
 if not _dag_files:
     print("ERROR: no .dag file found — cannot inject healer", file=sys.stderr)
