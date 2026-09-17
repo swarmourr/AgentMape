@@ -1,0 +1,33 @@
+#!/bin/bash
+# hello — first stage of the hello-world workflow
+# Usage: hello -T <sleep_secs> -i <input_file> -o <output_file>
+
+set -euo pipefail
+
+SLEEP=0
+INPUT=""
+OUTPUT=""
+
+while getopts "T:i:o:" opt; do
+    case "$opt" in
+        T) SLEEP="$OPTARG" ;;
+        i) INPUT="$OPTARG" ;;
+        o) OUTPUT="$OPTARG" ;;
+        *) echo "Usage: hello -T secs -i input -o output" >&2; exit 1 ;;
+    esac
+done
+
+[ -z "$INPUT"  ] && { echo "hello: missing -i input"  >&2; exit 1; }
+[ -z "$OUTPUT" ] && { echo "hello: missing -o output" >&2; exit 1; }
+[ ! -f "$INPUT" ] && { echo "hello: input file not found: $INPUT" >&2; exit 1; }
+
+sleep "$SLEEP"
+
+{
+    echo "=== hello stage ==="
+    cat "$INPUT"
+    echo "Processed by: hello"
+    echo "Timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+} > "$OUTPUT"
+
+echo "hello: wrote $OUTPUT"

@@ -195,8 +195,9 @@ async def _run(args: argparse.Namespace) -> int:
     diagnosis_llm = _llm("DIAGNOSIS_LLM_MODEL",  "DIAGNOSIS_LLM_API_KEY", "DIAGNOSIS_LLM_BASE_URL")
     fix_llm       = _llm("FIX_PLANNING_LLM_MODEL","FIX_PLANNING_LLM_API_KEY","FIX_PLANNING_LLM_BASE_URL")
 
+    _default_checkpoint = str(Path.home() / ".pegasus_healer_checkpoint.db")
     graph = await create_graph_with_checkpointer(
-        sqlite_path=os.environ.get("SQLITE_PATH", "checkpoints.db"),
+        sqlite_path=os.environ.get("SQLITE_PATH", _default_checkpoint),
     )
 
     config = {
