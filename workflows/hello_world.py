@@ -13,7 +13,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 BASE_DIR = Path(".").resolve()
 INPUT_DIR = Path(BASE_DIR /  "input").resolve()
-EXECUTABLES_DIR = Path(BASE_DIR / ".." /  "executables").resolve()
+EXECUTABLES_DIR = Path(BASE_DIR / "executables").resolve()
 OUTPUT_DIR = Path(BASE_DIR /  "output").resolve()
 
 # the execution site where you job to run.
@@ -37,6 +37,19 @@ if str(_PROJECT_ROOT) not in sys.path:
 from workflows.healer import configure_healer_properties, add_healer_to_job
 
 configure_healer_properties(props, submit_dir=".", max_retries=3)
+
+# --- Transformation catalog ---------------------------------------------------
+tc = TransformationCatalog()
+tc.add_transformations(
+    Transformation("hello").add_sites(
+        TransformationSite("local", str(EXECUTABLES_DIR / "hello"), is_stageable=False)
+    ),
+    Transformation("world").add_sites(
+        TransformationSite("local", str(EXECUTABLES_DIR / "world"), is_stageable=False)
+    ),
+)
+tc.write()
+props["pegasus.catalog.transformation.file"] = "tc.yml"
 props.write()
 
 # generate a simple input file for the workflow
@@ -76,7 +89,7 @@ except PegasusClientError as e:
 
 # --- Plan and Submit ----------------------------------------------------------
 try:
-    wf.plan(input_dirs=[INPUT_DIR], sites=[EXEC_SITE], transformations_dir=EXECUTABLES_DIR,\
+    wf.plan(input_dirs=[INPUT_DIR], sites=[EXEC_SITE],\
             output_dir=OUTPUT_DIR, submit=True)
 except PegasusClientError as e:
     print(e)
