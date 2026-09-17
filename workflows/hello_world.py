@@ -1,4 +1,6 @@
 from Pegasus.api import *
+import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -30,21 +32,10 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-from workflows.healer import configure_healer_properties, add_healer_to_job
+from workflows.healer import add_healer_to_job
 
-# Write pegasus.properties directly — bypass Properties validator for dagman keys
 _post_script = (_PROJECT_ROOT / "scripts" / "pegasus_post_script.py").resolve()
-_post_script.chmod(0o755)   # ensure executable
-_props_file = (BASE_DIR / "pegasus.properties").resolve()
-_props_file.write_text(
-    # Disable pegasus-exitcode so our post script is used instead.
-    # Write both key variants — Pegasus version determines which one it reads.
-    f"pegasus.exitcode.scope=none\n"
-    f"dagman.post={_post_script}\n"
-    f"pegasus.dagman.post={_post_script}\n"
-    f"dagman.post.arguments=$RETURN $JOB $RETRY 3 . ${{wf.uuid}}\n"
-    f"pegasus.dagman.post.arguments=$RETURN $JOB $RETRY 3 . ${{wf.uuid}}\n"
-)
+_post_script.chmod(0o755)
 
 # generate a simple input file for the workflow
 with open("{}/f.in".format(INPUT_DIR), "w") as f:
@@ -93,9 +84,42 @@ try:
 except PegasusClientError as e:
     print(e)
 
-# --- Plan and Submit ----------------------------------------------------------
+# --- Plan (without submit — we patch the .dag first) -------------------------
 try:
     wf.plan(input_dirs=[INPUT_DIR], sites=[EXEC_SITE],\
-            output_dir=OUTPUT_DIR, conf=str(_props_file), submit=True)
+            output_dir=OUTPUT_DIR, submit=False)
 except PegasusClientError as e:
     print(e)
+    sys.exit(1)
+
+# --- Inject healer into the generated .dag ------------------------------------
+_INFRA = ("create_dir", "stage_in", "stage_out", "register", "clean_up", "cleanup")
+_submit_base = BASE_DIR / "submit" / "hello-world"
+_dag_files = sorted(_submit_base.glob("run*/*.dag")) if _submit_base.exists() else []
+
+if not _dag_files:
+    print("ERROR: no .dag file found — cannot inject healer", file=sys.stderr)
+    sys.exit(1)
+
+_dag_file   = _dag_files[-1]           # latest run
+_submit_dir = _dag_file.parent         # e.g. .../run0001/
+_wf_id      = _submit_dir.name         # e.g. "run0001"
+
+_lines = _dag_file.read_text().splitlines()
+_patched = []
+for _line in _lines:
+    _m = re.match(r"^SCRIPT POST\s+(\S+)\s+/usr/bin/pegasus-exitcode", _line)
+    if _m and not any(p in _m.group(1) for p in _INFRA):
+        _job = _m.group(1)
+        _line = (f"SCRIPT POST {_job} {_post_script} "
+                 f"$RETURN {_job} $RETRY 3 {_submit_dir} {_wf_id}")
+    _patched.append(_line)
+
+_dag_file.write_text("\n".join(_patched) + "\n")
+print(f"\nHealer injected → {_dag_file}")
+
+# --- Submit the patched DAG ---------------------------------------------------
+_res = subprocess.run(["pegasus-run", str(_submit_dir)], text=True)
+if _res.returncode != 0:
+    print("ERROR: pegasus-run failed", file=sys.stderr)
+    sys.exit(1)
