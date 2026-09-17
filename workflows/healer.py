@@ -49,8 +49,8 @@ def configure_healer_properties(
     # run's submit directory, so "." resolves correctly at runtime without us
     # needing to know the per-run path at generation time.
     submit_dir_arg = "." if str(submit_dir).strip() == "." else str(Path(submit_dir).resolve())
-    props["dagman.post"] = str(_POST_SCRIPT)
-    props["dagman.post.arguments"] = (
+    props["pegasus.dagman.post"] = str(_POST_SCRIPT)
+    props["pegasus.dagman.post.arguments"] = (
         f"$RETURN $JOB $RETRY {max_retries} {submit_dir_arg} ${{wf.uuid}}"
     )
 
