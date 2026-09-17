@@ -35,11 +35,15 @@ from workflows.healer import configure_healer_properties, add_healer_to_job
 # Write pegasus.properties directly — bypass Properties validator for dagman keys
 _post_script = (_PROJECT_ROOT / "scripts" / "pegasus_post_script.py").resolve()
 _post_script.chmod(0o755)   # ensure executable
-Path("pegasus.properties").write_text(
-    # Disable pegasus-exitcode so our post script is used instead
-    "pegasus.exitcode.scope = none\n"
-    f"dagman.post = {_post_script}\n"
-    f"dagman.post.arguments = $RETURN $JOB $RETRY 3 . ${{wf.uuid}}\n"
+_props_file = (BASE_DIR / "pegasus.properties").resolve()
+_props_file.write_text(
+    # Disable pegasus-exitcode so our post script is used instead.
+    # Write both key variants — Pegasus version determines which one it reads.
+    f"pegasus.exitcode.scope=none\n"
+    f"dagman.post={_post_script}\n"
+    f"pegasus.dagman.post={_post_script}\n"
+    f"dagman.post.arguments=$RETURN $JOB $RETRY 3 . ${{wf.uuid}}\n"
+    f"pegasus.dagman.post.arguments=$RETURN $JOB $RETRY 3 . ${{wf.uuid}}\n"
 )
 
 # generate a simple input file for the workflow
@@ -92,6 +96,6 @@ except PegasusClientError as e:
 # --- Plan and Submit ----------------------------------------------------------
 try:
     wf.plan(input_dirs=[INPUT_DIR], sites=[EXEC_SITE],\
-            output_dir=OUTPUT_DIR, conf="pegasus.properties", submit=True)
+            output_dir=OUTPUT_DIR, conf=str(_props_file), submit=True)
 except PegasusClientError as e:
     print(e)
