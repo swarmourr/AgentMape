@@ -26,8 +26,7 @@ OUTPUT_DIR = Path(BASE_DIR /  "output").resolve()
 EXEC_SITE = "local"
 
 # What compute backend we are using based on Pegasus configuration
-props = Properties.load(Path.home() / ".pegasusrc")
-resource_site_catalog = props["pegasus.catalog.site.repo.file"]
+props = Properties()
 
 # --- Healer post script -------------------------------------------------------
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
