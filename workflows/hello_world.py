@@ -30,6 +30,10 @@ props = Properties.load(Path.home() / ".pegasusrc")
 resource_site_catalog = props["pegasus.catalog.site.repo.file"]
 
 # --- Healer post script -------------------------------------------------------
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
 from workflows.healer import configure_healer_properties, add_healer_to_job
 
 configure_healer_properties(props, submit_dir=".", max_retries=3)
