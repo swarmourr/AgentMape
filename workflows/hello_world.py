@@ -36,8 +36,10 @@ from workflows.healer import configure_healer_properties, add_healer_to_job
 _post_script = (_PROJECT_ROOT / "scripts" / "pegasus_post_script.py").resolve()
 _post_script.chmod(0o755)   # ensure executable
 Path("pegasus.properties").write_text(
-    f"pegasus.dagman.post = {_post_script}\n"
-    f"pegasus.dagman.post.arguments = $RETURN $JOB $RETRY 3 . ${{wf.uuid}}\n"
+    # Disable pegasus-exitcode so our post script is used instead
+    "pegasus.exitcode.scope = none\n"
+    f"dagman.post = {_post_script}\n"
+    f"dagman.post.arguments = $RETURN $JOB $RETRY 3 . ${{wf.uuid}}\n"
 )
 
 # generate a simple input file for the workflow
