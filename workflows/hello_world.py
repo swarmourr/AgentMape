@@ -37,6 +37,9 @@ from workflows.healer import add_healer_to_job
 _post_script = (_PROJECT_ROOT / "scripts" / "pegasus_post_script.py").resolve()
 _post_script.chmod(0o755)
 
+# Remove any stale pegasus.properties — Pegasus auto-loads it from CWD
+(BASE_DIR / "pegasus.properties").unlink(missing_ok=True)
+
 # generate a simple input file for the workflow
 with open("{}/f.in".format(INPUT_DIR), "w") as f:
     f.write("This is the contents of the input file for the hello world workflow!")
