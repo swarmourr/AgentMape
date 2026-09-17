@@ -21,6 +21,18 @@ done
 [ -z "$OUTPUT" ] && { echo "hello: missing -o output" >&2; exit 1; }
 [ ! -f "$INPUT" ] && { echo "hello: input file not found: $INPUT" >&2; exit 1; }
 
+# --- Simulate OOM on first attempt ------------------------------------------
+MARKER="${OUTPUT}.attempts"
+ATTEMPT=$(cat "$MARKER" 2>/dev/null || echo 0)
+echo $((ATTEMPT + 1)) > "$MARKER"
+
+if [ "$ATTEMPT" -lt 1 ]; then
+    echo "MemoryError: job exceeded memory limit — killed by signal 9" >&2
+    echo "Memory usage exceeded RequestMemory (1 MB)" >&2
+    exit 1
+fi
+# ----------------------------------------------------------------------------
+
 sleep "$SLEEP"
 
 {
