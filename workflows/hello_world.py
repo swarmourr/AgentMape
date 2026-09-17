@@ -59,6 +59,7 @@ OUTPUT_DIR      = BASE_DIR / "output"
 SCRATCH_DIR     = BASE_DIR / "scratch"
 SUBMIT_DIR      = BASE_DIR / "submit"
 
+EXEC_SITE   = "local"
 MAX_RETRIES = 3
 
 
