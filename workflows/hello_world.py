@@ -13,7 +13,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 BASE_DIR = Path(".").resolve()
 INPUT_DIR = Path(BASE_DIR /  "input").resolve()
-EXECUTABLES_DIR = Path(BASE_DIR / ".." / "ACCESS-Pegasus-Examples" / "executables").resolve()
+EXECUTABLES_DIR = Path(BASE_DIR / "executables").resolve()
 OUTPUT_DIR = Path(BASE_DIR /  "output").resolve()
 
 # the execution site where you job to run.
