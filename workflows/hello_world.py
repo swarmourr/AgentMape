@@ -33,7 +33,8 @@ if str(_PROJECT_ROOT) not in sys.path:
 from workflows.healer import configure_healer_properties, add_healer_to_job
 
 # Write pegasus.properties directly — bypass Properties validator for dagman keys
-_post_script = str((_PROJECT_ROOT / "scripts" / "pegasus_post_script.py").resolve())
+_post_script = (_PROJECT_ROOT / "scripts" / "pegasus_post_script.py").resolve()
+_post_script.chmod(0o755)   # ensure executable
 Path("pegasus.properties").write_text(
     f"pegasus.dagman.post = {_post_script}\n"
     f"pegasus.dagman.post.arguments = $RETURN $JOB $RETRY 3 . ${{wf.uuid}}\n"
@@ -89,6 +90,6 @@ except PegasusClientError as e:
 # --- Plan and Submit ----------------------------------------------------------
 try:
     wf.plan(input_dirs=[INPUT_DIR], sites=[EXEC_SITE],\
-            output_dir=OUTPUT_DIR, submit=True)
+            output_dir=OUTPUT_DIR, conf="pegasus.properties", submit=True)
 except PegasusClientError as e:
     print(e)
