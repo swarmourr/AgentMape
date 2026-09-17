@@ -28,8 +28,8 @@ from typing import Any
 from langgraph.graph import END, START, StateGraph
 
 from app.utils.config import settings
-from app.langgraph.state import RemediationState
-from app.langgraph import nodes
+from app.graph.state import RemediationState
+from app.graph import nodes
 
 
 # ── Routing functions (pure, no I/O) ─────────────────────────────────────────

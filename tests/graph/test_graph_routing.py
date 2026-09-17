@@ -12,8 +12,8 @@ from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from app.langgraph.graph import build_graph
-from app.langgraph.state import RemediationState
+from app.graph.graph import build_graph
+from app.graph.state import RemediationState
 from app.utils.llm.fake import FakeLLMProvider
 from app.utils.models.diagnosis import Diagnosis, FailureType
 from app.utils.models.fixes import FixAction, FixOutcome

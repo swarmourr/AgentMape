@@ -128,7 +128,7 @@ async def _run(args: argparse.Namespace) -> int:
     from app.utils.pegasus.dagman_retry_controller import DAGManRetryController
     from app.utils.pegasus.sibling_fixer import _parse_transformation_from_content
     from app.utils.llm.universal_provider import UniversalProvider
-    from app.langgraph.graph import create_graph_with_checkpointer
+    from app.graph.graph import create_graph_with_checkpointer
 
     submit_dir = Path(args.submit_dir)
     instance_id = args.job_instance_id or parse_instance_id(args.job_id)

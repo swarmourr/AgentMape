@@ -35,7 +35,7 @@ from app.utils.db.models import FixRecord, IncidentRecord
 from app.utils.db.session import async_session_factory, get_session
 from app.utils.events.consumer import AMQPConsumer
 from app.utils.events.persistence import get_or_create_incident, persist_event
-from app.langgraph import create_graph_with_checkpointer
+from app.graph import create_graph_with_checkpointer
 from app.utils.llm import build_diagnosis_provider, build_fix_planning_provider, build_llm_provider
 from app.utils.models.events import WorkflowEvent
 from app.utils.models.fixes import FixOutcome

@@ -181,7 +181,7 @@ async def _run_graph(
     Run the LangGraph remediation graph for one failed job.
     Job identity is passed directly in state — no WorkflowEvent/AMQP needed.
     """
-    from app.langgraph import create_graph_with_checkpointer
+    from app.graph import create_graph_with_checkpointer
     from app.utils.collectors.submit_dir import collect_evidence, parse_healer_tags
 
     instance_id = int(re.search(r"_ID(\d+)$", report.job_id).group(1)) \
@@ -228,7 +228,11 @@ async def _run_graph(
         "job_id":                 report.job_id,
         "source_job_instance_id": instance_id,
         "exit_code":              report.exit_code,
-        "scheduler_id":           None,   # no live scheduler in inspector
+        # Synthetic ID — _ReportSchedulerClient.get_job_history() ignores it
+        # and returns pre-parsed kickstart/sub data. Must be non-None so
+        # ContextCollector._fetch_history() actually calls the fake client
+        # instead of short-circuiting with mandatory:scheduler_history.
+        "scheduler_id":           f"inspector/{report.job_id}",
         "attempt":                1,
     }
 
