@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import uuid
 
 from app.utils.models.context import FailureContext
@@ -47,7 +48,7 @@ def _oom_fix(diagnosis: Diagnosis, ctx: FailureContext, policy: PolicyConfig) ->
     multiplier = policy.get_multiplier(ft)
     max_mem = policy.get_ceiling(ft, "maximum_memory_mb") or 32768
     current = ctx.requested_resources.memory_mb or 4096
-    proposed = min(int(current * multiplier), max_mem)
+    proposed = min(math.ceil(current * multiplier), max_mem)
 
     return FixProposal(
         fix_id=uuid.uuid4(),
