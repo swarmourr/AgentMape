@@ -29,7 +29,7 @@ echo $((ATTEMPT + 1)) > "$MARKER"
 if [ "$ATTEMPT" -lt 1 ]; then
     echo "MemoryError: job exceeded memory limit — killed by signal 9" >&2
     echo "Memory usage exceeded RequestMemory (1 MB)" >&2
-    exit 1
+    exit 137   # 128 + SIGKILL(9) — real Linux OOM kill code
 fi
 # ----------------------------------------------------------------------------
 
