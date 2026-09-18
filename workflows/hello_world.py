@@ -68,7 +68,7 @@ job_hello = add_healer_to_job(
                     .add_args("-T", "3", "-i", fin, "-o {}".format(finter))\
                     .add_inputs(fin)\
                     .add_outputs(finter, stage_out=False)\
-                    .add_profiles(Namespace.CONDOR, key="request_memory", value="1")
+                    .add_profiles(Namespace.CONDOR, key="request_memory", value="256")
 )
 
 job_world = add_healer_to_job(
