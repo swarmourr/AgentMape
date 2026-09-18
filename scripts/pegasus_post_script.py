@@ -54,7 +54,19 @@ from pathlib import Path
 from uuid import uuid4
 
 # Project root on path for app.* imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(_PROJECT_ROOT))
+
+# Load project .env so LLM credentials are available in DAGMan POST context.
+# DAGMan inherits the environment from condor_submit_dag at submission time,
+# which may not include the user's shell exports or virtualenv .env vars.
+_ENV_FILE = _PROJECT_ROOT / ".env"
+if _ENV_FILE.exists():
+    try:
+        from dotenv import load_dotenv as _load_dotenv
+        _load_dotenv(_ENV_FILE, override=False)   # don't override explicit shell exports
+    except ImportError:
+        pass   # python-dotenv not installed; env vars must be exported in the shell
 
 TAG = "[pegasus-healer]"
 
@@ -175,7 +187,10 @@ async def _run(args: argparse.Namespace) -> int:
     _log(f"{'resuming' if is_resume else 'fresh'} thread: {thread_id}")
 
     # ── Services ──────────────────────────────────────────────────────────────
-    policy = load_policy(os.environ.get("POLICY_FILE", "policies/remediation.yaml"))
+    policy = load_policy(
+        os.environ.get("POLICY_FILE")
+        or str(_PROJECT_ROOT / "policies" / "remediation.yaml")
+    )
     policy_engine = PolicyEngine(policy)
 
     retry_ctrl = DAGManRetryController(
@@ -195,9 +210,11 @@ async def _run(args: argparse.Namespace) -> int:
     diagnosis_llm = _llm("DIAGNOSIS_LLM_MODEL",  "DIAGNOSIS_LLM_API_KEY", "DIAGNOSIS_LLM_BASE_URL")
     fix_llm       = _llm("FIX_PLANNING_LLM_MODEL","FIX_PLANNING_LLM_API_KEY","FIX_PLANNING_LLM_BASE_URL")
 
+    # HEALER_CHECKPOINT overrides the default; SQLITE_PATH from .env is for the
+    # main app and may be a relative path, so it is intentionally not used here.
     _default_checkpoint = str(Path.home() / ".pegasus_healer_checkpoint.db")
     graph = await create_graph_with_checkpointer(
-        sqlite_path=os.environ.get("SQLITE_PATH", _default_checkpoint),
+        sqlite_path=os.environ.get("HEALER_CHECKPOINT", _default_checkpoint),
     )
 
     config = {
@@ -310,14 +327,25 @@ def main() -> int:
         if not thread_file.exists():
             return 0
         # Resume: graph records EFFECTIVE outcome + writes memory
-        return asyncio.run(_run(args))
+        return _run_graph(args)
 
     # Retry budget exhausted — hand back to DAGMan
     if args.retry_number >= args.max_retries:
         _log("retry budget exhausted — no agent run")
         return args.exit_code
 
-    return asyncio.run(_run(args))
+    return _run_graph(args)
+
+
+def _run_graph(args: argparse.Namespace) -> int:
+    """Run the remediation graph, logging any crash to stderr (→ dagman.out)."""
+    try:
+        return asyncio.run(_run(args))
+    except Exception as exc:
+        import traceback
+        _log(f"ERROR: remediation graph raised {type(exc).__name__}: {exc}")
+        traceback.print_exc(file=sys.stderr)
+        return args.exit_code   # preserve job failure so DAGMan can retry
 
 
 if __name__ == "__main__":
