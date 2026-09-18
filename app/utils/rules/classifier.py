@@ -62,11 +62,13 @@ def classify(ctx: FailureContext) -> Diagnosis | None:
     if mem_near_limit:
         evidence_ids.append("memory_near_limit")
 
-    # Fire on: ≥2 OOM signals, OR 1 OOM signal + memory near limit
-    if len(oom_signals) >= 2 or (len(oom_signals) == 1 and mem_near_limit):
+    # Fire on: ≥2 OOM signals, OR 1 OOM signal + memory near limit,
+    # OR exit_137 alone (128+SIGKILL = unambiguous Linux OOM kill code)
+    if len(oom_signals) >= 1:
+        confidence = 0.97 if (len(oom_signals) >= 2 or mem_near_limit) else 0.90
         return Diagnosis(
             failure_type=FailureType.OUT_OF_MEMORY,
-            confidence=0.97,
+            confidence=confidence,
             evidence_ids=list(evidence_ids),
             explanation=(
                 f"OOM signals detected: {', '.join(oom_signals)}. "
