@@ -70,9 +70,25 @@ if _ENV_FILE.exists():
 
 TAG = "[pegasus-healer]"
 
+# File-based log in the submit dir (set in main() once args are parsed).
+# DAGMan discards POST script stderr, so this is the only reliable trace.
+_log_file = None  # Optional[TextIO], opened in main()
+
 
 def _log(msg: str) -> None:
-    print(f"{TAG} {msg}", file=sys.stderr, flush=True)
+    line = f"{TAG} {msg}"
+    print(line, file=sys.stderr, flush=True)
+    if _log_file is not None:
+        print(line, file=_log_file, flush=True)
+
+
+def _open_log(submit_dir: Path, job_id: str) -> None:
+    """Open (or append to) {submit_dir}/{job_id}.healer.log."""
+    global _log_file
+    try:
+        _log_file = open(submit_dir / f"{job_id}.healer.log", "a")
+    except OSError:
+        pass  # if we can't open it, stderr is still there
 
 
 # ── Marker fast path ──────────────────────────────────────────────────────────
@@ -317,6 +333,8 @@ def main() -> int:
     parser.add_argument("--execution-site",  default=None)
     parser.add_argument("--transformation",  default=None)
     args = parser.parse_args()
+    _open_log(Path(args.submit_dir), args.job_id)
+    _log(f"invoked: exit_code={args.exit_code} retry={args.retry_number}/{args.max_retries} job={args.job_id}")
 
     # Job succeeded on this invocation
     if args.exit_code == 0:
@@ -345,6 +363,8 @@ def _run_graph(args: argparse.Namespace) -> int:
         import traceback
         _log(f"ERROR: remediation graph raised {type(exc).__name__}: {exc}")
         traceback.print_exc(file=sys.stderr)
+        if _log_file is not None:
+            traceback.print_exc(file=_log_file)
         return args.exit_code   # preserve job failure so DAGMan can retry
 
 
