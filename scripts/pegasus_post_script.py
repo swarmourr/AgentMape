@@ -203,10 +203,10 @@ async def _run(args: argparse.Namespace) -> int:
     _log(f"{'resuming' if is_resume else 'fresh'} thread: {thread_id}")
 
     # ── Services ──────────────────────────────────────────────────────────────
-    policy = load_policy(
-        os.environ.get("POLICY_FILE")
-        or str(_PROJECT_ROOT / "policies" / "remediation.yaml")
-    )
+    _policy_path = os.environ.get("POLICY_FILE") or "policies/remediation.yaml"
+    if not os.path.isabs(_policy_path):
+        _policy_path = str(_PROJECT_ROOT / _policy_path)
+    policy = load_policy(_policy_path)
     policy_engine = PolicyEngine(policy)
 
     retry_ctrl = DAGManRetryController(
