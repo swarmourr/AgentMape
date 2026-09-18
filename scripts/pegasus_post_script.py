@@ -299,6 +299,12 @@ async def _run(args: argparse.Namespace) -> int:
         _log(f"warning: could not write report: {exc}")
 
     # ── Exit code ─────────────────────────────────────────────────────────────
+    # EFFECTIVE outcome: job succeeded on retry — always exit 0 regardless of
+    # policy_decision (which still reflects the previous remediation cycle).
+    if final_state.get("retry_outcome") == "EFFECTIVE":
+        _log("exit 0 → effective outcome, workflow continues")
+        return 0
+
     # AUTO: fix applied to .sub (and siblings) → exit 1 so DAGMan retries
     # ASK:  proposal written to report, human applies manually → exit 0
     # STOP / ESCALATE / effective outcome → exit 0
