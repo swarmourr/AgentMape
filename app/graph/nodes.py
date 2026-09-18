@@ -126,10 +126,12 @@ async def collect_context(state: dict[str, Any]) -> dict[str, Any]:
         if tags:
             ctx = ctx.model_copy(update={"job_tags": tags})
 
-    # When raw_evidence is provided (POST script path), it already contains
-    # all file contents the LLM agent needs. Fill in requested_resources from
-    # the .sub file content so the fix catalog uses the correct current values.
-    if raw_evidence.available_sources and ctx.requested_resources.memory_mb is None:
+    # When raw_evidence is provided (POST script path), always use the current
+    # .sub file content for resource requests. The scheduler history (condor_history)
+    # records the values from the *completed* job's ClassAd, which is the original
+    # value before any healer patch. The .sub file reflects what will actually be
+    # submitted on the next retry — we must use it to avoid re-proposing the same fix.
+    if raw_evidence.sub_file_content:
         from app.agents.tools import get_resource_requests
         parsed = get_resource_requests(raw_evidence)
         if any(v is not None for v in parsed.values()):
