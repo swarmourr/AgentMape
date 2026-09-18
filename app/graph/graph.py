@@ -60,10 +60,9 @@ def _route_after_rule_classifier(state: dict[str, Any]) -> str:
 
 
 def _route_after_diagnosis_agent(state: dict[str, Any]) -> str:
-    diagnosis = state.get("diagnosis", {})
-    confidence = diagnosis.get("confidence", 0.0)
-    if confidence < settings.confidence_threshold:
-        return "escalate"
+    # Always proceed to lookup_fix_catalog regardless of confidence.
+    # Low-confidence diagnoses still produce an ASK proposal for the human
+    # rather than silently escalating with nothing actionable.
     return "lookup_fix_catalog"
 
 
@@ -148,14 +147,7 @@ def build_graph() -> StateGraph:
         },
     )
     builder.add_edge("retrieve_memories", "run_diagnosis_agent")
-    builder.add_conditional_edges(
-        "run_diagnosis_agent",
-        _route_after_diagnosis_agent,
-        {
-            "lookup_fix_catalog": "lookup_fix_catalog",
-            "escalate": "escalate",
-        },
-    )
+    builder.add_edge("run_diagnosis_agent", "lookup_fix_catalog")
 
     # ── Action loop routing ───────────────────────────────────────────────────
     builder.add_conditional_edges(
