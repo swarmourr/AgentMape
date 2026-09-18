@@ -115,7 +115,7 @@ for _line in _lines:
     _m = re.match(r"^SCRIPT POST\s+(\S+)\s+/usr/bin/pegasus-exitcode", _line)
     if _m and not any(p in _m.group(1) for p in _INFRA):
         _job = _m.group(1)
-        _line = (f"SCRIPT POST {_job} {_post_script} "
+        _line = (f"SCRIPT POST {_job} {sys.executable} {_post_script} "
                  f"$RETURN {_job} $RETRY 3 {_submit_dir} {_wf_id}")
     _patched.append(_line)
 
