@@ -22,9 +22,11 @@ done
 [ ! -f "$INPUT" ] && { echo "hello: input file not found: $INPUT" >&2; exit 1; }
 
 # --- Simulate OOM on first attempt ------------------------------------------
-# Use INPUT dir for the marker — it persists across DAGMan retries unlike
-# the job's scratch/output directory which may be cleaned between retries.
-MARKER="${INPUT}.attempts"
+# Use the Pegasus submit dir (stable across all retries) for the marker.
+# The job scratch dir (initialdir) is cleaned after each attempt.
+# _PEGASUS_WF_SUBMIT_DIR is injected by Pegasus into the job environment.
+_SIM_DIR="${_PEGASUS_WF_SUBMIT_DIR:-/tmp}"
+MARKER="${_SIM_DIR}/hello_sim.attempts"
 ATTEMPT=$(cat "$MARKER" 2>/dev/null || echo 0)
 echo $((ATTEMPT + 1)) > "$MARKER"
 
