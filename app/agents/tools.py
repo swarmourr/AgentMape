@@ -195,20 +195,20 @@ def get_resource_requests(evidence: RawEvidence) -> dict[str, Any]:
     # standard HTCondor uses request_* attributes.
     patterns: dict[str, list[tuple[str, type]]] = {
         "memory_mb": [
-            (r"pegasus_memory_mb\s*=\s*(\d+)", int),   # Pegasus native
-            (r"request_memory\s*=\s*(\d+)", int),       # HTCondor standard
+            (r"request_memory\s*=\s*(\d+)", int),       # HTCondor standard — healer patches this
+            (r"pegasus_memory_mb\s*=\s*(\d+)", int),    # Pegasus metadata — fallback only
         ],
         "disk_mb": [
-            (r"pegasus_diskspace_mb\s*=\s*(\d+)", int),
             (r"request_disk\s*=\s*(\d+)", int),
+            (r"pegasus_diskspace_mb\s*=\s*(\d+)", int),
         ],
         "cpus": [
-            (r"pegasus_cores\s*=\s*(\d+)", int),
             (r"request_cpus\s*=\s*(\d+)", int),
+            (r"pegasus_cores\s*=\s*(\d+)", int),
         ],
         "runtime_seconds": [
-            (r"pegasus_job_runtime\s*=\s*(\d+)", int),  # Pegasus walltime (seconds)
             (r"\+MaxRuntime\s*=\s*(\d+)", int),
+            (r"pegasus_job_runtime\s*=\s*(\d+)", int),  # Pegasus walltime (seconds)
         ],
         "universe":   [(r"universe\s*=\s*(\S+)", str)],
         "executable": [(r"executable\s*=\s*(.+)", str)],
