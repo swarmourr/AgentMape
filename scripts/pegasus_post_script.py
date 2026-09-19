@@ -345,6 +345,51 @@ async def _run(args: argparse.Namespace) -> int:
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 
+def _call_pegasus_exitcode(args: argparse.Namespace) -> None:
+    """
+    Call the original pegasus-exitcode so it can do its normal processing:
+    parses kickstart XML and writes the .meta file (output checksums) that
+    stage_out expects. Must run before any healer logic so the .meta file
+    exists regardless of whether we decide to retry or stop.
+    """
+    import subprocess
+    submit_dir = Path(args.submit_dir)
+
+    # Locate the job's subdirectory by finding its .sub file
+    job_base = None
+    try:
+        from app.utils.collectors.submit_dir import _all_job_subdirs
+        for jd in _all_job_subdirs(submit_dir):
+            if (jd / f"{args.job_id}.sub").exists():
+                rel = jd.relative_to(submit_dir)
+                job_base = str(rel / args.job_id)
+                break
+    except Exception as exc:
+        _log(f"pegasus-exitcode: subdir search error: {exc}")
+
+    if job_base is None:
+        job_base = args.job_id   # fallback: submit dir root
+
+    _log(f"calling pegasus-exitcode {args.exit_code} {job_base}")
+    try:
+        res = subprocess.run(
+            ["/usr/bin/pegasus-exitcode", str(args.exit_code), job_base],
+            cwd=str(submit_dir),
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if res.stdout.strip():
+            _log(f"pegasus-exitcode stdout: {res.stdout.strip()}")
+        if res.stderr.strip():
+            _log(f"pegasus-exitcode stderr: {res.stderr.strip()}")
+        _log(f"pegasus-exitcode exit={res.returncode}")
+    except FileNotFoundError:
+        _log("pegasus-exitcode not found at /usr/bin/pegasus-exitcode — skipping")
+    except Exception as exc:
+        _log(f"pegasus-exitcode error: {exc}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Pegasus/DAGMan POST script — direct LangGraph remediation"
@@ -364,6 +409,10 @@ def main() -> int:
     args = parser.parse_args()
     _open_log(Path(args.submit_dir), args.job_id)
     _log(f"invoked: exit_code={args.exit_code} retry={args.retry_number}/{args.max_retries} job={args.job_id}")
+
+    # Always call pegasus-exitcode first so it can create the .meta file from
+    # kickstart output. stage_out expects this file regardless of job outcome.
+    _call_pegasus_exitcode(args)
 
     # Job succeeded on this invocation
     if args.exit_code == 0:
