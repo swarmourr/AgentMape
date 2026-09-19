@@ -25,12 +25,17 @@ import structlog
 
 log = structlog.get_logger(__name__)
 
-# FailureContext / FixProposal config key → HTCondor submit attribute
-_ATTR_MAP: dict[str, str] = {
-    "memory_mb": "request_memory",
-    "disk_mb": "request_disk",
-    "cpus": "request_cpus",
-    "runtime_seconds": "+MaxRuntime",
+# FailureContext / FixProposal config key → HTCondor submit attribute(s) to patch.
+# Pegasus .sub files use both request_* (what HTCondor schedules on) and
+# pegasus_* ClassAds (Pegasus metadata). When the sub uses
+#   request_memory = $(pegasus_memory_mb)
+# patching only request_memory breaks on the next retry because the template
+# re-expands. We patch both so the fix survives across all retries.
+_ATTR_MAP: dict[str, list[str]] = {
+    "memory_mb":       ["request_memory", "pegasus_memory_mb"],
+    "disk_mb":         ["request_disk",   "pegasus_diskspace_mb"],
+    "cpus":            ["request_cpus",   "pegasus_cores"],
+    "runtime_seconds": ["+MaxRuntime",    "pegasus_job_runtime"],
 }
 
 
@@ -56,46 +61,43 @@ def apply_overlay_to_sub_file(
     for config_key, raw_value in new_config.items():
         if raw_value is None:
             continue
-        htcondor_attr = _ATTR_MAP.get(config_key)
-        if htcondor_attr is None:
+        attrs = _ATTR_MAP.get(config_key)
+        if not attrs:
             continue
 
         new_value = str(int(raw_value)) if isinstance(raw_value, float) else str(raw_value)
-        # Strip leading '+' for matching purposes only
-        match_key = htcondor_attr.lstrip("+").lower()
 
-        patched = False
-        for idx, line in enumerate(lines):
-            stripped = line.strip()
-            # Skip comments and blank lines
-            if not stripped or stripped.startswith("#"):
-                continue
-            if "=" not in stripped:
-                continue
+        for htcondor_attr in attrs:
+            match_key = htcondor_attr.lstrip("+").lower()
 
-            raw_key = stripped.split("=", 1)[0].strip().lstrip("+").lower()
-            if raw_key == match_key:
-                # Preserve original indentation and key casing
-                indent = line[: len(line) - len(line.lstrip())]
-                original_key = stripped.split("=", 1)[0].rstrip()
-                lines[idx] = f"{indent}{original_key} = {new_value}"
-                changes[htcondor_attr] = new_value
-                patched = True
-                break
-
-        if not patched:
-            # Attribute missing — insert before the first 'queue' line
-            inserted = False
+            patched = False
             for idx, line in enumerate(lines):
-                if line.strip().lower().startswith("queue"):
-                    lines.insert(idx, f"{htcondor_attr} = {new_value}")
+                stripped = line.strip()
+                if not stripped or stripped.startswith("#"):
+                    continue
+                if "=" not in stripped:
+                    continue
+
+                raw_key = stripped.split("=", 1)[0].strip().lstrip("+").lower()
+                if raw_key == match_key:
+                    indent = line[: len(line) - len(line.lstrip())]
+                    original_key = stripped.split("=", 1)[0].rstrip()
+                    lines[idx] = f"{indent}{original_key} = {new_value}"
                     changes[htcondor_attr] = new_value
-                    inserted = True
+                    patched = True
                     break
-            if not inserted:
-                # No queue line found — append at end
-                lines.append(f"{htcondor_attr} = {new_value}")
-                changes[htcondor_attr] = new_value
+
+            if not patched:
+                inserted = False
+                for idx, line in enumerate(lines):
+                    if line.strip().lower().startswith("queue"):
+                        lines.insert(idx, f"{htcondor_attr} = {new_value}")
+                        changes[htcondor_attr] = new_value
+                        inserted = True
+                        break
+                if not inserted:
+                    lines.append(f"{htcondor_attr} = {new_value}")
+                    changes[htcondor_attr] = new_value
 
     sub_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     log.info("sub_file_written", path=str(sub_path), changes=changes)
@@ -109,8 +111,15 @@ def read_resource_requests(sub_path: Path) -> dict[str, int | None]:
     Returns a dict with keys: memory_mb, disk_mb, cpus, runtime_seconds.
     Values are None when the attribute is absent from the file.
     """
-    reverse_map = {v.lstrip("+").lower(): k for k, v in _ATTR_MAP.items()}
+    # Build reverse_map: htcondor_attr_lower -> (config_key, priority_index)
+    # Lower index = higher priority (request_* beats pegasus_*)
+    reverse_map: dict[str, tuple[str, int]] = {}
+    for config_key, attrs in _ATTR_MAP.items():
+        for priority, attr in enumerate(attrs):
+            reverse_map[attr.lstrip("+").lower()] = (config_key, priority)
+
     result: dict[str, int | None] = {k: None for k in _ATTR_MAP}
+    found_priority: dict[str, int] = {}  # config_key -> priority of stored value
 
     text = sub_path.read_text(encoding="utf-8", errors="replace")
     for line in text.splitlines():
@@ -119,10 +128,13 @@ def read_resource_requests(sub_path: Path) -> dict[str, int | None]:
             continue
         raw_key, _, raw_val = stripped.partition("=")
         match_key = raw_key.strip().lstrip("+").lower()
-        config_key = reverse_map.get(match_key)
-        if config_key:
+        if match_key not in reverse_map:
+            continue
+        config_key, priority = reverse_map[match_key]
+        if priority < found_priority.get(config_key, 999):  # lower index = higher priority
             try:
                 result[config_key] = int(raw_val.strip())
+                found_priority[config_key] = priority
             except (ValueError, TypeError):
                 pass
 
