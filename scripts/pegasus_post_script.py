@@ -83,10 +83,19 @@ def _log(msg: str) -> None:
 
 
 def _open_log(submit_dir: Path, job_id: str) -> None:
-    """Open (or append to) {submit_dir}/{job_id}.healer.log."""
+    """Open (or append to) {job_subdir}/{job_id}.healer.log, next to .out/.err."""
     global _log_file
+    log_dir = submit_dir   # fallback: submit dir root
     try:
-        _log_file = open(submit_dir / f"{job_id}.healer.log", "a")
+        from app.utils.collectors.submit_dir import _all_job_subdirs
+        for jd in _all_job_subdirs(submit_dir):
+            if (jd / f"{job_id}.sub").exists():
+                log_dir = jd
+                break
+    except Exception:
+        pass
+    try:
+        _log_file = open(log_dir / f"{job_id}.healer.log", "a")
     except OSError:
         pass  # if we can't open it, stderr is still there
 
