@@ -272,6 +272,29 @@ async def _run(args: argparse.Namespace) -> int:
     decision = final_state.get("policy_decision")
     _log(f"decision={decision} terminal={final_state.get('terminal', False)}")
 
+    # ── Verify sub file patch ──────────────────────────────────────────────────
+    try:
+        from app.utils.pegasus.sub_file import read_resource_requests
+        from app.utils.collectors.submit_dir import _all_job_subdirs
+        _sub_found = None
+        for _jd in _all_job_subdirs(submit_dir):
+            for _name in (f"{args.job_id}.sub", f"{args.job_id}_ID{instance_id:07d}.sub"):
+                _p = _jd / _name
+                if _p.exists():
+                    _sub_found = _p
+                    break
+            if _sub_found:
+                break
+        if _sub_found is None:
+            _sub_found = submit_dir / f"{args.job_id}.sub"
+        if _sub_found.exists():
+            _res = read_resource_requests(_sub_found)
+            _log(f"sub_file: {_sub_found.name} → memory_mb={_res.get('memory_mb')} disk_mb={_res.get('disk_mb')}")
+        else:
+            _log(f"sub_file: NOT FOUND in {submit_dir}")
+    except Exception as _e:
+        _log(f"sub_file check error: {_e}")
+
     # ── Agent report ──────────────────────────────────────────────────────────
     try:
         from app.utils.reporters.agent_report import generate_report, write_report
