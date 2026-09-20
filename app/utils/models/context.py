@@ -86,6 +86,10 @@ class FailureContext(BaseModel):
     policy_snapshot: PolicySnapshot | None = None
     job_tags: list[str] = Field(default_factory=list)  # from +PegasusHealerTags in .sub
 
+    # Stderr tail (populated from raw_evidence.stderr_content in collect_context)
+    # Used by the rule classifier for pattern-based diagnosis without agent overhead.
+    stderr_excerpt: str | None = None
+
     # Fields that were not available at collection time
     missing_evidence: list[str] = Field(default_factory=list)
 

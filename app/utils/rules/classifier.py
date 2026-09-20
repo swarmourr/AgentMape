@@ -13,6 +13,15 @@ OOM_SIGNALS: set[int] = {9}
 OOM_HOLD_PATTERNS: list[str] = [r"memory", r"oom", r"out.of.memory", r"mem.?limit"]
 
 DISK_HOLD_PATTERNS: list[str] = [r"disk", r"quota", r"no.space", r"disk.?exceeded"]
+DISK_STDERR_PATTERNS: list[str] = [
+    r"no\s+space\s+left",
+    r"disk.?full",
+    r"disk.?quota",
+    r"errno\s*28",        # ENOSPC
+    r"disk.?exceeded",
+    r"diskspace",
+    r"exceeded.*disk",
+]
 
 WALLTIME_PATTERNS: list[str] = [
     r"wall.?time", r"time.?limit", r"runtime.?exceeded", r"job.?killed.*time",
@@ -85,6 +94,8 @@ def classify(ctx: FailureContext) -> Diagnosis | None:
         evidence_ids.append("scheduler_reason:disk")
     if _disk_near_limit(ctx):
         evidence_ids.append("disk_near_limit")
+    if _match(ctx.stderr_excerpt, DISK_STDERR_PATTERNS):
+        evidence_ids.append("stderr_disk_error")
     if evidence_ids:
         return Diagnosis(
             failure_type=FailureType.DISK_EXCEEDED,

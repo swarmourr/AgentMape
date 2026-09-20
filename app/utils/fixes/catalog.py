@@ -73,7 +73,7 @@ def _disk_fix(diagnosis: Diagnosis, ctx: FailureContext, policy: PolicyConfig) -
     multiplier = policy.get_multiplier(ft)
     max_disk = policy.get_ceiling(ft, "maximum_disk_mb") or 102400
     current = ctx.requested_resources.disk_mb or 10240
-    proposed = min(int(current * multiplier), max_disk)
+    proposed = min(math.ceil(current * multiplier), max_disk)
 
     return FixProposal(
         fix_id=uuid.uuid4(),

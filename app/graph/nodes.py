@@ -126,6 +126,12 @@ async def collect_context(state: dict[str, Any]) -> dict[str, Any]:
         if tags:
             ctx = ctx.model_copy(update={"job_tags": tags})
 
+    # Populate stderr_excerpt from raw_evidence so the rule classifier can
+    # pattern-match on stderr content (e.g. "No space left on device").
+    if raw_evidence.stderr_content and not ctx.stderr_excerpt:
+        excerpt = raw_evidence.stderr_content[-3000:]   # tail — errors at bottom
+        ctx = ctx.model_copy(update={"stderr_excerpt": excerpt})
+
     # When raw_evidence is provided (POST script path), always use the current
     # .sub file content for resource requests. The scheduler history (condor_history)
     # records the values from the *completed* job's ClassAd, which is the original
