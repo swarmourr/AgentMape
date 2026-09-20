@@ -345,9 +345,19 @@ async def _run(args: argparse.Namespace) -> int:
         return 1
 
     if decision == "ASK":
+        # Job failed and we propose a fix but need approval — preserve the failure
+        # so DAGMan marks the node FAILED. This prevents downstream jobs (stage_out)
+        # from running against outputs that were never produced.
+        if args.exit_code != 0:
+            _log(f"exit {args.exit_code} → job failed, proposal written; apply fix manually")
+            return args.exit_code
         _log("exit 0 → proposal in report; apply manually and re-submit")
         return 0
 
+    # STOP / ESCALATE / unknown — preserve job outcome
+    if args.exit_code != 0:
+        _log(f"exit {args.exit_code} → terminal, job failed")
+        return args.exit_code
     _log("exit 0 → terminal")
     return 0
 
@@ -364,25 +374,35 @@ def _call_pegasus_exitcode(args: argparse.Namespace) -> None:
     import subprocess
     submit_dir = Path(args.submit_dir)
 
-    # Locate the job's subdirectory by finding its .sub file
-    job_base = None
+    # Find the kickstart .out file — pegasus-exitcode expects job.out as argument,
+    # NOT the exit code. Check plain .out and retry-suffixed .out.NNN variants.
+    out_rel = None
     try:
         from app.utils.collectors.submit_dir import _all_job_subdirs
         for jd in _all_job_subdirs(submit_dir):
-            if (jd / f"{args.job_id}.sub").exists():
-                rel = jd.relative_to(submit_dir)
-                job_base = str(rel / args.job_id)
+            for candidate in (
+                f"{args.job_id}.out",
+                f"{args.job_id}.out.000",
+                f"{args.job_id}.out.001",
+                f"{args.job_id}.out.002",
+            ):
+                p = jd / candidate
+                if p.exists():
+                    out_rel = str(p.relative_to(submit_dir))
+                    break
+            if out_rel:
                 break
     except Exception as exc:
         _log(f"pegasus-exitcode: subdir search error: {exc}")
 
-    if job_base is None:
-        job_base = args.job_id   # fallback: submit dir root
+    if out_rel is None:
+        _log("pegasus-exitcode: .out file not found — skipping")
+        return
 
-    _log(f"calling pegasus-exitcode {args.exit_code} {job_base}")
+    _log(f"calling pegasus-exitcode {out_rel}")
     try:
         res = subprocess.run(
-            ["/usr/bin/pegasus-exitcode", str(args.exit_code), job_base],
+            ["/usr/bin/pegasus-exitcode", out_rel],
             cwd=str(submit_dir),
             capture_output=True,
             text=True,
