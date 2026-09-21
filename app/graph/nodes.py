@@ -126,6 +126,16 @@ async def collect_context(state: dict[str, Any]) -> dict[str, Any]:
         if tags:
             ctx = ctx.model_copy(update={"job_tags": tags})
 
+    # Populate transformation from the .sub file so apply_fix can broadcast
+    # the fix to sibling jobs that share the same transformation.
+    # The scheduler (condor_history) rarely carries the transformation name
+    # in POST script mode, so the .sub file is the authoritative source.
+    if raw_evidence.sub_file_content and not ctx.transformation:
+        from app.utils.pegasus.sibling_fixer import _parse_transformation_from_content
+        _t = _parse_transformation_from_content(raw_evidence.sub_file_content)
+        if _t:
+            ctx = ctx.model_copy(update={"transformation": _t})
+
     # Populate stderr_excerpt from raw_evidence so the rule classifier can
     # pattern-match on stderr content (e.g. "No space left on device").
     if raw_evidence.stderr_content and not ctx.stderr_excerpt:
