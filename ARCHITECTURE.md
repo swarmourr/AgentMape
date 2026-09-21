@@ -6,6 +6,140 @@
 
 ---
 
+## System Architecture
+
+```mermaid
+flowchart TB
+    %% ── External layer ────────────────────────────────────────────────────────
+    subgraph HTC["HTCondor / Pegasus WMS"]
+        direction LR
+        DAG["DAGMan\n.dag file"]
+        JOB["Job execution\n(HTCondor slot)"]
+        SUB[".sub file\nHTCondor submit"]
+        DAG -->|submits| JOB
+        JOB -->|reads| SUB
+    end
+
+    %% ── POST script layer ─────────────────────────────────────────────────────
+    subgraph PS["POST Script  —  pegasus_post_script.py"]
+        direction TB
+        PEX["pegasus-exitcode\ncreates .meta for stage_out"]
+        TAG{"healer tag\nin .sub?"}
+        FP{"sibling marker\nfast path?"}
+        EV["Evidence Collector\ncollect_evidence()"]
+
+        PEX --> TAG
+        TAG -->|stop tag| ABORT["exit 0\nworkflow aborts"]
+        TAG -->|no tag| FP
+        FP -->|marker + patched .sub\n+ exit code match| FAST["exit 1\nno agent run"]
+        FP -->|no fast path| EV
+    end
+
+    %% ── Graph layer ───────────────────────────────────────────────────────────
+    subgraph LG["LangGraph  —  two-loop remediation graph"]
+        direction TB
+
+        subgraph DIAG["Diagnostic Loop"]
+            direction LR
+            CC["collect_context"]
+            RC["run_rule_classifier\n● deterministic rules\n● no LLM"]
+            RM["retrieve_memories\n● SQLite lookup"]
+            DA["run_diagnosis_agent\n● ReAct LLM loop\n● max 7 steps"]
+            CC --> RC
+            RC -->|no match| RM --> DA
+        end
+
+        subgraph ACTION["Action Loop"]
+            direction LR
+            FC["lookup_fix_catalog\n● deterministic\n● no LLM"]
+            FP2["run_fix_planner\n● LLM agent"]
+            VP["validate_policy\n● deterministic\n● ALWAYS overrides LLM"]
+            AF["apply_fix\n+ sibling broadcast"]
+            AR["authorize_retry"]
+            FC -->|miss| FP2
+            FC -->|hit| VP
+            FP2 --> VP
+            VP -->|AUTO| AF --> AR
+        end
+
+        subgraph OUTCOME["Outcome Loop"]
+            direction LR
+            EO["evaluate_outcome"]
+            WM["write_memory\n● SQLite episode"]
+            ESC["escalate"]
+            EO -->|EFFECTIVE| WM
+            EO -->|INEFFECTIVE| CC
+            EO -->|limit reached| ESC
+        end
+
+        RC -->|rule matched| FC
+        DA --> FC
+        VP -->|ASK| RPT["generate_proposal_report"]
+        VP -->|STOP/ESCALATE| ESC
+    end
+
+    %% ── Services layer ────────────────────────────────────────────────────────
+    subgraph SVC["Services  —  injected via config.configurable"]
+        direction LR
+        LLM1["diagnosis_llm\nLiteLLM / UniversalProvider"]
+        LLM2["fix_planning_llm\nLiteLLM / UniversalProvider"]
+        PE["PolicyEngine\nremediation.yaml"]
+        RTC["DAGManRetryController\n.sub patcher"]
+        SREPO["SQLiteMemoryRepo\n~/.pegasus_healer_memory.db"]
+        CHK["SQLite Checkpointer\n~/.pegasus_healer_checkpoint.db"]
+    end
+
+    %% ── Storage layer ─────────────────────────────────────────────────────────
+    subgraph FS["Filesystem  —  submit dir  00/00/"]
+        direction LR
+        SUBF[".sub file\nrequest_memory\npegasus_memory_mb"]
+        LOG[".healer.log"]
+        THREAD[".healer_thread\nthread_id"]
+        REPORT[".agent_report"]
+        MARKER[".healer_xform_TYPE.applied\nsibling marker"]
+        META[".meta\noutput checksums"]
+    end
+
+    %% ── Connections ───────────────────────────────────────────────────────────
+    JOB -->|fails / succeeds| PS
+    EV -->|RawEvidence| LG
+    LG -->|exit 1 AUTO| DAG
+    LG -->|exit 0 ASK/STOP| DAG
+
+    DA -.->|uses| LLM1
+    FP2 -.->|uses| LLM2
+    VP -.->|uses| PE
+    AF -.->|uses| RTC
+    WM -.->|uses| SREPO
+    RM -.->|uses| SREPO
+    LG -.->|checkpoint| CHK
+
+    RTC -->|patches| SUBF
+    RTC -->|broadcast| SUBF
+    RTC -->|writes| MARKER
+    PS -->|writes| LOG
+    PS -->|writes| THREAD
+    PS -->|writes| REPORT
+    PEX -->|writes| META
+
+    %% ── Styles ────────────────────────────────────────────────────────────────
+    classDef deterministic fill:#2d6a4f,color:#fff,stroke:#1b4332
+    classDef llm           fill:#1d3557,color:#fff,stroke:#0d1b2a
+    classDef memory        fill:#457b9d,color:#fff,stroke:#1d3557
+    classDef storage       fill:#f4a261,color:#000,stroke:#e76f51
+    classDef external      fill:#6c757d,color:#fff,stroke:#495057
+    classDef fastpath      fill:#e9c46a,color:#000,stroke:#f4a261
+
+    class RC,FC,VP,AF,AR,EO deterministic
+    class DA,FP2 llm
+    class RM,WM,SREPO memory
+    class SUBF,LOG,THREAD,REPORT,MARKER,META storage
+    class DAG,JOB,SUB external
+    class FP,FAST fastpath
+```
+
+---
+
 ## Table of Contents
 
 1. [System Overview](#1-system-overview)
