@@ -156,7 +156,7 @@ def _resolve_thread(
     thread_file = job_dir / f"{job_id}.healer_thread"
     if thread_file.exists():
         return thread_file.read_text().strip(), True
-    thread_id = f"{workflow_id}/{instance_id}"
+    thread_id = f"{workflow_id}/{job_id}/{instance_id}"
     thread_file.write_text(thread_id)
     return thread_id, False
 
