@@ -247,6 +247,12 @@ async def _run(args: argparse.Namespace) -> int:
         sqlite_path=os.environ.get("HEALER_CHECKPOINT", _default_checkpoint),
     )
 
+    # Episodic memory — lightweight SQLite, no PostgreSQL required.
+    from app.utils.memory.sqlite_repo import SQLiteMemoryRepo
+    _mem_db = os.environ.get("HEALER_MEMORY_DB") or str(Path.home() / ".pegasus_healer_memory.db")
+    memory_repo = SQLiteMemoryRepo(db_path=_mem_db)
+    _log(f"memory_repo: {_mem_db}")
+
     config = {
         "configurable": {
             "thread_id":        thread_id,
@@ -258,6 +264,7 @@ async def _run(args: argparse.Namespace) -> int:
             "retry_controller": retry_ctrl,
             "submit_dir":       str(submit_dir),
             "raw_evidence":     evidence.model_dump(),
+            "memory_repo":      memory_repo,
         }
     }
 
