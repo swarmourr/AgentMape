@@ -82,20 +82,24 @@ def _log(msg: str) -> None:
         print(line, file=_log_file, flush=True)
 
 
-def _open_log(submit_dir: Path, job_id: str) -> None:
-    """Open (or append to) {job_subdir}/{job_id}.healer.log, next to .out/.err."""
-    global _log_file
-    log_dir = submit_dir   # fallback: submit dir root
+def _find_job_subdir(submit_dir: Path, job_id: str) -> Path:
+    """Return the subdirectory that contains job_id.sub (e.g. 00/00/), or submit_dir."""
     try:
         from app.utils.collectors.submit_dir import _all_job_subdirs
         for jd in _all_job_subdirs(submit_dir):
             if (jd / f"{job_id}.sub").exists():
-                log_dir = jd
-                break
+                return jd
     except Exception:
         pass
+    return submit_dir
+
+
+def _open_log(submit_dir: Path, job_id: str) -> None:
+    """Open (or append to) {job_subdir}/{job_id}.healer.log, next to .out/.err."""
+    global _log_file
+    job_dir = _find_job_subdir(submit_dir, job_id)
     try:
-        _log_file = open(log_dir / f"{job_id}.healer.log", "a")
+        _log_file = open(job_dir / f"{job_id}.healer.log", "a")
     except OSError:
         pass  # if we can't open it, stderr is still there
 
@@ -143,12 +147,13 @@ def _resolve_thread(
     """
     Return (thread_id, is_resume).
 
-    Thread file: {submit_dir}/{job_id}.healer_thread
+    Thread file: {job_subdir}/{job_id}.healer_thread  (next to .out/.err)
     Written on first invocation, read on subsequent ones.
     Anchored to source_job_instance_id so thread_id is globally unique
     even when multiple workflows share the same job_id string.
     """
-    thread_file = submit_dir / f"{job_id}.healer_thread"
+    job_dir = _find_job_subdir(submit_dir, job_id)
+    thread_file = job_dir / f"{job_id}.healer_thread"
     if thread_file.exists():
         return thread_file.read_text().strip(), True
     thread_id = f"{workflow_id}/{instance_id}"
@@ -325,7 +330,7 @@ async def _run(args: argparse.Namespace) -> int:
             service_url=None,
             missing_evidence=final_state.get("insufficient_evidence_fields", []),
         )
-        report_path = write_report(report, submit_dir, args.job_id)
+        report_path = write_report(report, _find_job_subdir(submit_dir, args.job_id), args.job_id)
         _log(f"report → {report_path}")
     except Exception as exc:
         _log(f"warning: could not write report: {exc}")
@@ -378,19 +383,16 @@ def _call_pegasus_exitcode(args: argparse.Namespace) -> None:
     # NOT the exit code. Check plain .out and retry-suffixed .out.NNN variants.
     out_rel = None
     try:
-        from app.utils.collectors.submit_dir import _all_job_subdirs
-        for jd in _all_job_subdirs(submit_dir):
-            for candidate in (
-                f"{args.job_id}.out",
-                f"{args.job_id}.out.000",
-                f"{args.job_id}.out.001",
-                f"{args.job_id}.out.002",
-            ):
-                p = jd / candidate
-                if p.exists():
-                    out_rel = str(p.relative_to(submit_dir))
-                    break
-            if out_rel:
+        jd = _find_job_subdir(submit_dir, args.job_id)
+        for candidate in (
+            f"{args.job_id}.out",
+            f"{args.job_id}.out.000",
+            f"{args.job_id}.out.001",
+            f"{args.job_id}.out.002",
+        ):
+            p = jd / candidate
+            if p.exists():
+                out_rel = str(p.relative_to(submit_dir))
                 break
     except Exception as exc:
         _log(f"pegasus-exitcode: subdir search error: {exc}")
@@ -448,7 +450,7 @@ def main() -> int:
         # Could still be a resume invocation (successful retry) — let graph evaluate
         # Only skip if there is no thread file (truly no prior incident)
         submit_dir = Path(args.submit_dir)
-        thread_file = submit_dir / f"{args.job_id}.healer_thread"
+        thread_file = _find_job_subdir(submit_dir, args.job_id) / f"{args.job_id}.healer_thread"
         if not thread_file.exists():
             return 0
         # Resume: graph records EFFECTIVE outcome + writes memory
