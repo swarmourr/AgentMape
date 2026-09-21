@@ -9,133 +9,83 @@
 ## System Architecture
 
 ```mermaid
-flowchart TB
-    %% ── External layer ────────────────────────────────────────────────────────
-    subgraph HTC["HTCondor / Pegasus WMS"]
-        direction LR
-        DAG["DAGMan\n.dag file"]
-        JOB["Job execution\n(HTCondor slot)"]
-        SUB[".sub file\nHTCondor submit"]
-        DAG -->|submits| JOB
-        JOB -->|reads| SUB
+flowchart LR
+    WF(["Scientist\nsubmits workflow"])
+
+    subgraph PEG["  Pegasus WMS  "]
+        PLAN["pegasus-plan\n.dag  .sub  files"]
     end
 
-    %% ── POST script layer ─────────────────────────────────────────────────────
-    subgraph PS["POST Script  —  pegasus_post_script.py"]
+    subgraph HTC["  HTCondor / DAGMan  "]
         direction TB
-        PEX["pegasus-exitcode\ncreates .meta for stage_out"]
-        TAG{"healer tag\nin .sub?"}
-        FP{"sibling marker\nfast path?"}
-        EV["Evidence Collector\ncollect_evidence()"]
-
-        PEX --> TAG
-        TAG -->|stop tag| ABORT["exit 0\nworkflow aborts"]
-        TAG -->|no tag| FP
-        FP -->|marker + patched .sub\n+ exit code match| FAST["exit 1\nno agent run"]
-        FP -->|no fast path| EV
+        DAGMAN["DAGMan\norchestrates retries"]
+        SLOT["Compute slot\nexecutes job"]
+        DAGMAN -->|submit| SLOT
     end
 
-    %% ── Graph layer ───────────────────────────────────────────────────────────
-    subgraph LG["LangGraph  —  two-loop remediation graph"]
+    subgraph HEALER["  PegasusAgent Healer  "]
         direction TB
 
-        subgraph DIAG["Diagnostic Loop"]
+        POST["POST script\npegasus_post_script.py"]
+
+        subgraph FAST_PATH["Fast paths  (no agent)"]
             direction LR
-            CC["collect_context"]
-            RC["run_rule_classifier\n● deterministic rules\n● no LLM"]
-            RM["retrieve_memories\n● SQLite lookup"]
-            DA["run_diagnosis_agent\n● ReAct LLM loop\n● max 7 steps"]
-            CC --> RC
-            RC -->|no match| RM --> DA
+            FP1["healer tag\nstop / no-fix"]
+            FP2["sibling marker\nalready patched"]
         end
 
-        subgraph ACTION["Action Loop"]
+        subgraph AGENT["Remediation agent  (LangGraph)"]
             direction LR
-            FC["lookup_fix_catalog\n● deterministic\n● no LLM"]
-            FP2["run_fix_planner\n● LLM agent"]
-            VP["validate_policy\n● deterministic\n● ALWAYS overrides LLM"]
-            AF["apply_fix\n+ sibling broadcast"]
-            AR["authorize_retry"]
-            FC -->|miss| FP2
-            FC -->|hit| VP
-            FP2 --> VP
-            VP -->|AUTO| AF --> AR
+            DIAG["Diagnostic loop\nrule classifier  →  LLM ReAct"]
+            ACT["Action loop\nfix catalog  →  policy gate  →  apply"]
+            OUT["Outcome loop\nevaluate  →  write memory"]
+            DIAG --> ACT --> OUT
         end
 
-        subgraph OUTCOME["Outcome Loop"]
-            direction LR
-            EO["evaluate_outcome"]
-            WM["write_memory\n● SQLite episode"]
-            ESC["escalate"]
-            EO -->|EFFECTIVE| WM
-            EO -->|INEFFECTIVE| CC
-            EO -->|limit reached| ESC
-        end
-
-        RC -->|rule matched| FC
-        DA --> FC
-        VP -->|ASK| RPT["generate_proposal_report"]
-        VP -->|STOP/ESCALATE| ESC
+        POST --> FAST_PATH
+        POST --> AGENT
     end
 
-    %% ── Services layer ────────────────────────────────────────────────────────
-    subgraph SVC["Services  —  injected via config.configurable"]
-        direction LR
-        LLM1["diagnosis_llm\nLiteLLM / UniversalProvider"]
-        LLM2["fix_planning_llm\nLiteLLM / UniversalProvider"]
-        PE["PolicyEngine\nremediation.yaml"]
-        RTC["DAGManRetryController\n.sub patcher"]
-        SREPO["SQLiteMemoryRepo\n~/.pegasus_healer_memory.db"]
-        CHK["SQLite Checkpointer\n~/.pegasus_healer_checkpoint.db"]
+    subgraph STORAGE["  Persistent storage  "]
+        direction TB
+        SUB[".sub files\npatched resource requests"]
+        MEM["memory.db\nepisodic fix history"]
+        CHK["checkpoint.db\nLangGraph state"]
+        LOGS[".healer.log\n.agent_report"]
     end
 
-    %% ── Storage layer ─────────────────────────────────────────────────────────
-    subgraph FS["Filesystem  —  submit dir  00/00/"]
-        direction LR
-        SUBF[".sub file\nrequest_memory\npegasus_memory_mb"]
-        LOG[".healer.log"]
-        THREAD[".healer_thread\nthread_id"]
-        REPORT[".agent_report"]
-        MARKER[".healer_xform_TYPE.applied\nsibling marker"]
-        META[".meta\noutput checksums"]
-    end
+    LLM(["LLM provider\nLiteLLM / Anthropic\n(optional)"])
 
-    %% ── Connections ───────────────────────────────────────────────────────────
-    JOB -->|fails / succeeds| PS
-    EV -->|RawEvidence| LG
-    LG -->|exit 1 AUTO| DAG
-    LG -->|exit 0 ASK/STOP| DAG
+    WF --> PEG --> DAGMAN
+    SLOT -->|"job exits\n(success or fail)"| POST
 
-    DA -.->|uses| LLM1
-    FP2 -.->|uses| LLM2
-    VP -.->|uses| PE
-    AF -.->|uses| RTC
-    WM -.->|uses| SREPO
-    RM -.->|uses| SREPO
-    LG -.->|checkpoint| CHK
+    FAST_PATH -->|"exit 1 — retry\nno agent run"| DAGMAN
+    AGENT -->|"AUTO  exit 1\npatch .sub + retry"| DAGMAN
+    AGENT -->|"ASK   exit ≠0\nproposal report"| DAGMAN
+    AGENT -->|"STOP  exit ≠0\nescalate"| DAGMAN
 
-    RTC -->|patches| SUBF
-    RTC -->|broadcast| SUBF
-    RTC -->|writes| MARKER
-    PS -->|writes| LOG
-    PS -->|writes| THREAD
-    PS -->|writes| REPORT
-    PEX -->|writes| META
+    ACT -->|patches| SUB
+    SUB -->|"DAGMan reads\non next submit"| SLOT
+    OUT -->|stores episode| MEM
+    AGENT <-->|resume / save| CHK
+    POST -->|writes| LOGS
 
-    %% ── Styles ────────────────────────────────────────────────────────────────
-    classDef deterministic fill:#2d6a4f,color:#fff,stroke:#1b4332
-    classDef llm           fill:#1d3557,color:#fff,stroke:#0d1b2a
-    classDef memory        fill:#457b9d,color:#fff,stroke:#1d3557
-    classDef storage       fill:#f4a261,color:#000,stroke:#e76f51
-    classDef external      fill:#6c757d,color:#fff,stroke:#495057
-    classDef fastpath      fill:#e9c46a,color:#000,stroke:#f4a261
+    DIAG -.->|"LLM fallback\nambiguous failures"| LLM
+    ACT  -.->|"LLM fallback\nunknown fix"| LLM
 
-    class RC,FC,VP,AF,AR,EO deterministic
-    class DA,FP2 llm
-    class RM,WM,SREPO memory
-    class SUBF,LOG,THREAD,REPORT,MARKER,META storage
-    class DAG,JOB,SUB external
-    class FP,FAST fastpath
+    classDef ext     fill:#6c757d,color:#fff,stroke:none
+    classDef healer  fill:#1d3557,color:#fff,stroke:none
+    classDef fast    fill:#e9c46a,color:#222,stroke:none
+    classDef graph   fill:#2d6a4f,color:#fff,stroke:none
+    classDef store   fill:#457b9d,color:#fff,stroke:none
+    classDef llmnode fill:#e63946,color:#fff,stroke:none
+
+    class WF,SLOT,DAGMAN ext
+    class POST healer
+    class FP1,FP2 fast
+    class DIAG,ACT,OUT graph
+    class SUB,MEM,CHK,LOGS store
+    class LLM llmnode
 ```
 
 ---
