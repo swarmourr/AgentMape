@@ -76,14 +76,14 @@ flowchart LR
     classDef ext     fill:#6c757d,color:#fff,stroke:none
     classDef healer  fill:#1d3557,color:#fff,stroke:none
     classDef fast    fill:#e9c46a,color:#222,stroke:none
-    classDef graph   fill:#2d6a4f,color:#fff,stroke:none
+    classDef loop    fill:#2d6a4f,color:#fff,stroke:none
     classDef store   fill:#457b9d,color:#fff,stroke:none
     classDef llmnode fill:#e63946,color:#fff,stroke:none
 
     class WF,SLOT,DAGMAN ext
     class POST healer
     class FP1,FP2 fast
-    class DIAG,ACT,OUT graph
+    class DIAG,ACT,OUT loop
     class SUB,MEM,CHK,LOGS store
     class LLM llmnode
 ```
