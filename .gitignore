@@ -34,8 +34,8 @@ checkpoints.db
 # Logs
 *.log
 
-# Memory (Claude-specific)
-memory/
+# Memory (Claude-specific — root only, not app/utils/memory/)
+/memory/
 
 # Pegasus workflow run directories (test/fixture data, not source)
 run*/
