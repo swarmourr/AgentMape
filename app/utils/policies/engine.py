@@ -27,7 +27,12 @@ class PolicyEngine:
 
     def __init__(self, policy: PolicyConfig, confidence_threshold: float = 0.80) -> None:
         self._policy = policy
-        self._threshold = confidence_threshold
+        # Active mode's threshold takes precedence over the settings default.
+        self._threshold = (
+            policy.confidence_threshold
+            if policy.confidence_threshold is not None
+            else confidence_threshold
+        )
 
     def validate(
         self,

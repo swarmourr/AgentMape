@@ -1,5 +1,46 @@
 version: "1.0.0"
 
+# ── Policy mode ────────────────────────────────────────────────────────────────
+# Active mode controls how aggressively the healer auto-applies fixes.
+# Override at runtime with the HEALER_POLICY_MODE env var.
+#
+#   production  (default) — conservative: high confidence threshold, smaller
+#                           multipliers, cost-impacting fixes require approval.
+#   debug                 — aggressive: lower threshold, larger multipliers,
+#                           more AUTO decisions for faster iteration.
+#
+mode: production
+
+modes:
+  production:
+    confidence_threshold: 0.85
+    failure_policies:
+      OUT_OF_MEMORY:
+        multiplier: 1.5
+        maximum_attempts: 3
+      DISK_EXCEEDED:
+        multiplier: 2.0
+        maximum_attempts: 2
+      WALLTIME_EXCEEDED:
+        decision: ASK          # cost implications — always ask in production
+        multiplier: 1.5
+
+  debug:
+    confidence_threshold: 0.70  # accept lower-confidence diagnoses
+    failure_policies:
+      OUT_OF_MEMORY:
+        multiplier: 2.0          # more aggressive memory bump
+        maximum_attempts: 5
+      DISK_EXCEEDED:
+        multiplier: 3.0
+        maximum_attempts: 4
+      WALLTIME_EXCEEDED:
+        decision: AUTO           # auto-apply in debug — no approval needed
+        multiplier: 2.0
+        maximum_attempts: 4
+      TRANSIENT_INFRASTRUCTURE:
+        maximum_attempts: 5
+
 # ── Agent scope ────────────────────────────────────────────────────────────────
 # Controls which files the agent may read and modify beyond the submit directory.
 # Levels are hierarchical — each level includes everything from the levels below.

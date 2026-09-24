@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     # ── Policy ────────────────────────────────────────────────────────────────
     policy_file: str = "policies/remediation.yaml"
     confidence_threshold: float = 0.80
+    # Active policy mode — overrides the 'mode' field in the YAML file.
+    # Choices: production (default, conservative) | debug (aggressive, more AUTO)
+    healer_policy_mode: str | None = None
 
     # ── Retry gate ────────────────────────────────────────────────────────────
     max_global_attempts: int = 5
