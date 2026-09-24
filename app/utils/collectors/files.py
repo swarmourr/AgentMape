@@ -54,10 +54,53 @@ def _glob_artifact(base: Path, pattern: str, max_bytes: int) -> ArtifactRef | No
 
 
 # ---------------------------------------------------------------------------
+# Helper: find all Pegasus XX/YY job subdirectories
+# ---------------------------------------------------------------------------
+
+def _job_subdirs(submit_dir: Path) -> list[Path]:
+    """
+    Return all Pegasus job subdirectories under submit_dir, sorted.
+
+    Pegasus distributes jobs across XX/YY buckets to avoid filesystem
+    inode limits: 00/00, 00/01, ..., 01/00, 01/01, ...
+    Falls back to [submit_dir] for flat/legacy layouts.
+    """
+    subdirs = sorted(submit_dir.glob("[0-9][0-9]/[0-9][0-9]"))
+    return subdirs if subdirs else [submit_dir]
+
+
+def _job_candidates(submit_dir: Path, job_id: str, instance_id: int, ext: str) -> list[Path]:
+    """
+    Build the full candidate list for a per-job file across all XX/YY subdirs.
+
+    Tries (in order for each subdir):
+      {XX/YY}/{job_id}_ID{instance:07d}.{ext}   Pegasus 5.x with _ID suffix
+      {XX/YY}/{job_id}.{ext}                     Pegasus 5.x without _ID
+    Then flat fallbacks at submit_dir root:
+      {job_id}_ID{instance:07d}.{ext}
+      {job_id}.{ext}
+      {job_id}.{instance:03d}.{ext}              legacy three-digit suffix
+    """
+    seen: set[Path] = set()
+    candidates: list[Path] = []
+
+    def _add(p: Path) -> None:
+        if p not in seen:
+            seen.add(p)
+            candidates.append(p)
+
+    for sd in _job_subdirs(submit_dir):
+        _add(sd / f"{job_id}_ID{instance_id:07d}.{ext}")
+        _add(sd / f"{job_id}.{ext}")
+    # Flat fallbacks (already covered when _job_subdirs returns [submit_dir])
+    _add(submit_dir / f"{job_id}_ID{instance_id:07d}.{ext}")
+    _add(submit_dir / f"{job_id}.{ext}")
+    _add(submit_dir / f"{job_id}.{instance_id:03d}.{ext}")
+    return candidates
+
+
+# ---------------------------------------------------------------------------
 # Per-job file collectors
-# Pegasus 5.x stores job files under:
-#   {submit_dir}/00/00/{job_id}_ID{instance:07d}.{ext}
-# Older versions and flat layouts are tried as fallbacks.
 # ---------------------------------------------------------------------------
 
 def collect_stdout(
@@ -67,20 +110,10 @@ def collect_stdout(
     job_instance_id: int,
 ) -> ArtifactRef | None:
     """Locate and return a reference to the job's HTCondor stdout file."""
-    sd = Path(submit_dir)
-    candidates = [
-        # Pegasus 5.x — 00/00/ subdirectory with _ID suffix
-        sd / "00" / "00" / f"{job_id}_ID{job_instance_id:07d}.out",
-        # Some versions use a flat 00/00/ without _ID
-        sd / "00" / "00" / f"{job_id}.out",
-        # Flat submit-dir with _ID suffix
-        sd / f"{job_id}_ID{job_instance_id:07d}.out",
-        # Legacy flat layout
-        sd / f"{job_id}.out",
-        # Older three-digit instance suffix
-        sd / f"{job_id}.{job_instance_id:03d}.out",
-    ]
-    return _find_artifact(candidates, settings.log_excerpt_max_bytes)
+    return _find_artifact(
+        _job_candidates(Path(submit_dir), job_id, job_instance_id, "out"),
+        settings.log_excerpt_max_bytes,
+    )
 
 
 def collect_stderr(
@@ -90,15 +123,10 @@ def collect_stderr(
     job_instance_id: int,
 ) -> ArtifactRef | None:
     """Locate and return a reference to the job's HTCondor stderr file."""
-    sd = Path(submit_dir)
-    candidates = [
-        sd / "00" / "00" / f"{job_id}_ID{job_instance_id:07d}.err",
-        sd / "00" / "00" / f"{job_id}.err",
-        sd / f"{job_id}_ID{job_instance_id:07d}.err",
-        sd / f"{job_id}.err",
-        sd / f"{job_id}.{job_instance_id:03d}.err",
-    ]
-    return _find_artifact(candidates, settings.log_excerpt_max_bytes)
+    return _find_artifact(
+        _job_candidates(Path(submit_dir), job_id, job_instance_id, "err"),
+        settings.log_excerpt_max_bytes,
+    )
 
 
 def collect_kickstart(
@@ -107,20 +135,19 @@ def collect_kickstart(
     job_id: str,
     job_instance_id: int,
 ) -> ArtifactRef | None:
-    """Locate and return a reference to the Pegasus/Kickstart XML record.
+    """Locate and return a reference to the Pegasus/Kickstart record.
 
-    In Pegasus 5.x, kickstart writes its XML to the HTCondor stdout (.out).
-    Some deployments also write a separate .meta or .kickstart.xml file.
+    In Pegasus 5.x, kickstart writes YAML to the HTCondor stdout (.out).
+    Some deployments also write a separate .kickstart.out or .kickstart.xml.
     """
     sd = Path(submit_dir)
-    candidates = [
-        # Separate kickstart XML file (some wrapper scripts extract it)
-        sd / "00" / "00" / f"{job_id}_ID{job_instance_id:07d}.kickstart.out",
-        sd / "00" / "00" / f"{job_id}.kickstart.xml",
-        sd / f"{job_id}_ID{job_instance_id:07d}.kickstart.out",
-        sd / f"{job_id}.{job_instance_id:03d}.kickstart.xml",
-        sd / f"{job_id}.kickstart.xml",
-    ]
+    candidates: list[Path] = []
+    for subdir in _job_subdirs(sd):
+        candidates.append(subdir / f"{job_id}_ID{job_instance_id:07d}.kickstart.out")
+        candidates.append(subdir / f"{job_id}.kickstart.xml")
+    candidates.append(sd / f"{job_id}_ID{job_instance_id:07d}.kickstart.out")
+    candidates.append(sd / f"{job_id}.{job_instance_id:03d}.kickstart.xml")
+    candidates.append(sd / f"{job_id}.kickstart.xml")
     return _find_artifact(candidates, settings.kickstart_excerpt_max_bytes)
 
 
@@ -134,15 +161,10 @@ def collect_condor_event_log(
     The event log records submission, execution start, transfer, and
     completion events in HTCondor's ClassAd event format.
     """
-    sd = Path(submit_dir)
-    candidates = [
-        sd / "00" / "00" / f"{job_id}_ID{job_instance_id:07d}.log",
-        sd / "00" / "00" / f"{job_id}.log",
-        sd / f"{job_id}_ID{job_instance_id:07d}.log",
-        sd / f"{job_id}.log",
-        sd / f"{job_id}.{job_instance_id:03d}.log",
-    ]
-    return _find_artifact(candidates, settings.log_excerpt_max_bytes)
+    return _find_artifact(
+        _job_candidates(Path(submit_dir), job_id, job_instance_id, "log"),
+        settings.log_excerpt_max_bytes,
+    )
 
 
 def collect_submit_file(
@@ -156,16 +178,10 @@ def collect_submit_file(
     (RequestMemory, RequestDisk, RequestCpus, +ProjectName, etc.)
     as submitted to HTCondor.
     """
-    sd = Path(submit_dir)
-    candidates = [
-        sd / "00" / "00" / f"{job_id}_ID{job_instance_id:07d}.sub",
-        sd / "00" / "00" / f"{job_id}.sub",
-        sd / f"{job_id}_ID{job_instance_id:07d}.sub",
-        sd / f"{job_id}.sub",
-        sd / f"{job_id}.{job_instance_id:03d}.sub",
-    ]
-    # Submit files are small — read them fully (cap at log_excerpt_max_bytes)
-    return _find_artifact(candidates, settings.log_excerpt_max_bytes)
+    return _find_artifact(
+        _job_candidates(Path(submit_dir), job_id, job_instance_id, "sub"),
+        settings.log_excerpt_max_bytes,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -179,10 +195,8 @@ def collect_dagman_out(submit_dir: str, workflow_name: str | None = None) -> Art
     script outputs.  Useful for understanding workflow-level retry context.
     """
     sd = Path(submit_dir)
-    # Prefer the 00/00/ subdirectory location first, then the submit_dir root.
-    search_roots = [sd / "00" / "00", sd]
+    search_roots = _job_subdirs(sd) + ([sd] if sd not in _job_subdirs(sd) else [])
 
-    # Named workflow first (fastest), then any dagman.out glob
     for root in search_roots:
         if not root.exists():
             continue
@@ -202,7 +216,7 @@ def collect_dagman_out(submit_dir: str, workflow_name: str | None = None) -> Art
 def collect_dagman_err(submit_dir: str, workflow_name: str | None = None) -> ArtifactRef | None:
     """Locate the DAGMan stderr log (*.dag.dagman.err or *.dagman.err)."""
     sd = Path(submit_dir)
-    search_roots = [sd / "00" / "00", sd]
+    search_roots = _job_subdirs(sd) + ([sd] if sd not in _job_subdirs(sd) else [])
 
     for root in search_roots:
         if not root.exists():
