@@ -6,11 +6,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", env_file_encoding="utf-8")
 
-    # ── Checkpointer (LangGraph SQLite) ──────────────────────────────────────
-    # Path to the SQLite DB used for LangGraph state between POST invocations.
-    # Override with HEALER_CHECKPOINT env var in the POST script.
-    sqlite_path: str = "checkpoints.db"
-
     # ── LLM — shared defaults ─────────────────────────────────────────────────
     # Used by any agent that does not have its own override below.
     llm_model: str = "gpt-4o"
