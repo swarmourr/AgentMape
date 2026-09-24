@@ -218,7 +218,7 @@ Called synchronously before the graph runs. Reads all diagnostic files from the 
 flowchart LR
     subgraph submit_dir[Submit Directory  00/00/]
         sub[job.sub]
-        out[job.out\nkickstart XML]
+        out[job.out\nkickstart YAML / XML]
         err[job.err\nstderr]
         lof[job.in.lof\ninput list]
         log[job.log\nHTCondor event log]
@@ -243,7 +243,7 @@ flowchart LR
 **Available sources** (reported in healer log):
 - `pegasus_analyzer` — structured failure summary from `pegasus-analyzer`
 - `stderr` — raw stderr content (up to 200 KB)
-- `stdout_kickstart` — kickstart XML with timing and exit codes
+- `stdout_kickstart` — kickstart `.out` file with timing and exit codes
 - `submit_file` — HTCondor `.sub` file (resource requests, tags)
 - `dagman_log` — DAGMan `.out` for retry history
 - `transformation_script` — the actual executable script
@@ -253,6 +253,39 @@ In `collect_context` node, `RawEvidence` enriches `FailureContext` with:
 - `stderr_excerpt` — last 3000 chars of stderr (for rule classifier pattern matching)
 - `requested_resources` — from `.sub` (not condor_history, which has pre-patch values)
 - `transformation` — parsed from executable path in `.sub`
+
+### Kickstart output format
+
+Pegasus 5.x writes the `.out` file in **YAML** format; Pegasus 4.x used XML `<invocation>` elements. The agent handles both automatically.
+
+**YAML structure (Pegasus 5.x):**
+
+```yaml
+- invocation: True
+  mainjob:
+    usage:
+      maxrss: 262144      # KB — peak RSS → peak_memory_mb
+      utime: 1.23         # user CPU time
+      stime: 0.45         # system CPU time
+    status:
+      regular_exitcode: 0          # normal exit
+      # or: signal_number: 9       # SIGKILL → exit_signal + exit_code 137
+    duration: 294.0                # wall time in seconds
+  files:
+    filename.gz:
+      error: 2                     # non-zero → transfer failure
+  stderr:
+    data: |                        # ← full application stderr embedded here
+      INFO: Reading URL pairs...
+      ERROR: Transfer failed
+      Killed
+  stdout:
+    size: 0
+    data: |                        # ← full application stdout (if any)
+      ...
+```
+
+The `stderr.data` block is the **primary diagnostic source** for transfer failures, application crashes, and OOM kills — more complete than the `.err` file, which often only contains HTCondor bookkeeping. `get_kickstart_data` extracts both `stderr_data` and `stdout_data`. `get_stderr` falls back to `stderr_data` from the YAML automatically when the `.err` file is empty.
 
 ---
 
@@ -401,8 +434,9 @@ sequenceDiagram
 | Tool | Returns |
 |---|---|
 | `parse_failure_summary` | pegasus-analyzer structured output |
-| `get_stderr` | last 200 lines of stderr |
-| `get_kickstart_data` | timing, exit codes, resource usage from kickstart XML |
+| `get_stderr` | stderr content — from `.err` file, or falls back to `stderr_data` embedded in kickstart YAML when `.err` is empty |
+| `get_kickstart_data` | timing, exit codes, resource usage from kickstart YAML or XML; critically includes `stderr_data` / `stdout_data` (full app output captured by kickstart) and `file_errors` (transfer error codes per file) |
+| `get_stdout` | application stdout captured by kickstart (`stdout.data` in YAML, `<stdout>` in XML) |
 | `get_resource_requests` | current `.sub` resource values |
 | `get_condor_history` | HTCondor classads (memory, disk, runtime used) |
 | `get_event_log` | HTCondor event log (evictions, holds, checkpoints) |
@@ -724,3 +758,4 @@ All three `compute` jobs fail with exit 137. Healer detects OOM on each, patches
 | Sub file patching | Only patches `request_*` and `pegasus_*` — custom submit attributes untouched | Extend `_ATTR_MAP` as needed |
 | Policy scope | Default `level: job` — script/catalog/workflow fixes always produce ASK | Raise scope level in `remediation.yaml` when trust is established |
 | Embedding model | No embedding configured → retrieve_memories returns exact-match SQL only | Set `EMBED_MODEL` / `EMBED_API_KEY` env vars when adding semantic search |
+| ASK decision | In automated POST script context ASK = STOP (no notification channel, no approval UI) | Replace ASK with human-approval webhook or remove from automated path |

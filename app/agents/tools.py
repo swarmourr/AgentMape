@@ -16,6 +16,12 @@ import re
 import xml.etree.ElementTree as ET
 from typing import Any
 
+try:
+    import yaml as _yaml
+    _YAML_AVAILABLE = True
+except ImportError:
+    _YAML_AVAILABLE = False
+
 from app.utils.models.evidence import RawEvidence
 
 
@@ -83,13 +89,32 @@ def parse_failure_summary(evidence: RawEvidence) -> dict[str, Any]:
 
 def get_stderr(evidence: RawEvidence, max_chars: int = 6000) -> str:
     """
-    Full stderr content from the .err file.
+    Full stderr content for the failed job.
 
-    Returns the last max_chars characters (tail of stderr is usually most
-    informative — OOM messages, final tracebacks, disk errors).
+    Sources checked in order:
+    1. The .err file (HTCondor job stderr).
+    2. ``stderr_data`` from kickstart YAML .out file — in Pegasus 5.x this
+       is often the primary source because kickstart captures and embeds the
+       application's stderr inside the .out YAML document.
+    3. The stderr excerpt shown by pegasus-analyzer.
+
+    Returns the last max_chars characters (tail is usually most informative —
+    OOM kills, final tracebacks, "No space left on device").
     """
     content = evidence.stderr_content or ""
+
     if not content:
+        # Try kickstart YAML stderr_data from the .out file
+        stdout_raw = evidence.stdout_content or ""
+        if "invocation:" in stdout_raw and _YAML_AVAILABLE:
+            parsed = _parse_kickstart_yaml(stdout_raw)
+            if parsed and parsed.get("stderr_data"):
+                data = parsed["stderr_data"]
+                prefix = "[source: kickstart stderr_data in .out YAML]\n"
+                if len(data) > max_chars:
+                    return prefix + f"[... {len(data) - max_chars} chars truncated ...]\n" + data[-max_chars:]
+                return prefix + data
+
         # Fall back to what pegasus-analyzer showed
         if evidence.pegasus_analyzer_output:
             m = re.search(
@@ -109,12 +134,120 @@ def get_stderr(evidence: RawEvidence, max_chars: int = 6000) -> str:
 
 # ── 3. get_kickstart_data ─────────────────────────────────────────────────────
 
+def _parse_kickstart_yaml(content: str) -> dict[str, Any] | None:
+    """
+    Parse Pegasus 5.x kickstart YAML format.
+
+    Structure (list of dicts, first entry is the invocation record):
+      - invocation: True
+        mainjob:
+          usage: {maxrss: <KB>, utime: ..., stime: ...}
+          status: {regular_exitcode: 0}   or {signal_number: 9}
+          duration: <seconds>
+        files:
+          <name>: {error: <int>, sha256: ...}
+        stderr:
+          data: |
+            <full application stderr>
+        stdout:
+          size: <int>
+          data: |
+            <full application stdout>
+    """
+    if not _YAML_AVAILABLE:
+        return None
+    try:
+        docs = _yaml.safe_load(content)
+    except Exception:
+        return None
+
+    # Find the invocation record (list with invocation: True, or plain dict)
+    inv: dict | None = None
+    if isinstance(docs, list):
+        for item in docs:
+            if isinstance(item, dict) and item.get("invocation") is True:
+                inv = item
+                break
+    elif isinstance(docs, dict) and docs.get("invocation") is True:
+        inv = docs
+
+    if inv is None:
+        return None
+
+    result: dict[str, Any] = {
+        "peak_memory_mb": None,
+        "cpu_time_s": None,
+        "wall_time_s": None,
+        "main_job_exit_code": None,
+        "exit_signal": None,
+        "input_files": [],
+        "file_errors": {},
+        "stderr_data": None,
+        "stdout_data": None,
+        "format": "yaml",
+    }
+
+    mainjob = inv.get("mainjob") or {}
+    usage = mainjob.get("usage") or {}
+    status = mainjob.get("status") or {}
+
+    maxrss = usage.get("maxrss")
+    if maxrss is not None:
+        result["peak_memory_mb"] = round(int(maxrss) / 1024, 1)
+
+    utime = float(usage.get("utime") or 0)
+    stime = float(usage.get("stime") or 0)
+    if utime or stime:
+        result["cpu_time_s"] = round(utime + stime, 2)
+
+    dur = mainjob.get("duration")
+    if dur is not None:
+        result["wall_time_s"] = round(float(dur), 2)
+
+    # Exit: regular_exitcode or signal_number
+    if "regular_exitcode" in status:
+        result["main_job_exit_code"] = status["regular_exitcode"]
+    if "signal_number" in status:
+        result["exit_signal"] = status["signal_number"]
+        # exit code for signals is 128 + signal (convention)
+        if result["main_job_exit_code"] is None:
+            result["main_job_exit_code"] = 128 + int(status["signal_number"])
+
+    # Files section: dict of {filename: {error, sha256, ...}}
+    files_section = inv.get("files") or {}
+    if isinstance(files_section, dict):
+        for fname, fmeta in files_section.items():
+            if isinstance(fmeta, dict):
+                err = fmeta.get("error")
+                if err:
+                    result["file_errors"][fname] = err
+
+    # Application stderr/stdout captured by kickstart
+    stderr_sec = inv.get("stderr") or {}
+    if isinstance(stderr_sec, dict) and stderr_sec.get("data"):
+        result["stderr_data"] = stderr_sec["data"]
+
+    stdout_sec = inv.get("stdout") or {}
+    if isinstance(stdout_sec, dict) and stdout_sec.get("data"):
+        result["stdout_data"] = stdout_sec["data"]
+
+    return result
+
+
 def get_kickstart_data(evidence: RawEvidence) -> dict[str, Any]:
     """
-    Parse kickstart XML from the .out file.
+    Parse kickstart data from the .out file.
 
-    Returns: peak_memory_mb, cpu_time_s, wall_time_s, exit_code,
-             input_files (list), per-task breakdown.
+    Supports both formats:
+    - Pegasus 5.x: YAML with ``- invocation: True`` structure.
+      Extracts peak_memory_mb, cpu_time_s, wall_time_s, main_job_exit_code,
+      exit_signal, file_errors, and the full application stderr/stdout captured
+      by kickstart (``stderr_data`` / ``stdout_data``).
+    - Pegasus 4.x: XML ``<invocation>`` element.
+
+    The ``stderr_data`` field is especially valuable: it contains the complete
+    application stderr as recorded by kickstart, which is the primary source for
+    diagnosing OOM kills, disk errors, and application crashes.
     """
     content = evidence.stdout_content or ""
     result: dict[str, Any] = {
@@ -122,14 +255,31 @@ def get_kickstart_data(evidence: RawEvidence) -> dict[str, Any]:
         "cpu_time_s": None,
         "wall_time_s": None,
         "main_job_exit_code": None,
+        "exit_signal": None,
         "input_files": [],
-        "raw_excerpt": content[:600] if content else "(stdout not available)",
+        "file_errors": {},
+        "stderr_data": None,
+        "stdout_data": None,
+        "format": "unknown",
+        "raw_excerpt": content[:400] if content else "(stdout not available)",
     }
 
     if not content:
         return result
 
-    # Try full XML parse first
+    # ── YAML path (Pegasus 5.x) ───────────────────────────────────────────────
+    if "invocation:" in content:
+        parsed = _parse_kickstart_yaml(content)
+        if parsed:
+            result.update(parsed)
+            # Truncate long data fields for display, but keep meaningful content
+            for field in ("stderr_data", "stdout_data"):
+                if result[field] and len(result[field]) > 8000:
+                    result[field] = result[field][:8000] + f"\n[... truncated ...]"
+            return result
+
+    # ── XML path (Pegasus 4.x) ────────────────────────────────────────────────
+    result["format"] = "xml"
     try:
         xml_match = re.search(r"(<invocation\b.*?</invocation>)", content, re.DOTALL)
         if xml_match:
@@ -139,7 +289,6 @@ def get_kickstart_data(evidence: RawEvidence) -> dict[str, Any]:
             if usage is not None:
                 maxrss = usage.get("maxrss")
                 if maxrss:
-                    # maxrss is in KB on Linux
                     result["peak_memory_mb"] = round(int(maxrss) / 1024, 1)
                 utime = float(usage.get("utime") or 0)
                 stime = float(usage.get("stime") or 0)
@@ -166,6 +315,49 @@ def get_kickstart_data(evidence: RawEvidence) -> dict[str, Any]:
             result["peak_memory_mb"] = round(int(m.group(1)) / 1024, 1)
 
     return result
+
+
+# ── 3b. get_stdout ────────────────────────────────────────────────────────────
+
+def get_stdout(evidence: RawEvidence, max_chars: int = 6000) -> str:
+    """
+    Full application stdout captured by kickstart.
+
+    In Pegasus 5.x YAML format this comes from the ``stdout.data`` field.
+    In Pegasus 4.x XML format it appears between <stdout> tags.
+    Falls back to the raw .out file tail if no structured format is detected.
+
+    Use this when the application writes diagnostic output to stdout —
+    e.g. progress counters, summary statistics, or error messages that
+    go to stdout rather than stderr.
+    """
+    content = evidence.stdout_content or ""
+    if not content:
+        return "(stdout not available)"
+
+    # YAML path: extract stdout.data
+    if "invocation:" in content and _YAML_AVAILABLE:
+        parsed = _parse_kickstart_yaml(content)
+        if parsed:
+            data = parsed.get("stdout_data")
+            if data:
+                if len(data) > max_chars:
+                    return f"[... {len(data) - max_chars} chars truncated ...]\n" + data[-max_chars:]
+                return data
+            return "(kickstart recorded empty stdout)"
+
+    # XML path: <stdout> element
+    m = re.search(r"<stdout[^>]*>(.*?)</stdout>", content, re.DOTALL)
+    if m:
+        data = m.group(1).strip()
+        if data:
+            return data[:max_chars]
+        return "(kickstart recorded empty stdout)"
+
+    # Raw fallback
+    if len(content) > max_chars:
+        return f"[... {len(content) - max_chars} chars truncated ...]\n" + content[-max_chars:]
+    return content
 
 
 # ── 4. get_resource_requests ──────────────────────────────────────────────────
@@ -400,6 +592,7 @@ TOOL_MAP: dict[str, Any] = {
     "parse_failure_summary":      parse_failure_summary,
     "get_stderr":                 get_stderr,
     "get_kickstart_data":         get_kickstart_data,
+    "get_stdout":                 get_stdout,
     "get_resource_requests":      get_resource_requests,
     "get_condor_history":         get_condor_history,
     "get_event_log":              get_event_log,
@@ -413,7 +606,10 @@ TOOL_DESCRIPTIONS = """
 Available tools (call in priority order):
   parse_failure_summary     — structured summary from pegasus-analyzer: last_state, site, failed jobs
   get_stderr                — full .err file content: "Killed", tracebacks, "No space left on device"
-  get_kickstart_data        — .out file: peak_memory_mb, wall_time_s, per-task exit codes
+  get_kickstart_data        — .out file (YAML or XML): peak_memory_mb, wall_time_s, exit codes,
+                              file_errors, and stderr_data/stdout_data captured by kickstart —
+                              stderr_data is the primary source for OOM/disk/crash diagnosis
+  get_stdout                — application stdout captured by kickstart (stdout.data in YAML format)
   get_resource_requests     — .sub file: exact requested memory_mb, disk_mb, cpus, runtime_seconds
   get_condor_history        — condor classads: actual memory_usage_mb, disk_usage_mb, hold_reason
   get_event_log             — .log file: eviction, shadow exceptions, preemption
