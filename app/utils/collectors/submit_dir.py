@@ -12,12 +12,14 @@ The collection runs synchronously because it is called from the POST script
 """
 
 import glob
+import json
 import os
 import re
-import subprocess
 from pathlib import Path
 
 from app.utils.models.evidence import InputFileStatus, RawEvidence
+from app.utils.scheduler.factory import get_scheduler_client
+from app.utils.scheduler.pegasus import run_pegasus_analyzer as _pegasus_analyzer
 
 MAX_FILE_BYTES = 200_000   # 200 KB per file cap
 
@@ -130,39 +132,29 @@ def collect_workflow_files(submit_dir: Path) -> dict[str, str | None]:
     return result
 
 
-def run_pegasus_analyzer(submit_dir: Path) -> str | None:
+def run_pegasus_analyzer(submit_dir: Path, job_id: str | None = None) -> str | None:
     """
-    Run pegasus-analyzer on the submit directory and return its stdout.
+    Run pegasus-analyzer via PegasusClient wrapper.
 
-    pegasus-analyzer parses the directory structure, kickstart records,
-    and stderr — its output is the primary structured summary for the agent.
+    When job_id is provided the analysis is scoped to that job node (--job flag).
+    Returns None when pegasus-analyzer is not on PATH or times out.
     """
-    try:
-        proc = subprocess.run(
-            ["pegasus-analyzer", "--submit-dir", str(submit_dir)],
-            capture_output=True, text=True, timeout=60,
-        )
-        output = (proc.stdout + proc.stderr).strip()
-        return output or None
-    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
-        return None
+    return _pegasus_analyzer(submit_dir, job_id)
 
 
 def run_condor_history(condor_job_id: str) -> str | None:
     """
-    Query condor_history for resource usage and hold reason classads.
-    Returns JSON string or None on failure.
+    Query condor_history via the scheduler client.
+
+    Returns a JSON string of the raw classad dict, or None when the job
+    is not found or the scheduler is unavailable.
     """
     if not condor_job_id:
         return None
-    try:
-        proc = subprocess.run(
-            ["condor_history", condor_job_id, "-json"],
-            capture_output=True, text=True, timeout=30,
-        )
-        return proc.stdout.strip() or None
-    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+    history = get_scheduler_client().get_job_history(condor_job_id)
+    if not history.raw:
         return None
+    return json.dumps(history.raw)
 
 
 def collect_transformation_script(
@@ -285,7 +277,7 @@ def collect_evidence(
 
     job_files = collect_job_files(submit_path, job_id, instance_id)
     wf_files  = collect_workflow_files(submit_path)
-    analyzer  = run_pegasus_analyzer(submit_path)
+    analyzer  = run_pegasus_analyzer(submit_path, job_id)
     classads  = run_condor_history(condor_job_id) if condor_job_id else None
 
     sub_content = job_files.get("sub_file_content")
