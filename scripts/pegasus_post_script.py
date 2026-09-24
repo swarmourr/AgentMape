@@ -240,16 +240,16 @@ async def _run(args: argparse.Namespace) -> int:
     diagnosis_llm = _llm("DIAGNOSIS_LLM_MODEL",  "DIAGNOSIS_LLM_API_KEY", "DIAGNOSIS_LLM_BASE_URL")
     fix_llm       = _llm("FIX_PLANNING_LLM_MODEL","FIX_PLANNING_LLM_API_KEY","FIX_PLANNING_LLM_BASE_URL")
 
-    # HEALER_CHECKPOINT overrides the default; SQLITE_PATH from .env is for the
-    # main app and may be a relative path, so it is intentionally not used here.
-    _default_checkpoint = str(Path.home() / ".pegasus_healer_checkpoint.db")
+    _pegasus_dir = Path.home() / ".pegasus"
+    _pegasus_dir.mkdir(exist_ok=True)
+    _default_checkpoint = str(_pegasus_dir / "healer_checkpoint.db")
     graph = await create_graph_with_checkpointer(
         sqlite_path=os.environ.get("HEALER_CHECKPOINT", _default_checkpoint),
     )
 
     # Episodic memory — lightweight SQLite, no PostgreSQL required.
     from app.utils.memory.sqlite_repo import SQLiteMemoryRepo
-    _mem_db = os.environ.get("HEALER_MEMORY_DB") or str(Path.home() / ".pegasus_healer_memory.db")
+    _mem_db = os.environ.get("HEALER_MEMORY_DB") or str(_pegasus_dir / "healer_memory.db")
     memory_repo = SQLiteMemoryRepo(db_path=_mem_db)
     _log(f"memory_repo: {_mem_db}")
 
