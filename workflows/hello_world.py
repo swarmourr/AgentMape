@@ -41,6 +41,7 @@ _post_script.chmod(0o755)
 (BASE_DIR / "pegasus.properties").unlink(missing_ok=True)
 
 # generate a simple input file for the workflow
+INPUT_DIR.mkdir(parents=True, exist_ok=True)
 with open("{}/f.in".format(INPUT_DIR), "w") as f:
     f.write("This is the contents of the input file for the hello world workflow!")
 
