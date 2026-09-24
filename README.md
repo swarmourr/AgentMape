@@ -1,86 +1,65 @@
-# Pegasus Agentic Failure Remediation
+# PegasusAgent — Auto-Healing for Pegasus WMS
 
-Event-driven, memory-enabled, safe job diagnosis and repair for **Pegasus WMS**.
+Event-driven, LLM-assisted job failure remediation for **Pegasus WMS / HTCondor**.
+Triggered by DAGMan as a POST script on every job exit. No API server, no daemon.
 
----
-
-## Architecture
-
-```
-Pegasus / HTCondor
-    ↓ (Monitord AMQP events)
-Event Consumer (aio-pika)
-    ↓
-Event Normalizer  ──→  PostgreSQL (workflow_events)
-    ↓  [JOB_FAILED]
-Incident Manager  ──→  PostgreSQL (incidents)
-    ↓
-LangGraph Two-Loop Graph
-  ┌─ DIAGNOSTIC LOOP ──────────────────────────────────┐
-  │  collect_context → rule_classifier                  │
-  │       │ no match                                    │
-  │       └→ retrieve_memories → diagnosis_agent (LLM) │
-  └─────────────────────────────────────────────────────┘
-    ↓ Diagnosis
-  ┌─ ACTION LOOP ───────────────────────────────────────┐
-  │  fix_catalog → (LLM fix_planner if no match)        │
-  │  → policy_validator (deterministic)                  │
-  │       AUTO → apply_fix → authorize_retry → [wait]   │
-  │       ASK  → [INTERRUPT: POST /incidents/{id}/approve] │
-  │       STOP/ESCALATE → terminal                      │
-  └─────────────────────────────────────────────────────┘
-    ↓ (retry outcome event arrives)
-  evaluate_outcome → write_memory / loop / escalate
-```
-
-### Technology stack
-
-| Layer | Technology |
-|---|---|
-| Service | FastAPI + Uvicorn |
-| Orchestration | LangGraph (PostgreSQL checkpoints) |
-| Events | RabbitMQ / aio-pika |
-| Database | PostgreSQL + SQLAlchemy + Alembic |
-| Coordination | Redis (distributed locks, dedup) |
-| LLM | LiteLLM + instructor (any provider) |
-| Observability | structlog, Prometheus, OpenTelemetry |
+See [ARCHITECTURE.md](ARCHITECTURE.md) for a full technical reference with diagrams.
 
 ---
 
-## Quick start
+## How it works
 
-### Prerequisites
+```
+Job fails (exit 137, disk full, walltime exceeded, ...)
+    │
+DAGMan calls POST script
+    │
+pegasus_post_script.py
+    │
+    ├── Fast path: sibling marker already applied → exit 1 (retry, no agent)
+    │
+    └── LangGraph remediation graph
+            collect evidence (.sub, .out, .err, dagman.out, condor history)
+                 │
+            Rule classifier (deterministic, no LLM)
+                 │ no match
+            DiagnosisAgent (ReAct + tools, LLM)
+                 │
+            Fix catalog → Policy engine (deterministic safety gate)
+                 │
+            AUTO → patch .sub + sibling broadcast → exit 1 (DAGMan retries)
+            STOP → exit original code (escalate)
+```
+
+---
+
+## Prerequisites
 
 - Python 3.11+
-- Docker + Docker Compose
+- Pegasus WMS 5.x installed (`pegasus-plan`, `pegasus-run`, `pegasus-status` on PATH)
+- HTCondor (`condor_q`, `condor_qedit` on PATH)
+- LLM API access (Anthropic, OpenAI, Azure, Ollama, or any LiteLLM provider)
 
-### 1. Clone and configure
+---
+
+## Installation
 
 ```bash
+git clone https://github.com/swarmourr/AgentMape.git
+cd AgentMape
+git checkout pegasus-agent
+
+# Create and activate virtual environment
+python3 -m venv agentic
+source agentic/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Configure LLM and optional settings
 cp .env.example .env
-# Edit .env — set LLM_MODEL and the matching provider API key
+# Edit .env — set LLM_MODEL and the matching API key
 ```
-
-### 2. Start infrastructure
-
-```bash
-docker compose up postgres rabbitmq redis -d
-```
-
-### 3. Run migrations
-
-```bash
-pip install -e ".[dev]"
-alembic upgrade head
-```
-
-### 4. Start the service
-
-```bash
-uvicorn app.main:app --reload
-```
-
-Service is available at `http://localhost:8000`.
 
 ---
 
@@ -88,68 +67,118 @@ Service is available at `http://localhost:8000`.
 
 Set `LLM_MODEL` in `.env` to any model string supported by LiteLLM:
 
-| Provider | LLM_MODEL | Key env var |
+| Provider | `LLM_MODEL` | Key env var |
 |---|---|---|
-| OpenAI | `gpt-4o` | `OPENAI_API_KEY` |
-| Anthropic | `claude-opus-4-6` | `ANTHROPIC_API_KEY` |
-| Azure OpenAI | `azure/gpt-4o` | `AZURE_API_KEY` + `AZURE_API_BASE` |
+| Anthropic | `anthropic/claude-opus-4-6` | `LLM_API_KEY` |
+| OpenAI | `gpt-4o` | `LLM_API_KEY` |
+| Azure OpenAI | `azure/gpt-4o` | `LLM_API_KEY` + `LLM_BASE_URL` |
 | AWS Bedrock | `bedrock/anthropic.claude-3-opus` | `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` |
 | Ollama (local) | `ollama/llama3` | `LLM_BASE_URL=http://localhost:11434` |
 | Any OAI-compat | `openai/my-model` | `LLM_BASE_URL=http://...` + `LLM_API_KEY` |
 
-No code changes needed — just update `.env` and restart.
+No code changes needed — just update `.env` and re-run.
 
 ---
 
-## REST API
+## Wiring into your workflow
 
-| Method | Path | Description |
+```python
+from workflows.healer import add_healer_to_job
+from Pegasus.api import Job, Namespace
+
+job = add_healer_to_job(
+    Job("my_transform", _id="my_job")
+        .add_args(...)
+        .add_inputs(...)
+        .add_outputs(...)
+        .add_profiles(Namespace.CONDOR, key="request_memory", value="4096")
+)
+```
+
+`add_healer_to_job` injects the POST script into the job definition. The workflow
+planner then writes it into the `.dag` file automatically.
+
+---
+
+## Demo workflows
+
+Self-contained demos that show the healer in action on the local site:
+
+```bash
+# OOM fix: hello fails exit 137 → healer increases memory → retry succeeds
+python workflows/hello_world.py
+
+# Disk fix: analyze fails "No space left" → healer increases disk → retry succeeds
+python workflows/disk_demo.py
+
+# Sibling broadcast: 3 parallel compute jobs all fail OOM →
+#   healer patches all 3 .sub files in one agent run → all retry and succeed
+python workflows/sibling_demo.py
+```
+
+Monitor a running workflow:
+
+```bash
+pegasus-status --long <submit_dir>
+tail -f <submit_dir>/00/00/*.healer.log
+```
+
+---
+
+## Inspecting a failed run
+
+```bash
+# Show evidence collected for all failed jobs (no LLM)
+python scripts/pegasus_inspect.py /path/to/run_dir
+
+# Run the full agent on a failed job (requires LLM_API_KEY)
+python scripts/pegasus_inspect_v3.py /path/to/run_dir --agent --verbose
+
+# Focus on one job
+python scripts/pegasus_inspect_v3.py /path/to/run_dir \
+  --agent --job mifaser_mifaser_ARS --verbose
+```
+
+---
+
+## Runtime files
+
+The healer writes these files next to each job's `.out` / `.err`:
+
+```
+00/00/
+  jobname.healer.log        trace of every POST script invocation
+  jobname.healer_thread     LangGraph thread_id for checkpoint resume
+  jobname.agent_report      structured JSON: diagnosis + fix + policy decision
+```
+
+Persistent databases (in `$HOME` by default, override with env vars):
+
+```
+~/.pegasus_healer_checkpoint.db   LangGraph state between invocations
+~/.pegasus_healer_memory.db       episodic fix history (written on success)
+```
+
+| Env var | Default | Purpose |
 |---|---|---|
-| GET | `/health` | Liveness |
-| GET | `/ready` | Readiness (DB, Redis) |
-| GET | `/incidents/{id}` | Incident state, diagnosis, fixes |
-| GET | `/workflows/{id}/incidents` | All incidents for a workflow |
-| POST | `/incidents/{id}/approve` | Approve a pending fix (ASK gate) |
-| POST | `/incidents/{id}/reject` | Reject a pending fix |
-| GET | `/fixes/{id}` | Fix proposal, policy decision, outcome |
-| POST | `/events/replay` | Replay a raw event (debug mode only) |
-| GET | `/metrics` | Prometheus metrics |
-
-### Approve a pending fix
-
-```bash
-curl -X POST http://localhost:8000/incidents/INC_ID/approve \
-  -H "Content-Type: application/json" \
-  -d '{
-    "fix_id": "FIX_ID",
-    "decision": "APPROVE",
-    "actor": "operator@example.org",
-    "comment": "Walltime increase is acceptable for this run."
-  }'
-```
-
----
-
-## Event replay (development)
-
-Enable debug mode (`DEBUG=true` in `.env`), then:
-
-```bash
-curl -X POST http://localhost:8000/events/replay \
-  -H "Content-Type: application/json" \
-  -d @tests/fixtures/events/oom_failure.json
-```
+| `HEALER_CHECKPOINT` | `~/.pegasus_healer_checkpoint.db` | LangGraph SQLite checkpoint |
+| `HEALER_MEMORY_DB` | `~/.pegasus_healer_memory.db` | Episodic memory store |
 
 ---
 
 ## Running tests
 
 ```bash
-# Unit + contract + graph tests (no live services needed)
+# Unit tests — no LLM, no live services needed
 pytest tests/unit tests/contract tests/graph -v
 
-# All tests including integration (requires running Docker services)
-pytest -v
+# Integration tests with real run fixtures (no LLM needed for tool tests)
+pytest tests/integration/test_run0023_diagnosis.py -v -k "not llm"
+
+# Full integration with real LLM
+export LLM_MODEL=anthropic/claude-opus-4-6
+export LLM_API_KEY=sk-ant-...
+pytest tests/integration/ -v -s
 ```
 
 ---
@@ -158,40 +187,8 @@ pytest -v
 
 | Invariant | Enforcement |
 |---|---|
-| No action without diagnosis | Graph: action loop entry requires `diagnosis` in state |
-| No retry without validated fix | PolicyEngine must emit AUTO before fix applicator runs |
-| One fix per attempt | DB unique constraint: `(incident_id, attempt_number)` |
-| Deterministic policy overrides LLM | PolicyEngine runs after every LLM output |
-| No duplicate retries | Redis lock + unique `retry_job_instance_id → fix_id` DB constraint |
-| Bounded loops | Attempt counter checked before every re-entry |
-| No scientific logic changes | PolicyEngine STOP on any executable/algorithm change |
-
----
-
-## Phase 0 deployment note
-
-The retry gate integration requires a compatibility spike on the target
-Pegasus cluster to select between:
-
-- **DAGMan POST/retry hook** — blocks DAGMan from issuing a retry until this
-  service writes a "proceed" token.
-- **Controlled rescue/restart** — pauses the workflow, applies the overlay to
-  Pegasus properties/submit files, then calls `pegasus-run`.
-
-The `FakePegasusRetryController` is used in all tests. Replace it with the
-real adapter in `app/main.py` after the spike is complete.
-
----
-
-## Implementation roadmap
-
-| Phase | Deliverable | Status |
-|---|---|---|
-| 0 | Scaffold, domain models, fake adapter | ✅ Done |
-| 1 | AMQP consumer, normalizer, idempotent DB | ✅ Done |
-| 2 | OOM vertical slice (rules → policy → retry) | ✅ Done |
-| 3 | LangGraph checkpoints, interrupts, resume | ✅ Done |
-| 4 | LLM diagnosis + fix-planning agents | ✅ Done |
-| 5 | Disk, walltime, admission, transient rules | ✅ Done |
-| 6 | pgvector incident similarity search | Pending |
-| 7 | Neo4j + GraphRAG relational memory | Pending |
+| No action without diagnosis | Graph: action loop requires `diagnosis` in state |
+| Deterministic policy overrides LLM | `PolicyEngine` runs after every LLM fix proposal |
+| No forbidden actions | `MODIFY_EXECUTABLE`, `MODIFY_ALGORITHM` always STOP |
+| Bounded retries | Attempt counter checked before every graph re-entry |
+| No scientific logic changes | Policy STOP on any executable or algorithm modification |

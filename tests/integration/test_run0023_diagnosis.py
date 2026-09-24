@@ -44,7 +44,7 @@ from app.models.fixes import FixProposal, PolicyDecisionRecord
 from app.policies import PolicyEngine, load_policy
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-RUN_DIR = Path(__file__).parent.parent.parent / "run0023"
+RUN_DIR = Path(__file__).parent.parent / "fixtures" / "run0023"
 JOB_DIR = RUN_DIR / "00" / "00"
 
 
