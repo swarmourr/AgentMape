@@ -1,0 +1,750 @@
+000 (4351915.000.000) 2026-09-11 05:13:30 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "create_dir_subductcr-end-to-end_0_compute"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:local
+...
+001 (4351915.000.000) 2026-09-11 05:13:36 Job executing on host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=starter_1588125_7b1e_53507>
+...
+005 (4351915.000.000) 2026-09-11 05:13:41 Job terminated.
+	(1) Normal termination (return value 0)
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Run Remote Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Run Local Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Total Remote Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Total Local Usage
+	0  -  Run Bytes Sent By Job
+	0  -  Run Bytes Received By Job
+	0  -  Total Bytes Sent By Job
+	0  -  Total Bytes Received By Job
+...
+016 (4351915.000.000) 2026-09-11 05:13:46 POST Script terminated.
+	(1) Normal termination (return value 0)
+    DAG Node: create_dir_subductcr-end-to-end_0_compute
+...
+000 (4351916.000.000) 2026-09-11 05:13:55 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "stage_in_local_compute_4_0"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:local
+...
+000 (4351917.000.000) 2026-09-11 05:13:55 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "stage_in_local_compute_5_0"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:local
+...
+001 (4351916.000.000) 2026-09-11 05:13:55 Job executing on host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=starter_1588125_7b1e_53508>
+...
+000 (4351918.000.000) 2026-09-11 05:13:55 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "stage_in_local_compute_0_0"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:local
+...
+000 (4351919.000.000) 2026-09-11 05:13:55 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "stage_in_local_compute_1_0"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:local
+...
+000 (4351920.000.000) 2026-09-11 05:13:55 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "stage_in_local_compute_2_0"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:local
+...
+000 (4351921.000.000) 2026-09-11 05:13:55 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "stage_in_local_compute_3_0"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:local
+...
+000 (4351922.000.000) 2026-09-11 05:13:55 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "stage_in_local_compute_0_1"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:local
+...
+000 (4351923.000.000) 2026-09-11 05:13:55 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "stage_in_local_compute_1_1"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:local
+...
+000 (4351924.000.000) 2026-09-11 05:13:55 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "stage_in_local_compute_0_2"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:local
+...
+000 (4351925.000.000) 2026-09-11 05:13:55 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "stage_in_local_compute_0_3"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:local
+...
+001 (4351917.000.000) 2026-09-11 05:14:00 Job executing on host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=starter_1588125_7b1e_53509>
+...
+001 (4351918.000.000) 2026-09-11 05:14:00 Job executing on host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=starter_1588125_7b1e_53510>
+...
+001 (4351919.000.000) 2026-09-11 05:14:00 Job executing on host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=starter_1588125_7b1e_53511>
+...
+001 (4351920.000.000) 2026-09-11 05:14:00 Job executing on host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=starter_1588125_7b1e_53512>
+...
+001 (4351921.000.000) 2026-09-11 05:14:00 Job executing on host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=starter_1588125_7b1e_53513>
+...
+001 (4351922.000.000) 2026-09-11 05:14:00 Job executing on host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=starter_1588125_7b1e_53514>
+...
+001 (4351923.000.000) 2026-09-11 05:14:00 Job executing on host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=starter_1588125_7b1e_53515>
+...
+001 (4351924.000.000) 2026-09-11 05:14:00 Job executing on host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=starter_1588125_7b1e_53516>
+...
+001 (4351925.000.000) 2026-09-11 05:14:00 Job executing on host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=starter_1588125_7b1e_53517>
+...
+005 (4351916.000.000) 2026-09-11 05:14:04 Job terminated.
+	(1) Normal termination (return value 0)
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Run Remote Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Run Local Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Total Remote Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Total Local Usage
+	0  -  Run Bytes Sent By Job
+	0  -  Run Bytes Received By Job
+	0  -  Total Bytes Sent By Job
+	0  -  Total Bytes Received By Job
+...
+016 (4351916.000.000) 2026-09-11 05:14:05 POST Script terminated.
+	(1) Normal termination (return value 0)
+    DAG Node: stage_in_local_compute_4_0
+...
+005 (4351919.000.000) 2026-09-11 05:14:09 Job terminated.
+	(1) Normal termination (return value 0)
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Run Remote Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Run Local Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Total Remote Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Total Local Usage
+	0  -  Run Bytes Sent By Job
+	0  -  Run Bytes Received By Job
+	0  -  Total Bytes Sent By Job
+	0  -  Total Bytes Received By Job
+...
+005 (4351917.000.000) 2026-09-11 05:14:09 Job terminated.
+	(1) Normal termination (return value 0)
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Run Remote Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Run Local Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Total Remote Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Total Local Usage
+	0  -  Run Bytes Sent By Job
+	0  -  Run Bytes Received By Job
+	0  -  Total Bytes Sent By Job
+	0  -  Total Bytes Received By Job
+...
+005 (4351923.000.000) 2026-09-11 05:14:09 Job terminated.
+	(1) Normal termination (return value 0)
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Run Remote Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Run Local Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Total Remote Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Total Local Usage
+	0  -  Run Bytes Sent By Job
+	0  -  Run Bytes Received By Job
+	0  -  Total Bytes Sent By Job
+	0  -  Total Bytes Received By Job
+...
+005 (4351921.000.000) 2026-09-11 05:14:10 Job terminated.
+	(1) Normal termination (return value 0)
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Run Remote Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Run Local Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Total Remote Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Total Local Usage
+	0  -  Run Bytes Sent By Job
+	0  -  Run Bytes Received By Job
+	0  -  Total Bytes Sent By Job
+	0  -  Total Bytes Received By Job
+...
+016 (4351923.000.000) 2026-09-11 05:14:10 POST Script terminated.
+	(1) Normal termination (return value 0)
+    DAG Node: stage_in_local_compute_1_1
+...
+016 (4351917.000.000) 2026-09-11 05:14:10 POST Script terminated.
+	(1) Normal termination (return value 0)
+    DAG Node: stage_in_local_compute_5_0
+...
+016 (4351919.000.000) 2026-09-11 05:14:10 POST Script terminated.
+	(1) Normal termination (return value 0)
+    DAG Node: stage_in_local_compute_1_0
+...
+016 (4351921.000.000) 2026-09-11 05:14:10 POST Script terminated.
+	(1) Normal termination (return value 0)
+    DAG Node: stage_in_local_compute_3_0
+...
+005 (4351920.000.000) 2026-09-11 05:14:14 Job terminated.
+	(1) Normal termination (return value 0)
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Run Remote Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Run Local Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Total Remote Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Total Local Usage
+	0  -  Run Bytes Sent By Job
+	0  -  Run Bytes Received By Job
+	0  -  Total Bytes Sent By Job
+	0  -  Total Bytes Received By Job
+...
+016 (4351920.000.000) 2026-09-11 05:14:15 POST Script terminated.
+	(1) Normal termination (return value 0)
+    DAG Node: stage_in_local_compute_2_0
+...
+005 (4351925.000.000) 2026-09-11 05:18:13 Job terminated.
+	(1) Normal termination (return value 0)
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Run Remote Usage
+		Usr 0 00:02:41, Sys 0 00:01:48  -  Run Local Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Total Remote Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Total Local Usage
+	0  -  Run Bytes Sent By Job
+	0  -  Run Bytes Received By Job
+	0  -  Total Bytes Sent By Job
+	0  -  Total Bytes Received By Job
+...
+016 (4351925.000.000) 2026-09-11 05:18:16 POST Script terminated.
+	(1) Normal termination (return value 0)
+    DAG Node: stage_in_local_compute_0_3
+...
+005 (4351918.000.000) 2026-09-11 05:18:54 Job terminated.
+	(1) Normal termination (return value 0)
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Run Remote Usage
+		Usr 0 00:01:04, Sys 0 00:01:54  -  Run Local Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Total Remote Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Total Local Usage
+	0  -  Run Bytes Sent By Job
+	0  -  Run Bytes Received By Job
+	0  -  Total Bytes Sent By Job
+	0  -  Total Bytes Received By Job
+...
+016 (4351918.000.000) 2026-09-11 05:18:56 POST Script terminated.
+	(1) Normal termination (return value 0)
+    DAG Node: stage_in_local_compute_0_0
+...
+000 (4351926.000.000) 2026-09-11 05:19:06 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "trim_reads_trim_BRS2"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+000 (4351927.000.000) 2026-09-11 05:19:06 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "trim_reads_trim_RVF"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+000 (4351928.000.000) 2026-09-11 05:19:06 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "trim_reads_trim_BRS1"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+000 (4351929.000.000) 2026-09-11 05:19:06 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "trim_reads_trim_MTF"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+000 (4351930.000.000) 2026-09-11 05:19:06 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "trim_reads_trim_QHS2"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+000 (4351931.000.000) 2026-09-11 05:19:06 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "trim_reads_trim_EPS"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+000 (4351932.000.000) 2026-09-11 05:19:06 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "trim_reads_trim_QNF"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+000 (4351933.000.000) 2026-09-11 05:19:06 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "trim_reads_trim_CYF"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+000 (4351934.000.000) 2026-09-11 05:19:06 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "trim_reads_trim_SLS"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+000 (4351935.000.000) 2026-09-11 05:19:06 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "trim_reads_trim_PFS"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+000 (4351936.000.000) 2026-09-11 05:19:07 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "trim_reads_trim_BQF"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+000 (4351937.000.000) 2026-09-11 05:19:07 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "trim_reads_trim_BQS"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+000 (4351938.000.000) 2026-09-11 05:19:07 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "trim_reads_trim_PBS"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+000 (4351939.000.000) 2026-09-11 05:19:07 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "trim_reads_trim_PGF"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+000 (4351940.000.000) 2026-09-11 05:19:07 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "trim_reads_trim_BRF2"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+000 (4351941.000.000) 2026-09-11 05:19:07 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "trim_reads_trim_QH2F"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+000 (4351942.000.000) 2026-09-11 05:19:07 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "trim_reads_trim_SIS"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+027 (4351929.000.000) 2026-09-11 05:19:33 Job submitted to grid resource
+    GridResource: batch sfapi
+    GridJobId: batch sfapi pegasus.access-ci.org_pegasus.access-ci.org_4351929.0_1789103946 sfapi/20260911/58186459
+...
+027 (4351932.000.000) 2026-09-11 05:19:37 Job submitted to grid resource
+    GridResource: batch sfapi
+    GridJobId: batch sfapi pegasus.access-ci.org_pegasus.access-ci.org_4351932.0_1789103946 sfapi/20260911/58186458
+...
+027 (4351933.000.000) 2026-09-11 05:19:38 Job submitted to grid resource
+    GridResource: batch sfapi
+    GridJobId: batch sfapi pegasus.access-ci.org_pegasus.access-ci.org_4351933.0_1789103946 sfapi/20260911/58186462
+...
+027 (4351938.000.000) 2026-09-11 05:19:39 Job submitted to grid resource
+    GridResource: batch sfapi
+    GridJobId: batch sfapi pegasus.access-ci.org_pegasus.access-ci.org_4351938.0_1789103947 sfapi/20260911/58186461
+...
+027 (4351934.000.000) 2026-09-11 05:19:39 Job submitted to grid resource
+    GridResource: batch sfapi
+    GridJobId: batch sfapi pegasus.access-ci.org_pegasus.access-ci.org_4351934.0_1789103946 sfapi/20260911/58186460
+...
+027 (4351926.000.000) 2026-09-11 05:19:41 Job submitted to grid resource
+    GridResource: batch sfapi
+    GridJobId: batch sfapi pegasus.access-ci.org_pegasus.access-ci.org_4351926.0_1789103946 sfapi/20260911/58186463
+...
+027 (4351941.000.000) 2026-09-11 05:19:41 Job submitted to grid resource
+    GridResource: batch sfapi
+    GridJobId: batch sfapi pegasus.access-ci.org_pegasus.access-ci.org_4351941.0_1789103947 sfapi/20260911/58186468
+...
+027 (4351928.000.000) 2026-09-11 05:19:41 Job submitted to grid resource
+    GridResource: batch sfapi
+    GridJobId: batch sfapi pegasus.access-ci.org_pegasus.access-ci.org_4351928.0_1789103946 sfapi/20260911/58186464
+...
+027 (4351927.000.000) 2026-09-11 05:19:42 Job submitted to grid resource
+    GridResource: batch sfapi
+    GridJobId: batch sfapi pegasus.access-ci.org_pegasus.access-ci.org_4351927.0_1789103946 sfapi/20260911/58186465
+...
+027 (4351940.000.000) 2026-09-11 05:19:43 Job submitted to grid resource
+    GridResource: batch sfapi
+    GridJobId: batch sfapi pegasus.access-ci.org_pegasus.access-ci.org_4351940.0_1789103947 sfapi/20260911/58186471
+...
+027 (4351942.000.000) 2026-09-11 05:19:43 Job submitted to grid resource
+    GridResource: batch sfapi
+    GridJobId: batch sfapi pegasus.access-ci.org_pegasus.access-ci.org_4351942.0_1789103947 sfapi/20260911/58186466
+...
+027 (4351936.000.000) 2026-09-11 05:19:43 Job submitted to grid resource
+    GridResource: batch sfapi
+    GridJobId: batch sfapi pegasus.access-ci.org_pegasus.access-ci.org_4351936.0_1789103946 sfapi/20260911/58186470
+...
+027 (4351931.000.000) 2026-09-11 05:19:43 Job submitted to grid resource
+    GridResource: batch sfapi
+    GridJobId: batch sfapi pegasus.access-ci.org_pegasus.access-ci.org_4351931.0_1789103946 sfapi/20260911/58186467
+...
+027 (4351937.000.000) 2026-09-11 05:19:44 Job submitted to grid resource
+    GridResource: batch sfapi
+    GridJobId: batch sfapi pegasus.access-ci.org_pegasus.access-ci.org_4351937.0_1789103947 sfapi/20260911/58186472
+...
+027 (4351930.000.000) 2026-09-11 05:19:44 Job submitted to grid resource
+    GridResource: batch sfapi
+    GridJobId: batch sfapi pegasus.access-ci.org_pegasus.access-ci.org_4351930.0_1789103946 sfapi/20260911/58186469
+...
+027 (4351935.000.000) 2026-09-11 05:19:45 Job submitted to grid resource
+    GridResource: batch sfapi
+    GridJobId: batch sfapi pegasus.access-ci.org_pegasus.access-ci.org_4351935.0_1789103946 sfapi/20260911/58186473
+...
+027 (4351939.000.000) 2026-09-11 05:19:47 Job submitted to grid resource
+    GridResource: batch sfapi
+    GridJobId: batch sfapi pegasus.access-ci.org_pegasus.access-ci.org_4351939.0_1789103947 sfapi/20260911/58186474
+...
+005 (4351922.000.000) 2026-09-11 05:20:03 Job terminated.
+	(1) Normal termination (return value 0)
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Run Remote Usage
+		Usr 0 00:02:53, Sys 0 00:02:17  -  Run Local Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Total Remote Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Total Local Usage
+	0  -  Run Bytes Sent By Job
+	0  -  Run Bytes Received By Job
+	0  -  Total Bytes Sent By Job
+	0  -  Total Bytes Received By Job
+...
+016 (4351922.000.000) 2026-09-11 05:20:07 POST Script terminated.
+	(1) Normal termination (return value 0)
+    DAG Node: stage_in_local_compute_0_1
+...
+005 (4351924.000.000) 2026-09-11 05:23:51 Job terminated.
+	(1) Normal termination (return value 0)
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Run Remote Usage
+		Usr 0 00:04:04, Sys 0 00:03:00  -  Run Local Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Total Remote Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Total Local Usage
+	0  -  Run Bytes Sent By Job
+	0  -  Run Bytes Received By Job
+	0  -  Total Bytes Sent By Job
+	0  -  Total Bytes Received By Job
+...
+016 (4351924.000.000) 2026-09-11 05:23:52 POST Script terminated.
+	(1) Normal termination (return value 0)
+    DAG Node: stage_in_local_compute_0_2
+...
+000 (4351943.000.000) 2026-09-11 05:24:02 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "trim_reads_trim_ARS"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+000 (4351944.000.000) 2026-09-11 05:24:02 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "trim_reads_trim_QHS1"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+000 (4351945.000.000) 2026-09-11 05:24:02 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "trim_reads_trim_TCS"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+000 (4351946.000.000) 2026-09-11 05:24:02 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "trim_reads_trim_ETS"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+000 (4351947.000.000) 2026-09-11 05:24:02 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "trim_reads_trim_RSF"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+000 (4351948.000.000) 2026-09-11 05:24:03 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "trim_reads_trim_SLF"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+000 (4351949.000.000) 2026-09-11 05:24:03 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "trim_reads_trim_BR1F"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+000 (4351950.000.000) 2026-09-11 05:24:03 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "trim_reads_trim_RSS"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+000 (4351951.000.000) 2026-09-11 05:24:03 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "trim_reads_trim_ESF9"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+000 (4351952.000.000) 2026-09-11 05:24:03 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "mothur_asv_mothur_asv"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+000 (4351953.000.000) 2026-09-11 05:24:03 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "trim_reads_trim_PFF"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+000 (4351954.000.000) 2026-09-11 05:24:03 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "trim_reads_trim_SIF"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+000 (4351955.000.000) 2026-09-11 05:24:03 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "trim_reads_trim_EPF"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+000 (4351956.000.000) 2026-09-11 05:24:03 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "trim_reads_trim_PGS"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+000 (4351957.000.000) 2026-09-11 05:24:03 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "carbon_flux_carbon_flux"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+000 (4351958.000.000) 2026-09-11 05:24:03 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "trim_reads_trim_CYS"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+000 (4351959.000.000) 2026-09-11 05:24:03 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "trim_reads_trim_QNS"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+000 (4351960.000.000) 2026-09-11 05:24:03 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "trim_reads_trim_PLS"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+000 (4351961.000.000) 2026-09-11 05:24:03 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "trim_reads_trim_TCF"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+000 (4351962.000.000) 2026-09-11 05:24:03 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "trim_reads_trim_FAS"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+027 (4351950.000.000) 2026-09-11 05:24:30 Job submitted to grid resource
+    GridResource: batch sfapi
+    GridJobId: batch sfapi pegasus.access-ci.org_pegasus.access-ci.org_4351950.0_1789104243 sfapi/20260911/58186537
+...
+027 (4351962.000.000) 2026-09-11 05:24:37 Job submitted to grid resource
+    GridResource: batch sfapi
+    GridJobId: batch sfapi pegasus.access-ci.org_pegasus.access-ci.org_4351962.0_1789104243 sfapi/20260911/58186540
+...
+027 (4351955.000.000) 2026-09-11 05:24:37 Job submitted to grid resource
+    GridResource: batch sfapi
+    GridJobId: batch sfapi pegasus.access-ci.org_pegasus.access-ci.org_4351955.0_1789104243 sfapi/20260911/58186538
+...
+027 (4351945.000.000) 2026-09-11 05:24:38 Job submitted to grid resource
+    GridResource: batch sfapi
+    GridJobId: batch sfapi pegasus.access-ci.org_pegasus.access-ci.org_4351945.0_1789104242 sfapi/20260911/58186539
+...
+027 (4351959.000.000) 2026-09-11 05:24:38 Job submitted to grid resource
+    GridResource: batch sfapi
+    GridJobId: batch sfapi pegasus.access-ci.org_pegasus.access-ci.org_4351959.0_1789104243 sfapi/20260911/58186542
+...
+027 (4351958.000.000) 2026-09-11 05:24:39 Job submitted to grid resource
+    GridResource: batch sfapi
+    GridJobId: batch sfapi pegasus.access-ci.org_pegasus.access-ci.org_4351958.0_1789104243 sfapi/20260911/58186543
+...
+027 (4351948.000.000) 2026-09-11 05:24:39 Job submitted to grid resource
+    GridResource: batch sfapi
+    GridJobId: batch sfapi pegasus.access-ci.org_pegasus.access-ci.org_4351948.0_1789104243 sfapi/20260911/58186541
+...
+027 (4351953.000.000) 2026-09-11 05:24:40 Job submitted to grid resource
+    GridResource: batch sfapi
+    GridJobId: batch sfapi pegasus.access-ci.org_pegasus.access-ci.org_4351953.0_1789104243 sfapi/20260911/58186546
+...
+027 (4351956.000.000) 2026-09-11 05:24:41 Job submitted to grid resource
+    GridResource: batch sfapi
+    GridJobId: batch sfapi pegasus.access-ci.org_pegasus.access-ci.org_4351956.0_1789104243 sfapi/20260911/58186545
+...
+027 (4351949.000.000) 2026-09-11 05:24:42 Job submitted to grid resource
+    GridResource: batch sfapi
+    GridJobId: batch sfapi pegasus.access-ci.org_pegasus.access-ci.org_4351949.0_1789104243 sfapi/20260911/58186544
+...
+027 (4351947.000.000) 2026-09-11 05:24:43 Job submitted to grid resource
+    GridResource: batch sfapi
+    GridJobId: batch sfapi pegasus.access-ci.org_pegasus.access-ci.org_4351947.0_1789104242 sfapi/20260911/58186547
+...
+027 (4351944.000.000) 2026-09-11 05:24:45 Job submitted to grid resource
+    GridResource: batch sfapi
+    GridJobId: batch sfapi pegasus.access-ci.org_pegasus.access-ci.org_4351944.0_1789104242 sfapi/20260911/58186549
+...
+027 (4351954.000.000) 2026-09-11 05:24:46 Job submitted to grid resource
+    GridResource: batch sfapi
+    GridJobId: batch sfapi pegasus.access-ci.org_pegasus.access-ci.org_4351954.0_1789104243 sfapi/20260911/58186548
+...
+027 (4351943.000.000) 2026-09-11 05:24:47 Job submitted to grid resource
+    GridResource: batch sfapi
+    GridJobId: batch sfapi pegasus.access-ci.org_pegasus.access-ci.org_4351943.0_1789104242 sfapi/20260911/58186551
+...
+027 (4351961.000.000) 2026-09-11 05:24:49 Job submitted to grid resource
+    GridResource: batch sfapi
+    GridJobId: batch sfapi pegasus.access-ci.org_pegasus.access-ci.org_4351961.0_1789104243 sfapi/20260911/58186552
+...
+027 (4351957.000.000) 2026-09-11 05:24:50 Job submitted to grid resource
+    GridResource: batch sfapi
+    GridJobId: batch sfapi pegasus.access-ci.org_pegasus.access-ci.org_4351957.0_1789104243 sfapi/20260911/58186553
+...
+027 (4351960.000.000) 2026-09-11 05:24:50 Job submitted to grid resource
+    GridResource: batch sfapi
+    GridJobId: batch sfapi pegasus.access-ci.org_pegasus.access-ci.org_4351960.0_1789104243 sfapi/20260911/58186554
+...
+027 (4351946.000.000) 2026-09-11 05:24:52 Job submitted to grid resource
+    GridResource: batch sfapi
+    GridJobId: batch sfapi pegasus.access-ci.org_pegasus.access-ci.org_4351946.0_1789104242 sfapi/20260911/58186555
+...
+001 (4351932.000.000) 2026-09-11 05:24:54 Job executing on host: batch sfapi
+...
+027 (4351951.000.000) 2026-09-11 05:25:01 Job submitted to grid resource
+    GridResource: batch sfapi
+    GridJobId: batch sfapi pegasus.access-ci.org_pegasus.access-ci.org_4351951.0_1789104243 sfapi/20260911/58186568
+...
+012 (4351952.000.000) 2026-09-11 05:25:29 Job was held.
+	submission command failed (exit code = 1) (stdout:Error submitting command python3 /usr/libexec/blahp/sfapi_helpers.py submit     --job-name    bl_BbVNwl     --input-files /home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/00/mothur_asv_mothur_asv.sh,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/pegasus-worker-5.1.3-dev.0-x86_64_rhel_8.tar.gz,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/00/mothur_asv_mothur_asv.in.lof,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/00/mothur_asv_mothur_asv.out.lof,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/00/stage_in_local_compute_0_0.meta,/home/hsafri/hotSprings/PegasusWMS-SubductC
+	Code 0 Subcode 0
+...
+001 (4351929.000.000) 2026-09-11 05:25:52 Job executing on host: batch sfapi
+...
+001 (4351934.000.000) 2026-09-11 05:30:14 Job executing on host: batch sfapi
+...
+001 (4351938.000.000) 2026-09-11 05:30:17 Job executing on host: batch sfapi
+...
+005 (4351929.000.000) 2026-09-11 05:34:26 Job terminated.
+	(1) Normal termination (return value 0)
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Run Remote Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Run Local Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Total Remote Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Total Local Usage
+	0  -  Run Bytes Sent By Job
+	0  -  Run Bytes Received By Job
+	0  -  Total Bytes Sent By Job
+	0  -  Total Bytes Received By Job
+	Partitionable Resources :    Usage  Request           
+	   Disk (KB)            :    12500                    
+...
+016 (4351929.000.000) 2026-09-11 05:34:29 POST Script terminated.
+	(1) Normal termination (return value 0)
+    DAG Node: trim_reads_trim_MTF
+...
+005 (4351934.000.000) 2026-09-11 05:34:36 Job terminated.
+	(1) Normal termination (return value 0)
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Run Remote Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Run Local Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Total Remote Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Total Local Usage
+	0  -  Run Bytes Sent By Job
+	0  -  Run Bytes Received By Job
+	0  -  Total Bytes Sent By Job
+	0  -  Total Bytes Received By Job
+	Partitionable Resources :    Usage  Request           
+	   Disk (KB)            :    12500                    
+...
+000 (4351963.000.000) 2026-09-11 05:34:38 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "mifaser_mifaser_MTF"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+016 (4351934.000.000) 2026-09-11 05:34:38 POST Script terminated.
+	(1) Normal termination (return value 0)
+    DAG Node: trim_reads_trim_SLS
+...
+000 (4351964.000.000) 2026-09-11 05:34:48 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "mifaser_mifaser_SLS"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+012 (4351963.000.000) 2026-09-11 05:35:08 Job was held.
+	submission command failed (exit code = 1) (stdout:Error submitting command python3 /usr/libexec/blahp/sfapi_helpers.py submit     --job-name    bl_kQEHyR     --input-files /home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/01/mifaser_mifaser_MTF.sh,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/pegasus-worker-5.1.3-dev.0-x86_64_rhel_8.tar.gz,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/01/mifaser_mifaser_MTF.in.lof,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/01/mifaser_mifaser_MTF.out.lof,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/00/trim_reads_trim_MTF.meta,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversi
+	Code 0 Subcode 0
+...
+012 (4351964.000.000) 2026-09-11 05:35:19 Job was held.
+	submission command failed (exit code = 1) (stdout:Error submitting command python3 /usr/libexec/blahp/sfapi_helpers.py submit     --job-name    bl_ocO3O0     --input-files /home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/01/mifaser_mifaser_SLS.sh,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/pegasus-worker-5.1.3-dev.0-x86_64_rhel_8.tar.gz,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/01/mifaser_mifaser_SLS.in.lof,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/01/mifaser_mifaser_SLS.out.lof,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/00/trim_reads_trim_SLS.meta,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversi
+	Code 0 Subcode 0
+...
+001 (4351933.000.000) 2026-09-11 05:36:29 Job executing on host: batch sfapi
+...
+001 (4351926.000.000) 2026-09-11 05:36:36 Job executing on host: batch sfapi
+...
+005 (4351932.000.000) 2026-09-11 05:37:43 Job terminated.
+	(1) Normal termination (return value 0)
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Run Remote Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Run Local Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Total Remote Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Total Local Usage
+	0  -  Run Bytes Sent By Job
+	0  -  Run Bytes Received By Job
+	0  -  Total Bytes Sent By Job
+	0  -  Total Bytes Received By Job
+	Partitionable Resources :    Usage  Request           
+	   Disk (KB)            :    12500                    
+...
+016 (4351932.000.000) 2026-09-11 05:37:43 POST Script terminated.
+	(1) Normal termination (return value 0)
+    DAG Node: trim_reads_trim_QNF
+...
+000 (4351965.000.000) 2026-09-11 05:37:53 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "mifaser_mifaser_QNF"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+005 (4351938.000.000) 2026-09-11 05:37:53 Job terminated.
+	(1) Normal termination (return value 0)
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Run Remote Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Run Local Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Total Remote Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Total Local Usage
+	0  -  Run Bytes Sent By Job
+	0  -  Run Bytes Received By Job
+	0  -  Total Bytes Sent By Job
+	0  -  Total Bytes Received By Job
+	Partitionable Resources :    Usage  Request           
+	   Disk (KB)            :    12500                    
+...
+016 (4351938.000.000) 2026-09-11 05:37:58 POST Script terminated.
+	(1) Normal termination (return value 0)
+    DAG Node: trim_reads_trim_PBS
+...
+000 (4351966.000.000) 2026-09-11 05:38:08 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+    [ DAGNodeName = "mifaser_mifaser_PBS"; JobBatchName = "subductcr-end-to-end-0.dag+4351914" ]
+    pool:compute
+...
+012 (4351965.000.000) 2026-09-11 05:38:24 Job was held.
+	submission command failed (exit code = 1) (stdout:Error submitting command python3 /usr/libexec/blahp/sfapi_helpers.py submit     --job-name    bl_T8Q9Un     --input-files /home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/01/mifaser_mifaser_QNF.sh,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/pegasus-worker-5.1.3-dev.0-x86_64_rhel_8.tar.gz,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/01/mifaser_mifaser_QNF.in.lof,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/01/mifaser_mifaser_QNF.out.lof,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/01/stage_in_local_compute_1_0.meta,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-
+	Code 0 Subcode 0
+...
+012 (4351966.000.000) 2026-09-11 05:38:40 Job was held.
+	submission command failed (exit code = 1) (stdout:Error submitting command python3 /usr/libexec/blahp/sfapi_helpers.py submit     --job-name    bl_1jwzvQ     --input-files /home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/01/mifaser_mifaser_PBS.sh,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/pegasus-worker-5.1.3-dev.0-x86_64_rhel_8.tar.gz,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/01/mifaser_mifaser_PBS.in.lof,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/01/mifaser_mifaser_PBS.out.lof,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/00/00/trim_reads_trim_PBS.meta,/home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversi
+	Code 0 Subcode 0
+...
+009 (4351966.000.000) 2026-09-11 05:40:24 Job was aborted.
+	DAG Removed: User removed scheduler job from queue. (by user hsafri)
+...
+009 (4351965.000.000) 2026-09-11 05:40:24 Job was aborted.
+	DAG Removed: User removed scheduler job from queue. (by user hsafri)
+...
+009 (4351964.000.000) 2026-09-11 05:40:24 Job was aborted.
+	DAG Removed: User removed scheduler job from queue. (by user hsafri)
+...
+009 (4351963.000.000) 2026-09-11 05:40:24 Job was aborted.
+	DAG Removed: User removed scheduler job from queue. (by user hsafri)
+...
+009 (4351952.000.000) 2026-09-11 05:40:24 Job was aborted.
+	DAG Removed: User removed scheduler job from queue. (by user hsafri)
+...
+009 (4351933.000.000) 2026-09-11 05:40:30 Job was aborted.
+	DAG Removed: User removed scheduler job from queue. (by user hsafri)
+...
+009 (4351926.000.000) 2026-09-11 05:40:30 Job was aborted.
+	DAG Removed: User removed scheduler job from queue. (by user hsafri)
+...
+009 (4351930.000.000) 2026-09-11 05:40:30 Job was aborted.
+	DAG Removed: User removed scheduler job from queue. (by user hsafri)
+...
+009 (4351943.000.000) 2026-09-11 05:40:30 Job was aborted.
+	DAG Removed: User removed scheduler job from queue. (by user hsafri)
+...
+009 (4351950.000.000) 2026-09-11 05:40:30 Job was aborted.
+	DAG Removed: User removed scheduler job from queue. (by user hsafri)
+...
+009 (4351944.000.000) 2026-09-11 05:40:30 Job was aborted.
+	DAG Removed: User removed scheduler job from queue. (by user hsafri)
+...
+009 (4351958.000.000) 2026-09-11 05:40:30 Job was aborted.
+	DAG Removed: User removed scheduler job from queue. (by user hsafri)
+...
+009 (4351937.000.000) 2026-09-11 05:40:30 Job was aborted.
+	DAG Removed: User removed scheduler job from queue. (by user hsafri)
+...
+009 (4351942.000.000) 2026-09-11 05:40:30 Job was aborted.
+	DAG Removed: User removed scheduler job from queue. (by user hsafri)
+...
+009 (4351956.000.000) 2026-09-11 05:40:30 Job was aborted.
+	DAG Removed: User removed scheduler job from queue. (by user hsafri)
+...
+009 (4351941.000.000) 2026-09-11 05:40:30 Job was aborted.
+	DAG Removed: User removed scheduler job from queue. (by user hsafri)
+...
+009 (4351946.000.000) 2026-09-11 05:40:30 Job was aborted.
+	DAG Removed: User removed scheduler job from queue. (by user hsafri)
+...
+009 (4351959.000.000) 2026-09-11 05:40:30 Job was aborted.
+	DAG Removed: User removed scheduler job from queue. (by user hsafri)
+...
+009 (4351947.000.000) 2026-09-11 05:40:30 Job was aborted.
+	DAG Removed: User removed scheduler job from queue. (by user hsafri)
+...
+009 (4351931.000.000) 2026-09-11 05:40:30 Job was aborted.
+	DAG Removed: User removed scheduler job from queue. (by user hsafri)
+...
+009 (4351949.000.000) 2026-09-11 05:40:30 Job was aborted.
+	DAG Removed: User removed scheduler job from queue. (by user hsafri)
+...
+009 (4351957.000.000) 2026-09-11 05:40:30 Job was aborted.
+	DAG Removed: User removed scheduler job from queue. (by user hsafri)
+...
+009 (4351953.000.000) 2026-09-11 05:40:30 Job was aborted.
+	DAG Removed: User removed scheduler job from queue. (by user hsafri)
+...
+009 (4351928.000.000) 2026-09-11 05:40:30 Job was aborted.
+	DAG Removed: User removed scheduler job from queue. (by user hsafri)
+...
+009 (4351960.000.000) 2026-09-11 05:40:30 Job was aborted.
+	DAG Removed: User removed scheduler job from queue. (by user hsafri)
+...
+009 (4351927.000.000) 2026-09-11 05:40:30 Job was aborted.
+	DAG Removed: User removed scheduler job from queue. (by user hsafri)
+...
+009 (4351936.000.000) 2026-09-11 05:40:30 Job was aborted.
+	DAG Removed: User removed scheduler job from queue. (by user hsafri)
+...
+009 (4351961.000.000) 2026-09-11 05:40:30 Job was aborted.
+	DAG Removed: User removed scheduler job from queue. (by user hsafri)
+...
+009 (4351935.000.000) 2026-09-11 05:40:30 Job was aborted.
+	DAG Removed: User removed scheduler job from queue. (by user hsafri)
+...
+009 (4351948.000.000) 2026-09-11 05:40:31 Job was aborted.
+	DAG Removed: User removed scheduler job from queue. (by user hsafri)
+...
+009 (4351945.000.000) 2026-09-11 05:40:31 Job was aborted.
+	DAG Removed: User removed scheduler job from queue. (by user hsafri)
+...
+009 (4351940.000.000) 2026-09-11 05:40:31 Job was aborted.
+	DAG Removed: User removed scheduler job from queue. (by user hsafri)
+...
+009 (4351954.000.000) 2026-09-11 05:40:31 Job was aborted.
+	DAG Removed: User removed scheduler job from queue. (by user hsafri)
+...
+009 (4351955.000.000) 2026-09-11 05:40:32 Job was aborted.
+	DAG Removed: User removed scheduler job from queue. (by user hsafri)
+...
+009 (4351939.000.000) 2026-09-11 05:40:33 Job was aborted.
+	DAG Removed: User removed scheduler job from queue. (by user hsafri)
+...
+009 (4351951.000.000) 2026-09-11 05:40:34 Job was aborted.
+	DAG Removed: User removed scheduler job from queue. (by user hsafri)
+...
+009 (4351962.000.000) 2026-09-11 05:40:34 Job was aborted.
+	DAG Removed: User removed scheduler job from queue. (by user hsafri)
+...

@@ -1,0 +1,15 @@
+{"name": ".//00/02/create_dir_subductcr-end-to-end_0_compute.out", "timestamp": "2026-09-11T05:13:46.076377", "exitcode": 0, "app_exitcode": 0, "retry": 0, "job_retry": 0, "std_out": "", "std_err": ""}
+{"name": ".//00/02/stage_in_local_compute_4_0.out", "timestamp": "2026-09-11T05:14:05.421392", "exitcode": 0, "app_exitcode": 0, "retry": 0, "job_retry": 0, "std_out": "", "std_err": ""}
+{"name": ".//00/01/stage_in_local_compute_1_1.out", "timestamp": "2026-09-11T05:14:10.593208", "exitcode": 0, "app_exitcode": 0, "retry": 0, "job_retry": 0, "std_out": "", "std_err": ""}
+{"name": ".//00/02/stage_in_local_compute_5_0.out", "timestamp": "2026-09-11T05:14:10.623796", "exitcode": 0, "app_exitcode": 0, "retry": 0, "job_retry": 0, "std_out": "", "std_err": ""}
+{"name": ".//00/01/stage_in_local_compute_1_0.out", "timestamp": "2026-09-11T05:14:10.657200", "exitcode": 0, "app_exitcode": 0, "retry": 0, "job_retry": 0, "std_out": "", "std_err": ""}
+{"name": ".//00/02/stage_in_local_compute_3_0.out", "timestamp": "2026-09-11T05:14:10.659793", "exitcode": 0, "app_exitcode": 0, "retry": 0, "job_retry": 0, "std_out": "", "std_err": ""}
+{"name": ".//00/02/stage_in_local_compute_2_0.out", "timestamp": "2026-09-11T05:14:15.839858", "exitcode": 0, "app_exitcode": 0, "retry": 0, "job_retry": 0, "std_out": "", "std_err": ""}
+{"name": ".//00/00/stage_in_local_compute_0_3.out", "timestamp": "2026-09-11T05:18:16.307060", "exitcode": 0, "app_exitcode": 0, "retry": 0, "job_retry": 0, "std_out": "", "std_err": ""}
+{"name": ".//00/00/stage_in_local_compute_0_0.out", "timestamp": "2026-09-11T05:18:56.672024", "exitcode": 0, "app_exitcode": 0, "retry": 0, "job_retry": 0, "std_out": "", "std_err": ""}
+{"name": ".//00/00/stage_in_local_compute_0_1.out", "timestamp": "2026-09-11T05:20:07.373891", "exitcode": 0, "app_exitcode": 0, "retry": 0, "job_retry": 0, "std_out": "", "std_err": ""}
+{"name": ".//00/00/stage_in_local_compute_0_2.out", "timestamp": "2026-09-11T05:23:52.792640", "exitcode": 0, "app_exitcode": 0, "retry": 0, "job_retry": 0, "std_out": "", "std_err": ""}
+{"name": ".//00/00/trim_reads_trim_MTF.out", "timestamp": "2026-09-11T05:34:29.007847", "exitcode": 0, "app_exitcode": 0, "retry": 0, "job_retry": 0, "std_out": "", "std_err": ""}
+{"name": ".//00/00/trim_reads_trim_SLS.out", "timestamp": "2026-09-11T05:34:38.194683", "exitcode": 0, "app_exitcode": 0, "retry": 0, "job_retry": 0, "std_out": "", "std_err": ""}
+{"name": ".//00/00/trim_reads_trim_QNF.out", "timestamp": "2026-09-11T05:37:43.576424", "exitcode": 0, "app_exitcode": 0, "retry": 0, "job_retry": 0, "std_out": "", "std_err": ""}
+{"name": ".//00/00/trim_reads_trim_PBS.out", "timestamp": "2026-09-11T05:37:58.770092", "exitcode": 0, "app_exitcode": 0, "retry": 0, "job_retry": 0, "std_out": "", "std_err": ""}

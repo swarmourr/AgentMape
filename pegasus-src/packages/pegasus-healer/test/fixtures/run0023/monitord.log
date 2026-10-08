@@ -1,0 +1,116 @@
+2026-09-11 05:13:30,344:INFO:pegasus-monitord(65): pegasus-monitord starting - pid 4132623 
+2026-09-11 05:13:30,349:INFO:pegasus-monitord(463): Final Command line options are: ['-N', 'subductcr-end-to-end-0.dag.dagman.out']
+2026-09-11 05:13:30,351:INFO:Pegasus.monitoring.event_output.MultiplexEventSink(507): Multiplexed Event Sink Connection Properties  {'amqp.url': 'amqp://friend:donatedata@msgs.pegasus.isi.edu:5672/prod/workflows', 'default.url': 'sqlite:////home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/subductcr-end-to-end-0.stampede.db'}
+2026-09-11 05:13:30,351:INFO:Pegasus.monitoring.event_output(628): Connecting workflow event sink to amqp://friend:donatedata@msgs.pegasus.isi.edu:5672/prod/workflows
+2026-09-11 05:13:30,351:INFO:Pegasus.monitoring.event_output.AMQPEventSink(323): Encoder used <function json_encode at 0x7fcbd92130d0> Properties received {'url': 'amqp://friend:donatedata@msgs.pegasus.isi.edu:5672/prod/workflows'}
+2026-09-11 05:13:30,352:INFO:Pegasus.monitoring.event_output.AMQPEventSink(375): Connecting to host: msgs.pegasus.isi.edu:5672 virtual host: prod exchange: workflows with user: friend ssl: False
+2026-09-11 05:13:30,353:INFO:Pegasus.monitoring.event_output(702): output type=AMQP namespace=stampede. name=msgs.pegasus.isi.edu:5672//prod/workflows
+2026-09-11 05:13:30,353:INFO:Pegasus.monitoring.event_output(628): Connecting workflow event sink to sqlite:////home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/subductcr-end-to-end-0.stampede.db
+Pegasus database was successfully created.
+2026-09-11 05:13:30,408:INFO:pika.adapters.utils.connection_workflow(179): Pika version 1.3.1 connecting to ('128.9.46.112', 5672)
+2026-09-11 05:13:30,469:INFO:pika.adapters.utils.io_services_utils(345): Socket connected: <socket.socket fd=6, family=AddressFamily.AF_INET, type=2049, proto=6, laddr=('10.1.214.25', 2070), raddr=('128.9.46.112', 5672)>
+2026-09-11 05:13:30,470:INFO:pika.adapters.utils.connection_workflow(428): Streaming transport linked up: (<pika.adapters.utils.io_services_utils._AsyncPlaintextTransport object at 0x7fcbd80df048>, _StreamingProtocolShim: <SelectConnection PROTOCOL transport=<pika.adapters.utils.io_services_utils._AsyncPlaintextTransport object at 0x7fcbd80df048> params=<ConnectionParameters host=msgs.pegasus.isi.edu port=5672 virtual_host=prod ssl=False>>).
+2026-09-11 05:13:30,652:INFO:pika.adapters.utils.connection_workflow(293): AMQPConnector - reporting success: <SelectConnection OPEN transport=<pika.adapters.utils.io_services_utils._AsyncPlaintextTransport object at 0x7fcbd80df048> params=<ConnectionParameters host=msgs.pegasus.isi.edu port=5672 virtual_host=prod ssl=False>>
+2026-09-11 05:13:30,652:INFO:pika.adapters.utils.connection_workflow(725): AMQPConnectionWorkflow - reporting success: <SelectConnection OPEN transport=<pika.adapters.utils.io_services_utils._AsyncPlaintextTransport object at 0x7fcbd80df048> params=<ConnectionParameters host=msgs.pegasus.isi.edu port=5672 virtual_host=prod ssl=False>>
+2026-09-11 05:13:30,652:INFO:pika.adapters.blocking_connection(454): Connection workflow succeeded: <SelectConnection OPEN transport=<pika.adapters.utils.io_services_utils._AsyncPlaintextTransport object at 0x7fcbd80df048> params=<ConnectionParameters host=msgs.pegasus.isi.edu port=5672 virtual_host=prod ssl=False>>
+2026-09-11 05:13:30,652:INFO:pika.adapters.blocking_connection(1264): Created channel=1
+Database version: '5.1.3-dev.0' (sqlite:////home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/subductcr-end-to-end-0.stampede.db)
+2026-09-11 05:13:30,997:INFO:Pegasus.monitoring.event_output(702): output type=DB namespace=stampede. name=sqlite:////home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/subductcr-end-to-end-0.stampede.db
+2026-09-11 05:13:30,998:INFO:Pegasus.monitoring.event_output(628): Connecting workflow event sink to sqlite:////home/hsafri/.pegasus/workflow.db
+Database version: '5.1.3-dev.0' (sqlite:////home/hsafri/.pegasus/workflow.db)
+2026-09-11 05:13:31,188:INFO:Pegasus.monitoring.event_output(702): output type=DB namespace=dashboard. name=sqlite:////home/hsafri/.pegasus/workflow.db
+2026-09-11 05:13:31,189:INFO:pegasus-monitord(1258): monitord started in fast start mode
+2026-09-11 05:13:31,210:INFO:Pegasus.monitoring.workflow(460): cannot open state file /home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/monitord.info, continuing without state...
+2026-09-11 05:13:31,210:INFO:Pegasus.monitoring.workflow(1151): creating new file /home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/jobstate.log
+2026-09-11 05:13:31,210:INFO:Pegasus.monitoring.workflow(1161): Appending to existing jobstate.log replay_mode 0 previous_processed_line 0
+2026-09-11 05:13:31,210:INFO:Pegasus.monitoring.notifications(472): loading notifications from /home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/subductcr-end-to-end-0.notify
+2026-09-11 05:13:31,637:INFO:Pegasus.monitoring.workflow(204): Parsing DAG file /home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/subductcr-end-to-end-0.dag
+2026-09-11 05:13:31,639:INFO:pegasus-monitord(987): Using DAGMan version 25.14.0 251400
+2026-09-11 05:13:31,642:INFO:pegasus-monitord(968): using dag subductcr-end-to-end-0.dag
+2026-09-11 05:13:31,642:INFO:Pegasus.monitoring.workflow(810): DAGMan starting with condor id 4351914.0
+2026-09-11 05:13:31,658:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:13:31,658:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:13:31,658:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:13:55,746:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:13:55,746:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:13:55,747:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:13:55,747:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:13:55,748:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:13:55,748:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:13:55,748:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:13:55,748:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:13:55,749:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:13:55,749:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:13:55,749:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:13:55,749:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:13:55,750:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:13:55,750:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:13:55,750:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:13:55,750:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:13:55,751:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:13:55,751:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:13:55,751:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:13:55,751:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:19:07,611:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:19:07,614:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:19:07,614:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:19:07,615:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:19:07,615:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:19:07,616:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:19:07,616:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:19:07,617:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:19:07,617:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:19:07,618:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:19:07,618:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:19:07,619:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:19:07,619:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:19:07,620:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:19:07,620:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:19:07,621:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:19:07,621:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:24:03,386:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:24:03,388:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:24:03,388:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:24:03,389:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:24:03,389:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:24:03,390:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:24:03,390:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:24:03,390:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:24:03,391:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:24:03,391:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:24:03,392:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:24:03,392:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:24:03,393:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:24:03,393:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:24:03,394:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:24:03,394:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:24:03,394:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:24:03,395:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:24:03,395:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:24:03,396:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:34:38,568:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:34:48,807:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:37:54,252:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:38:09,496:INFO:pegasus-monitord(1067): time stamp format not recognized
+2026-09-11 05:40:24,658:WARNING:pegasus-monitord(1040): DAGMan was aborted for workflow running in directory /home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023
+2026-09-11 05:40:24,659:INFO:pegasus-monitord(940): DAGMan subductcr-end-to-end-0.dag finished with exit code 2
+2026-09-11 05:40:25,701:INFO:pegasus-monitord(1438): workflow /home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/subductcr-end-to-end-0.dag.dagman.out ended
+2026-09-11 05:40:25,701:INFO:Pegasus.monitoring.workflow(1381): recovery file deleted: /home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/monitord.recover
+2026-09-11 05:40:25,702:INFO:pegasus-monitord(1676): finishing workflow: /home/hsafri/hotSprings/PegasusWMS-SubductCR_16S-diversity/subductcr-final/runs/hsafri/pegasus/subductcr-end-to-end/run0023/subductcr-end-to-end-0.dag.dagman.out
+2026-09-11 05:40:25,702:INFO:pegasus-monitord(1730): finishing notifications...
+2026-09-11 05:40:25,702:INFO:pegasus-monitord(1738): monitord process 4132623 exiting with 0
+2026-09-11 05:40:25,703:INFO:pegasus-monitord(205): DB flushing beginning
+2026-09-11 05:40:29,508:INFO:pika.adapters.blocking_connection(802): Closing connection (200): Normal shutdown
+2026-09-11 05:40:29,508:INFO:pika.channel(537): Closing channel (200): 'Normal shutdown' on <Channel number=1 OPEN conn=<SelectConnection OPEN transport=<pika.adapters.utils.io_services_utils._AsyncPlaintextTransport object at 0x7fcbd80df048> params=<ConnectionParameters host=msgs.pegasus.isi.edu port=5672 virtual_host=prod ssl=False>>>
+2026-09-11 05:40:29,569:INFO:pika.channel(1133): Received <Channel.CloseOk> on <Channel number=1 CLOSING conn=<SelectConnection OPEN transport=<pika.adapters.utils.io_services_utils._AsyncPlaintextTransport object at 0x7fcbd80df048> params=<ConnectionParameters host=msgs.pegasus.isi.edu port=5672 virtual_host=prod ssl=False>>>
+2026-09-11 05:40:29,569:INFO:pika.connection(1318): Closing connection (200): 'Normal shutdown'
+2026-09-11 05:40:29,629:INFO:pika.adapters.utils.io_services_utils(732): Aborting transport connection: state=1; <socket.socket fd=6, family=AddressFamily.AF_INET, type=2049, proto=6, laddr=('10.1.214.25', 2070), raddr=('128.9.46.112', 5672)>
+2026-09-11 05:40:29,629:INFO:pika.adapters.utils.io_services_utils(907): _AsyncTransportBase._initate_abort(): Initiating abrupt asynchronous transport shutdown: state=1; error=None; <socket.socket fd=6, family=AddressFamily.AF_INET, type=2049, proto=6, laddr=('10.1.214.25', 2070), raddr=('128.9.46.112', 5672)>
+2026-09-11 05:40:29,629:INFO:pika.adapters.utils.io_services_utils(870): Deactivating transport: state=1; <socket.socket fd=6, family=AddressFamily.AF_INET, type=2049, proto=6, laddr=('10.1.214.25', 2070), raddr=('128.9.46.112', 5672)>
+2026-09-11 05:40:29,629:INFO:pika.connection(2022): AMQP stack terminated, failed to connect, or aborted: opened=True, error-arg=None; pending-error=ConnectionClosedByClient: (200) 'Normal shutdown'
+2026-09-11 05:40:29,630:INFO:pika.connection(2088): Stack terminated due to ConnectionClosedByClient: (200) 'Normal shutdown'
+2026-09-11 05:40:29,631:INFO:pika.adapters.utils.io_services_utils(883): Closing transport socket and unlinking: state=3; <socket.socket fd=6, family=AddressFamily.AF_INET, type=2049, proto=6, laddr=('10.1.214.25', 2070), raddr=('128.9.46.112', 5672)>
+2026-09-11 05:40:29,631:INFO:pika.adapters.blocking_connection(526): User-initiated close: result=BlockingConnection__OnClosedArgs(connection=<SelectConnection CLOSED transport=None params=<ConnectionParameters host=msgs.pegasus.isi.edu port=5672 virtual_host=prod ssl=False>>, error=ConnectionClosedByClient: (200) 'Normal shutdown')
+2026-09-11 05:40:29,632:INFO:Pegasus.db.workflow_loader.WorkflowLoader(1244): Executing final flush
+2026-09-11 05:40:29,649:INFO:Pegasus.db.dashboard_loader.DashboardLoader(397): Executing final flush
+2026-09-11 05:40:29,650:INFO:pegasus-monitord(221): DB flushing ended

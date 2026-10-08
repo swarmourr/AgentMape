@@ -1,0 +1,44 @@
+Metadata-Version: 2.4
+Name: pegasus-wms.common
+Version: 6.0.0.dev0
+Summary: Pegasus Workflow Management System Python API
+Author-email: Pegasus Team <pegasus@isi.edu>
+Maintainer-email: Rajiv Mayani <mayani@isi.edu>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://pegasus.isi.edu
+Project-URL: Documentation, https://pegasus.isi.edu/documentation/
+Project-URL: Changes, https://pegasus.isi.edu/blog/?category_name=Release
+Project-URL: Repository, https://github.com/pegasus-isi/pegasus
+Project-URL: Issues, https://github.com/pegasus-isi/pegasus/issues
+Keywords: scientific workflows
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: Operating System :: Unix
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Utilities
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Dynamic: license-file
+
+# Pegasus Workflow Management System Python API
+
+This package contains the Python APIs for Pegasus WMS, including:
+
+1. The DAX API (Versions 2 and 3)
+1. The PDAX API (Version 2)
+1. The monitoring API
+1. The Stampede database API
+1. The Pegasus statistics API
+1. The Pegasus plots API
+1. Misc. Pegasus utilities
+1. The pegasus service, including the ensemble manager and dashboard

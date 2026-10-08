@@ -1,0 +1,14 @@
+000 (4351914.000.000) 2026-09-11 05:13:29 Job submitted from host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+...
+001 (4351914.000.000) 2026-09-11 05:13:29 Job executing on host: <149.165.153.107:9618?addrs=149.165.153.107-9618&alias=pegasus.access-ci.org&noUDP&sock=schedd_1247_eab0>
+...
+004 (4351914.000.000) 2026-09-11 05:40:31 Job was evicted.
+	(0) CPU times
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Run Remote Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Run Local Usage
+	0  -  Run Bytes Sent By Job
+	0  -  Run Bytes Received By Job
+...
+009 (4351914.000.000) 2026-09-11 05:40:31 Job was aborted.
+	via condor_rm (by user hsafri)
+...
