@@ -1,25 +1,27 @@
 #!/usr/bin/env bash
 # =============================================================================
-# install.sh — build a local venv from pegasus-src/ (no system install needed)
+# install.sh — build a local venv for pegasus-healer
 #
 #   bash install.sh              # venv at ./agentic/
 #   bash install.sh /my/venv    # custom path
 #   PYTHON=python3.11 bash install.sh
 #
+# Requirements on the target machine:
+#   - Pegasus 5.x installed (pegasus-config on PATH)
+#   - Python 3.10+
+#
 # After this, run:   source activate.sh
 # =============================================================================
 set -euo pipefail
 
-SCRIPT="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")"
-PROJECT_ROOT="$(cd "$(dirname "$SCRIPT")" && pwd)"
-PEGASUS_SRC="$PROJECT_ROOT/pegasus-src"
+SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")"
+PROJECT_ROOT="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 VENV_DIR="${1:-$PROJECT_ROOT/agentic}"
 
 echo "================================================================"
 echo "  pegasus-healer venv builder"
-echo "  Project  : $PROJECT_ROOT"
-echo "  Pegasus  : $PEGASUS_SRC"
-echo "  Venv     : $VENV_DIR"
+echo "  Project : $PROJECT_ROOT"
+echo "  Venv    : $VENV_DIR"
 echo "================================================================"
 
 # ── 1. Find Python 3.10+ ──────────────────────────────────────────────────────
@@ -54,46 +56,34 @@ PIP="$VENV_DIR/bin/pip"
 echo ">> Installing healer dependencies ..."
 "$PIP" install --quiet -r "$PROJECT_ROOT/requirements.txt"
 
-# ── 4. Install Pegasus packages + wire healer src/ ────────────────────────────
+# ── 4. Wire Pegasus packages into the venv via .pth ───────────────────────────
+# Strategy:
+#   a) Use pegasus-config --python to find where Pegasus is installed.
+#      This works on any machine that has Pegasus 5.x on PATH, regardless
+#      of which Python version it was installed under.
+#   b) Add that path to a .pth file so the venv can import Pegasus.*.
+#   c) Add src/ so the venv can import Pegasus.healer from this project.
+#      src/Pegasus/__init__.py uses pkgutil.extend_path, merging both.
 SITE_PACKAGES="$("$VENV_DIR/bin/python3" -c "import sysconfig; print(sysconfig.get_path('purelib'))")"
 PTH_FILE="$SITE_PACKAGES/pegasus-source.pth"
 
-if [[ -d "$PEGASUS_SRC/packages/pegasus-common" ]]; then
-    # pegasus-src/ is checked out — install all Pegasus packages including
-    # pegasus-healer (which provides Pegasus.healer).  No .pth needed.
-    echo ">> Installing Pegasus packages from pegasus-src/ ..."
-    for _pkg in pegasus-common pegasus-api pegasus-python pegasus-healer; do
-        _path="$PEGASUS_SRC/packages/$_pkg"
-        if [[ -d "$_path" ]]; then
-            echo "   pip install $_pkg"
-            "$PIP" install --quiet "$_path"
-        fi
-    done
-    echo "   done (Pegasus.healer comes from pegasus-healer package)"
-else
-    # pegasus-src/ not present (shared VM with system Pegasus installed).
-    # Locate where system Pegasus lives and add that site-packages dir to
-    # the .pth so the venv sees braindump/api/etc without --system-site-packages.
-    # Then add src/ which provides Pegasus.healer (not yet in system Pegasus).
-    echo ">> pegasus-src/ not found — locating system Pegasus ..."
-    PEGASUS_SITE="$("$PYTHON" -c "
-import Pegasus, pathlib
-print(str(pathlib.Path(Pegasus.__file__).parent.parent))
-" 2>/dev/null || true)"
-    if [[ -z "$PEGASUS_SITE" ]]; then
-        echo "ERROR: Pegasus not importable from $PYTHON and pegasus-src/ is absent."
-        echo "       Either check out pegasus-src/ or install Pegasus 5.x system-wide."
-        exit 1
-    fi
-    echo "   system Pegasus at: $PEGASUS_SITE"
-    {
-        echo "# system Pegasus (braindump, api, etc.) — written by install.sh"
-        echo "$PEGASUS_SITE"
-        echo "# healer source (Pegasus.healer) — not yet in system Pegasus"
-        echo "$PROJECT_ROOT/src"
-    } > "$PTH_FILE"
-    echo "   done"
+echo ">> Locating installed Pegasus via pegasus-config ..."
+PEGASUS_PYTHON_DIR="$(pegasus-config --python 2>/dev/null || true)"
+if [[ -z "$PEGASUS_PYTHON_DIR" ]]; then
+    echo "ERROR: 'pegasus-config --python' failed. Is Pegasus 5.x installed and on PATH?"
+    exit 1
 fi
+echo "   Pegasus Python dir: $PEGASUS_PYTHON_DIR"
+
+echo ">> Writing $PTH_FILE ..."
+{
+    echo "# written by install.sh"
+    echo "# system Pegasus packages (braindump, api, etc.)"
+    echo "$PEGASUS_PYTHON_DIR"
+    echo "# healer source — provides Pegasus.healer"
+    echo "$PROJECT_ROOT/src"
+} > "$PTH_FILE"
+echo "   done"
 
 # ── 5. Verify ─────────────────────────────────────────────────────────────────
 echo ">> Verifying imports ..."

@@ -39,3 +39,4 @@ checkpoints.db
 
 # Pegasus workflow run directories (test/fixture data, not source)
 run*/
+
