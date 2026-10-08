@@ -30,16 +30,23 @@ else
     export HEALER_PYTHON="$(command -v python3 || command -v python)"
 fi
 
-# ── PATH — source bins before the installed Pegasus ──────────────────────────
-# Order: project bin/ → pegasus-src/bin/ → rest of PATH
-# This makes every pegasus-* command resolve from source first.
-# pegasus-src/bin/pegasus-config bridges to installed JARs so pegasus-plan works.
-_SRC_BIN="$HEALER_PROJECT/pegasus-src/bin"
+# ── Pegasus home — PEGASUS_HOME env var or auto-detect ───────────────────────
+# Set PEGASUS_HOME to any Pegasus directory (built locally, copied from Mac,
+# or the system install) and its bin/ will be added to PATH automatically.
+# If not set, we look for pegasus-plan on the existing PATH.
+if [[ -n "${PEGASUS_HOME:-}" && -d "$PEGASUS_HOME/bin" ]]; then
+    case ":$PATH:" in
+        *":$PEGASUS_HOME/bin:"*) ;;
+        *) export PATH="$PEGASUS_HOME/bin:$PATH" ;;
+    esac
+    echo "[pegasus-healer] pegasus   : $PEGASUS_HOME"
+fi
+
+# ── PATH — project bin/ first (healer, inspect scripts) ──────────────────────
 case ":$PATH:" in
     *":$HEALER_PROJECT/bin:"*) ;;
-    *) export PATH="$HEALER_PROJECT/bin:$_SRC_BIN:$PATH" ;;
+    *) export PATH="$HEALER_PROJECT/bin:$PATH" ;;
 esac
-unset _SRC_BIN
 
 # ── PYTHONPATH — healer imports from project src/ ────────────────────────────
 case ":${PYTHONPATH:-}:" in
