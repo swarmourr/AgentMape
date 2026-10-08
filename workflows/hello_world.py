@@ -25,18 +25,9 @@ OUTPUT_DIR = Path(BASE_DIR /  "output").resolve()
 # from an ACCESS site such as jetstream.
 EXEC_SITE = "local"
 
-# --- Healer setup -------------------------------------------------------------
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent
-if str(_PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(_PROJECT_ROOT))
-
-from workflows.healer import configure_healer_properties, add_healer_to_job
-
-# Write pegasus.properties with dagman.post = pegasus-healer
-# Pegasus injects it into every job node in the .dag at plan time.
-props = Properties()
-configure_healer_properties(props, max_retries=3)
-props.write()
+# dagman.post = pegasus-healer is registered in ~/.pegasus/properties by
+# activate.sh — Pegasus loads it automatically at plan time. No workflow
+# code needed.
 
 # generate a simple input file for the workflow
 INPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -62,20 +53,16 @@ fin = File("f.in")
 finter = File("f.inter")
 fout = File("f.out")
 
-job_hello = add_healer_to_job(
-    Job("hello")\
+job_hello = Job("hello")\
                     .add_args("-T", "3", "-i", fin, "-o {}".format(finter))\
                     .add_inputs(fin)\
                     .add_outputs(finter, stage_out=False)\
                     .add_profiles(Namespace.CONDOR, key="request_memory", value="256")
-)
 
-job_world = add_healer_to_job(
-    Job("world")\
+job_world = Job("world")\
                     .add_args("-T", "3", "-i", finter, "-o {}".format(fout))\
                     .add_inputs(finter)\
                     .add_outputs(fout)
-)
 
 wf.add_jobs(job_hello, job_world)
 

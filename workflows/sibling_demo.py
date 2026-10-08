@@ -48,17 +48,8 @@ OUTPUT_DIR      = (BASE_DIR / "output").resolve()
 
 EXEC_SITE = "local"
 
-# ── Healer integration ────────────────────────────────────────────────────────
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent
-if str(_PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(_PROJECT_ROOT))
-
-from Pegasus.api import Properties
-from workflows.healer import configure_healer_properties, add_healer_to_job
-
-props = Properties()
-configure_healer_properties(props, max_retries=3)
-props.write()
+# dagman.post = pegasus-healer is registered in ~/.pegasus/properties by
+# activate.sh — Pegasus loads it automatically at plan time.
 
 # ── Input file ────────────────────────────────────────────────────────────────
 INPUT_DIR.mkdir(exist_ok=True)
@@ -97,7 +88,7 @@ fout = File("merged.out")
 # compute_B and compute_C use the fast path on their first retry failure.
 _MEM = "256"   # intentionally below what the job needs
 
-job_a = add_healer_to_job(
+job_a = (
     Job("compute", _id="compute_A")
         .add_args("-T", "2", "-i", fin, "-o", fa)
         .add_inputs(fin)
@@ -105,7 +96,7 @@ job_a = add_healer_to_job(
         .add_profiles(Namespace.CONDOR, key="request_memory", value=_MEM)
 )
 
-job_b = add_healer_to_job(
+job_b = (
     Job("compute", _id="compute_B")
         .add_args("-T", "2", "-i", fin, "-o", fb)
         .add_inputs(fin)
@@ -113,7 +104,7 @@ job_b = add_healer_to_job(
         .add_profiles(Namespace.CONDOR, key="request_memory", value=_MEM)
 )
 
-job_c = add_healer_to_job(
+job_c = (
     Job("compute", _id="compute_C")
         .add_args("-T", "2", "-i", fin, "-o", fc)
         .add_inputs(fin)
@@ -121,7 +112,7 @@ job_c = add_healer_to_job(
         .add_profiles(Namespace.CONDOR, key="request_memory", value=_MEM)
 )
 
-job_merge = add_healer_to_job(
+job_merge = (
     Job("merge")
         .add_args("-T", "2", "-i", fa, "-i", fb, "-i", fc, "-o", fout)
         .add_inputs(fa, fb, fc)

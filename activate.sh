@@ -74,6 +74,7 @@ if ! grep -q "^dagman\.post" "$_PROPS" 2>/dev/null; then
 # pegasus-healer (registered by activate.sh — $HEALER_PROJECT)
 dagman.post           = $_HEALER_BIN
 dagman.post.arguments = \$RETURN \$JOB \$RETRY \$MAX_RETRIES
+dagman.maxretries     = 3
 PROPS
     echo "[pegasus-healer] registered dagman.post → $_PROPS"
 elif ! grep -q "$HEALER_PROJECT" "$_PROPS" 2>/dev/null; then

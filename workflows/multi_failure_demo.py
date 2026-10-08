@@ -19,8 +19,8 @@ Requirements:
 """
 
 from Pegasus.api import *
-import sys
 from pathlib import Path
+import sys
 
 BASE_DIR        = Path(".").resolve()
 INPUT_DIR       = (BASE_DIR / "input").resolve()
@@ -29,16 +29,8 @@ OUTPUT_DIR      = (BASE_DIR / "output").resolve()
 
 EXEC_SITE = "local"
 
-# ── Healer injection ───────────────────────────────────────────────────────────
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent
-if str(_PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(_PROJECT_ROOT))
-
-from workflows.healer import configure_healer_properties, add_healer_to_job
-
-props = Properties()
-configure_healer_properties(props, max_retries=3)
-props.write()
+# dagman.post = pegasus-healer is registered in ~/.pegasus/properties by
+# activate.sh — Pegasus loads it automatically at plan time.
 
 # ── Input file ────────────────────────────────────────────────────────────────
 INPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -63,7 +55,7 @@ fin  = File("f.in")
 fout = File("f.out")
 
 # ── Job — starts with conservative resources so both fixes are meaningful ──────
-job = add_healer_to_job(
+job = (
     Job("multi_fail")
     .add_args("-T", "2", "-i", fin, "-o", str(fout))
     .add_inputs(fin)

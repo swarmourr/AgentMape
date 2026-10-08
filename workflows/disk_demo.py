@@ -36,17 +36,8 @@ OUTPUT_DIR      = (BASE_DIR / "output").resolve()
 
 EXEC_SITE = "local"
 
-# ── Healer integration ────────────────────────────────────────────────────────
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent
-if str(_PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(_PROJECT_ROOT))
-
-from Pegasus.api import Properties
-from workflows.healer import configure_healer_properties, add_healer_to_job
-
-props = Properties()
-configure_healer_properties(props, max_retries=3)
-props.write()
+# dagman.post = pegasus-healer is registered in ~/.pegasus/properties by
+# activate.sh — Pegasus loads it automatically at plan time.
 
 # ── Input file ────────────────────────────────────────────────────────────────
 INPUT_DIR.mkdir(exist_ok=True)
@@ -75,7 +66,7 @@ finter = File("data.inter")
 fout   = File("data.out")
 
 # analyze: low request_disk so the healer has room to increase it
-job_analyze = add_healer_to_job(
+job_analyze = (
     Job("analyze")
         .add_args("-T", "2", "-i", fin, "-o", finter)
         .add_inputs(fin)
@@ -84,7 +75,7 @@ job_analyze = add_healer_to_job(
         .add_profiles(Namespace.CONDOR, key="request_disk",   value="512")   # 512 MB — intentionally small
 )
 
-job_report = add_healer_to_job(
+job_report = (
     Job("report")
         .add_args("-T", "2", "-i", finter, "-o", fout)
         .add_inputs(finter)
