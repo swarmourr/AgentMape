@@ -50,25 +50,27 @@ fi
 PIP="$VENV_DIR/bin/pip"
 "$VENV_DIR/bin/python3" -m pip install --quiet --upgrade pip
 
-# ── 3. Install Pegasus Python packages from source (editable) ─────────────────
-echo ">> Installing Pegasus packages from pegasus-src/ ..."
-for pkg in pegasus-common pegasus-api pegasus-python; do
-    PKG_DIR="$PEGASUS_SRC/packages/$pkg"
-    if [[ -f "$PKG_DIR/pyproject.toml" || -f "$PKG_DIR/setup.py" ]]; then
-        echo "   pip install -e $pkg"
-        "$PIP" install --quiet -e "$PKG_DIR"
-    fi
-done
-
-# ── 4. Install healer deps + healer package ───────────────────────────────────
+# ── 3. Install healer dependencies ────────────────────────────────────────────
 echo ">> Installing healer dependencies ..."
 "$PIP" install --quiet -r "$PROJECT_ROOT/requirements.txt"
 
-echo ">> Installing pegasus-healer from pegasus-src/ (editable) ..."
-"$PIP" install --quiet -e "$PEGASUS_SRC/packages/pegasus-healer"
-# NOTE: project src/ is NOT installed as a package — activate.sh prepends it
-# to PYTHONPATH so live edits to src/Pegasus/healer/ are picked up directly
-# without risking namespace conflicts with pegasus-common.
+# ── 4. Wire all Pegasus source packages via a single .pth file ────────────────
+# This avoids `pip install -e` entirely (which requires newer pip + build
+# backend support).  A .pth file in site-packages adds paths to sys.path
+# at interpreter startup — identical effect, zero build machinery needed.
+SITE_PACKAGES="$("$VENV_DIR/bin/python3" -c "import sysconfig; print(sysconfig.get_path('purelib'))")"
+PTH_FILE="$SITE_PACKAGES/pegasus-source.pth"
+
+echo ">> Writing source paths to $PTH_FILE ..."
+cat > "$PTH_FILE" <<PTH
+# Pegasus source packages — written by install.sh
+$PEGASUS_SRC/packages/pegasus-common/src
+$PEGASUS_SRC/packages/pegasus-api/src
+$PEGASUS_SRC/packages/pegasus-python/src
+$PEGASUS_SRC/packages/pegasus-healer/src
+$PROJECT_ROOT/src
+PTH
+echo "   done"
 
 # ── 5. Verify ─────────────────────────────────────────────────────────────────
 echo ">> Verifying imports ..."
