@@ -59,7 +59,8 @@ SITE_PACKAGES="$("$VENV_DIR/bin/python3" -c "import sysconfig; print(sysconfig.g
 PTH_FILE="$SITE_PACKAGES/pegasus-source.pth"
 
 if [[ -d "$PEGASUS_SRC/packages/pegasus-common" ]]; then
-    # pegasus-src/ is checked out — install each package directly (no -e needed)
+    # pegasus-src/ is checked out — install all Pegasus packages including
+    # pegasus-healer (which provides Pegasus.healer).  No .pth needed.
     echo ">> Installing Pegasus packages from pegasus-src/ ..."
     for _pkg in pegasus-common pegasus-api pegasus-python pegasus-healer; do
         _path="$PEGASUS_SRC/packages/$_pkg"
@@ -68,9 +69,12 @@ if [[ -d "$PEGASUS_SRC/packages/pegasus-common" ]]; then
             "$PIP" install --quiet "$_path"
         fi
     done
+    echo "   done (Pegasus.healer comes from pegasus-healer package)"
 else
-    # pegasus-src/ not present — locate the system-installed Pegasus and add
-    # its site-packages directory to the .pth so the venv can see it.
+    # pegasus-src/ not present (shared VM with system Pegasus installed).
+    # Locate where system Pegasus lives and add that site-packages dir to
+    # the .pth so the venv sees braindump/api/etc without --system-site-packages.
+    # Then add src/ which provides Pegasus.healer (not yet in system Pegasus).
     echo ">> pegasus-src/ not found — locating system Pegasus ..."
     PEGASUS_SITE="$("$PYTHON" -c "
 import Pegasus, pathlib
@@ -81,17 +85,15 @@ print(str(pathlib.Path(Pegasus.__file__).parent.parent))
         echo "       Either check out pegasus-src/ or install Pegasus 5.x system-wide."
         exit 1
     fi
-    echo "   found Pegasus at $PEGASUS_SITE"
-    echo ">> Writing $PTH_FILE ..."
-    { echo "# system Pegasus — written by install.sh"; echo "$PEGASUS_SITE"; } > "$PTH_FILE"
+    echo "   system Pegasus at: $PEGASUS_SITE"
+    {
+        echo "# system Pegasus (braindump, api, etc.) — written by install.sh"
+        echo "$PEGASUS_SITE"
+        echo "# healer source (Pegasus.healer) — not yet in system Pegasus"
+        echo "$PROJECT_ROOT/src"
+    } > "$PTH_FILE"
+    echo "   done"
 fi
-
-# Always wire healer src/ so Pegasus.healer is importable.
-# src/Pegasus/__init__.py uses pkgutil.extend_path, so both the healer
-# modules and any Pegasus.* modules installed above merge transparently.
-echo ">> Wiring healer src/ → $PTH_FILE"
-echo "$PROJECT_ROOT/src" >> "$PTH_FILE"
-echo "   done"
 
 # ── 5. Verify ─────────────────────────────────────────────────────────────────
 echo ">> Verifying imports ..."
