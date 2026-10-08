@@ -40,12 +40,18 @@ fi
 echo ""
 echo ">> Python: $PYTHON ($("$PYTHON" --version))"
 
-# ── 2. Create venv ────────────────────────────────────────────────────────────
+# ── 2. Create venv (with system site-packages so installed Pegasus is visible) ─
 if [[ -d "$VENV_DIR" ]]; then
     echo ">> Venv exists — reusing $VENV_DIR"
+    # Ensure system site-packages is enabled even for pre-existing venvs
+    PYVENV_CFG="$VENV_DIR/pyvenv.cfg"
+    if [[ -f "$PYVENV_CFG" ]] && grep -q "include-system-site-packages = false" "$PYVENV_CFG"; then
+        sed -i.bak "s/include-system-site-packages = false/include-system-site-packages = true/" "$PYVENV_CFG"
+        echo ">> Enabled system-site-packages in existing venv"
+    fi
 else
     echo ">> Creating venv at $VENV_DIR ..."
-    "$PYTHON" -m venv "$VENV_DIR"
+    "$PYTHON" -m venv --system-site-packages "$VENV_DIR"
 fi
 PIP="$VENV_DIR/bin/pip"
 "$VENV_DIR/bin/python3" -m pip install --quiet --upgrade pip
@@ -54,22 +60,28 @@ PIP="$VENV_DIR/bin/pip"
 echo ">> Installing healer dependencies ..."
 "$PIP" install --quiet -r "$PROJECT_ROOT/requirements.txt"
 
-# ── 4. Wire all Pegasus source packages via a single .pth file ────────────────
-# This avoids `pip install -e` entirely (which requires newer pip + build
-# backend support).  A .pth file in site-packages adds paths to sys.path
-# at interpreter startup — identical effect, zero build machinery needed.
+# ── 4. Wire source packages via a .pth file ───────────────────────────────────
+# A .pth file in site-packages adds paths to sys.path at interpreter startup.
+# pegasus-src/ packages are optional — if absent the system-installed Pegasus
+# (made visible via --system-site-packages above) provides braindump/api/etc.
+# src/Pegasus/__init__.py uses pkgutil.extend_path so both the healer source
+# and the system Pegasus namespace merge transparently.
 SITE_PACKAGES="$("$VENV_DIR/bin/python3" -c "import sysconfig; print(sysconfig.get_path('purelib'))")"
 PTH_FILE="$SITE_PACKAGES/pegasus-source.pth"
 
 echo ">> Writing source paths to $PTH_FILE ..."
-cat > "$PTH_FILE" <<PTH
-# Pegasus source packages — written by install.sh
-$PEGASUS_SRC/packages/pegasus-common/src
-$PEGASUS_SRC/packages/pegasus-api/src
-$PEGASUS_SRC/packages/pegasus-python/src
-$PEGASUS_SRC/packages/pegasus-healer/src
-$PROJECT_ROOT/src
-PTH
+{
+    echo "# Pegasus source packages — written by install.sh"
+    # Optional: pegasus-src sub-packages (only if the tree is checked out)
+    for _pkg in pegasus-common pegasus-api pegasus-python pegasus-healer; do
+        _path="$PEGASUS_SRC/packages/$_pkg/src"
+        if [[ -d "$_path" ]]; then
+            echo "$_path"
+        fi
+    done
+    # Always add the healer src/ from this project
+    echo "$PROJECT_ROOT/src"
+} > "$PTH_FILE"
 echo "   done"
 
 # ── 5. Verify ─────────────────────────────────────────────────────────────────
