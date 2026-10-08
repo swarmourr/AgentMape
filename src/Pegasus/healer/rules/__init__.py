@@ -1,3 +1,3 @@
-from Pegasus.healer.utils.rules.classifier import classify
+from Pegasus.healer.rules.classifier import classify
 
 __all__ = ["classify"]

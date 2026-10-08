@@ -6,8 +6,12 @@ Installed as a console script so it can be referenced directly in
 pegasus.properties without a hard-coded script path:
 
     pegasus.dagman.post = pegasus-healer
-    pegasus.dagman.post.arguments = $RETURN $JOB $RETRY $MAX_RETRIES \\
-        /path/to/submit_dir ${wf.uuid}
+    pegasus.dagman.post.arguments = $RETURN $JOB $RETRY $MAX_RETRIES
+
+DAGMan sets CWD = submit_dir when running POST scripts. Pegasus writes
+braindump.yml into submit_dir at plan time, so pegasus-healer reads
+./braindump.yml to discover submit_dir (= os.getcwd()) and wf_uuid —
+no extra arguments needed, making it a true drop-in for pegasus-exitcode.
 
 EXIT CODE CONTRACT
 ──────────────────
@@ -25,6 +29,12 @@ from pathlib import Path
 from uuid import uuid4
 
 try:
+    import yaml as _yaml
+    _HAS_YAML = True
+except ImportError:
+    _HAS_YAML = False
+
+try:
     from dotenv import load_dotenv as _load_dotenv
     _ENV = Path.home() / ".pegasus" / "healer.env"
     if _ENV.exists():
@@ -34,6 +44,34 @@ except ImportError:
 
 TAG = "[pegasus-healer]"
 _log_file = None
+
+
+def _read_braindump(submit_dir: Path) -> dict:
+    """
+    Read braindump.yml from submit_dir.
+
+    DAGMan sets CWD = submit_dir when invoking POST scripts, so
+    submit_dir is always Path(os.getcwd()) and braindump.yml is
+    always at ./braindump.yml — no CLI args required.
+
+    Returns an empty dict when the file is absent or unreadable.
+    """
+    path = submit_dir / "braindump.yml"
+    if not path.exists():
+        return {}
+    try:
+        if _HAS_YAML:
+            import yaml
+            return yaml.safe_load(path.read_text()) or {}
+        # Minimal fallback parser for "key: value" lines
+        result: dict = {}
+        for line in path.read_text().splitlines():
+            if ":" in line and not line.strip().startswith("#"):
+                k, _, v = line.partition(":")
+                result[k.strip()] = v.strip().strip('"').strip("'")
+        return result
+    except Exception:
+        return {}
 
 
 def _log(msg: str) -> None:
@@ -256,21 +294,34 @@ def main() -> int:
     parser.add_argument("job_id",                 help="DAGMan node name ($JOB)")
     parser.add_argument("retry_number", type=int, help="Current retry ($RETRY)")
     parser.add_argument("max_retries",  type=int, help="Max retries ($MAX_RETRIES)")
-    parser.add_argument("submit_dir",             help="Pegasus submit directory")
-    parser.add_argument("workflow_id",            help="Pegasus workflow UUID (wf_uuid)")
+    # submit_dir and workflow_id are discovered from braindump.yml (CWD = submit_dir)
+    # but can be overridden via optional flags when invoking outside of DAGMan.
+    parser.add_argument("--submit-dir",  dest="submit_dir",  default=None,
+                        help="Override submit directory (default: CWD, set by DAGMan)")
+    parser.add_argument("--workflow-id", dest="workflow_id", default=None,
+                        help="Override workflow UUID (default: read from braindump.yml)")
     parser.add_argument("--job-instance-id", dest="job_instance_id", type=int, default=None)
     parser.add_argument("--condor-job-id",   dest="condor_job_id",   default=None)
     parser.add_argument("--execution-site",  dest="execution_site",  default=None)
     parser.add_argument("--transformation",  default=None)
     args = parser.parse_args()
 
-    _open_log(Path(args.submit_dir), args.job_id)
+    # Resolve submit_dir: flag > CWD (DAGMan always sets CWD = submit_dir)
+    submit_dir = Path(args.submit_dir) if args.submit_dir else Path(os.getcwd())
+    args.submit_dir = str(submit_dir)
+
+    # Resolve workflow_id: flag > braindump.yml > fallback empty string
+    if not args.workflow_id:
+        braindump = _read_braindump(submit_dir)
+        args.workflow_id = braindump.get("wf_uuid", "")
+
+    _open_log(submit_dir, args.job_id)
     _log(
         f"invoked: exit_code={args.exit_code} "
-        f"retry={args.retry_number}/{args.max_retries} job={args.job_id}"
+        f"retry={args.retry_number}/{args.max_retries} job={args.job_id} "
+        f"wf={args.workflow_id}"
     )
 
-    submit_dir = Path(args.submit_dir)
     thread_file = (
         _find_job_subdir(submit_dir, args.job_id) / f"{args.job_id}.healer_thread"
     )

@@ -1,3 +1,3 @@
-from Pegasus.healer.utils.collectors.base import ContextCollector
+from Pegasus.healer.collectors.base import ContextCollector
 
 __all__ = ["ContextCollector"]

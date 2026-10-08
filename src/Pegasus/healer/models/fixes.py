@@ -11,9 +11,11 @@ class FixAction(StrEnum):
     INCREASE_MEMORY = "INCREASE_MEMORY"
     INCREASE_DISK = "INCREASE_DISK"
     INCREASE_RUNTIME = "INCREASE_RUNTIME"
+    MIGRATE_PARTITION = "MIGRATE_PARTITION"              # move job to larger SLURM partition
     RETRY_DIFFERENT_SITE = "RETRY_DIFFERENT_SITE"
     CORRECT_DATA_BINDING = "CORRECT_DATA_BINDING"       # fix wrong path in .sub file
     FIX_DATA_BINDING = "FIX_DATA_BINDING"               # alias used by LLM planner
+    RESTAGE_INPUT = "RESTAGE_INPUT"                      # re-transfer corrupted input file
     PATCH_TRANSFORMATION_SCRIPT = "PATCH_TRANSFORMATION_SCRIPT"  # patch local script file
     CORRECT_SCHEDULER_CONFIG = "CORRECT_SCHEDULER_CONFIG"
     HUMAN_REVIEW = "HUMAN_REVIEW"

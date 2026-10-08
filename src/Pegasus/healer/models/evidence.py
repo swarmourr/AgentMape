@@ -45,6 +45,14 @@ class RawEvidence(BaseModel):
     # ── Input file validation (from transfer_input_files in .sub file) ────────
     input_validation: list[InputFileStatus] = Field(default_factory=list)
 
+    # ── SLURM partition profile (populated on SLURM clusters only) ────────────
+    # current_partition: name parsed from batch_queue / +remote_queue in the .sub file
+    # partition_profile: list of dicts (PartitionInfo.raw + healer fields) for all
+    #   accessible partitions; serialised as plain dicts to avoid importing
+    #   scheduler types into the evidence model.
+    current_partition: str | None = None
+    partition_profile: list[dict] = Field(default_factory=list)
+
     @property
     def available_sources(self) -> list[str]:
         """List which sources have content — shown to the agent as seed context."""
@@ -73,4 +81,6 @@ class RawEvidence(BaseModel):
                 available.append(f"input_validation({missing}_missing)")
             else:
                 available.append("input_validation(all_present)")
+        if self.partition_profile:
+            available.append(f"partition_profile({len(self.partition_profile)}_partitions)")
         return available

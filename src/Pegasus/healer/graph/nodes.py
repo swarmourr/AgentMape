@@ -471,14 +471,16 @@ async def generate_proposal_report(state: dict[str, Any]) -> dict[str, Any]:
     (e.g. scope=job but fix requires catalog access) or because the failure
     type always requires human action (SCRIPT_ERROR, APPLICATION_ERROR).
 
-    The full fix proposal is already in state (proposed_fix, policy_record).
-    The POST script reads it from the final graph state and writes the agent
-    report so the human can apply the fix manually.
+    Writes two files to the job directory so the human has an actionable signal:
+      {job_id}.healer_proposal       — human-readable plain text
+      {job_id}.healer_proposal.json  — machine-readable JSON for tooling
 
-    Exit code for this path: 0 (DAGMan does NOT retry automatically).
+    Exit code for this path: non-zero (DAGMan does NOT retry automatically).
     """
     proposal = _proposal(state)
     diagnosis = _diagnosis(state)
+    svc = _svc()
+
     log.info(
         "proposal_report_generated",
         failure_type=diagnosis.failure_type,
@@ -486,7 +488,204 @@ async def generate_proposal_report(state: dict[str, Any]) -> dict[str, Any]:
         scope_reason=state.get("policy_record", {}).get("reason", ""),
         incident_id=state["incident_id"],
     )
+
+    _write_proposal_files(state, proposal, diagnosis, svc)
     return {"terminal": True}
+
+
+# ── Proposal file helpers ──────────────────────────────────────────────────────
+
+def _find_job_dir_for_node(submit_dir: str, job_id: str) -> "Path":
+    from pathlib import Path
+    p = Path(submit_dir)
+    for candidate in p.rglob(f"{job_id}.sub"):
+        return candidate.parent
+    return p
+
+
+def _manual_steps(proposal: FixProposal) -> str:
+    """Return human-readable numbered steps for applying the fix manually."""
+    from Pegasus.healer.models.fixes import FixAction
+
+    action = proposal.action
+    cfg = proposal.proposed_configuration
+    old = proposal.old_configuration
+
+    if action == FixAction.INCREASE_MEMORY:
+        return (
+            f"1. Open the job .sub file.\n"
+            f"2. Change:  request_memory = {old.get('memory_mb', '?')}\n"
+            f"       to:  request_memory = {cfg.get('memory_mb', '?')}\n"
+            f"3. Save the file and resubmit (see below)."
+        )
+    if action == FixAction.INCREASE_DISK:
+        return (
+            f"1. Open the job .sub file.\n"
+            f"2. Change:  request_disk = {old.get('disk_mb', '?')}\n"
+            f"       to:  request_disk = {cfg.get('disk_mb', '?')}\n"
+            f"3. Save the file and resubmit (see below)."
+        )
+    if action == FixAction.INCREASE_RUNTIME:
+        return (
+            f"1. Open the job .sub file.\n"
+            f"2. Change:  +pegasus_request_time = {old.get('runtime_seconds', '?')}\n"
+            f"       to:  +pegasus_request_time = {cfg.get('runtime_seconds', '?')}\n"
+            f"3. Save the file and resubmit (see below)."
+        )
+    if action == FixAction.MIGRATE_PARTITION:
+        tgt = cfg.get("target_partition", "?")
+        return (
+            f"1. Open the job .sub file.\n"
+            f"2. Set:  batch_queue = {tgt}\n"
+            f"         +remote_queue = \"{tgt}\"\n"
+            f"         request_memory = {cfg.get('memory_mb', '?')}\n"
+            f"   (was: partition={old.get('target_partition', '?')}, "
+            f"memory={old.get('memory_mb', '?')} MB)\n"
+            f"3. Save the file and resubmit (see below)."
+        )
+    if action == FixAction.RETRY_DIFFERENT_SITE:
+        return (
+            "1. Identify an alternative execution site that has the required\n"
+            "   resource (license / GPU / module).\n"
+            "2. Update the site catalog or job site selector.\n"
+            "3. Resubmit the workflow targeting that site."
+        )
+    if action == FixAction.RESTAGE_INPUT:
+        return (
+            "1. Identify the corrupted input LFN from the diagnosis above.\n"
+            "2. Re-transfer the file:\n"
+            "       pegasus-transfer --file <lfn>\n"
+            "3. Verify the checksum, then resubmit."
+        )
+    if action == FixAction.CORRECT_DATA_BINDING:
+        return (
+            "1. Fix the input file path in the replica catalog (rc.txt / rc.yml).\n"
+            "2. Re-plan or resubmit the workflow."
+        )
+    if action == FixAction.PATCH_TRANSFORMATION_SCRIPT:
+        if proposal.script_patches:
+            lines = ["Apply the following patch(es):"]
+            for p in proposal.script_patches:
+                lines.append(f"\n  File   : {p.file_path}")
+                lines.append(f"  Change : {p.patch_description}")
+            lines.append("\nThen resubmit the workflow.")
+            return "\n".join(lines)
+        return "Apply the suggested script patch and resubmit."
+    if action == FixAction.CORRECT_SCHEDULER_CONFIG:
+        return (
+            "1. Fix the scheduler configuration in the .sub file\n"
+            "   (wrong account, QOS, partition, or constraint).\n"
+            "2. Resubmit the workflow."
+        )
+    # Generic fallback
+    return (
+        f"Action required: {action}\n"
+        "See the justification above for details.\n"
+        "Apply the fix manually and resubmit the workflow."
+    )
+
+
+def _write_proposal_files(
+    state: dict[str, Any],
+    proposal: FixProposal,
+    diagnosis: Diagnosis,
+    svc: dict[str, Any],
+) -> None:
+    """
+    Write {job_id}.healer_proposal (text) and {job_id}.healer_proposal.json
+    to the job's submit subdirectory so the human has an actionable signal.
+    """
+    import json
+    import textwrap
+    from datetime import datetime, timezone
+
+    submit_dir = svc.get("submit_dir")
+    job_id = state.get("job_id", "unknown")
+    if not submit_dir:
+        log.warning("proposal_file_skipped", reason="no submit_dir in services")
+        return
+
+    job_dir = _find_job_dir_for_node(submit_dir, job_id)
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    steps = _manual_steps(proposal)
+
+    separator = "─" * 72
+    text = textwrap.dedent(f"""\
+        ╔══════════════════════════════════════════════════════════════════════╗
+        ║           PEGASUS HEALER — FIX PROPOSAL  (action required)         ║
+        ╚══════════════════════════════════════════════════════════════════════╝
+
+        Generated : {now}
+        Incident  : {state.get('incident_id', '?')}
+        Job       : {job_id}
+        Workflow  : {state.get('workflow_id', '?')}
+
+        {separator}
+        DIAGNOSIS
+        {separator}
+        Failure type : {diagnosis.failure_type}
+        Confidence   : {diagnosis.confidence:.0%}
+        Explanation  : {diagnosis.explanation}
+
+        {separator}
+        PROPOSED FIX
+        {separator}
+        Action        : {proposal.action}
+        Fix ID        : {proposal.fix_id}
+        Justification : {proposal.justification}
+
+        Old config : {proposal.old_configuration or '(none)'}
+        New config : {proposal.proposed_configuration or '(none)'}
+
+        {separator}
+        MANUAL STEPS
+        {separator}
+        {steps}
+
+        {separator}
+        HOW TO RESUBMIT
+        {separator}
+        After applying the fix, resume the workflow from the submit directory:
+
+            pegasus-run {submit_dir}
+
+        Or resume from the DAGMan rescue file:
+
+            condor_submit_dag -DoRescueFrom <N> *.dag
+
+        {separator}
+        NOTE: This fix was NOT applied automatically (policy = ASK).
+        Review the steps above, apply the change, then resubmit.
+        To mark the job permanently failed instead, run:
+
+            pegasus-remove {submit_dir}
+        """)
+
+    txt_path = job_dir / f"{job_id}.healer_proposal"
+    json_path = job_dir / f"{job_id}.healer_proposal.json"
+
+    try:
+        txt_path.write_text(text, encoding="utf-8")
+        log.info("proposal_file_written", path=str(txt_path), job_id=job_id)
+    except OSError as exc:
+        log.warning("proposal_file_write_failed", path=str(txt_path), error=str(exc))
+
+    try:
+        payload = {
+            "schema_version": "1.0",
+            "generated_at": now,
+            "incident_id": str(state.get("incident_id")),
+            "job_id": job_id,
+            "workflow_id": state.get("workflow_id"),
+            "submit_dir": submit_dir,
+            "diagnosis": diagnosis.model_dump(mode="json"),
+            "proposal": proposal.model_dump(mode="json"),
+            "policy_record": state.get("policy_record"),
+        }
+        json_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        log.info("proposal_json_written", path=str(json_path), job_id=job_id)
+    except OSError as exc:
+        log.warning("proposal_json_write_failed", path=str(json_path), error=str(exc))
 
 
 async def handle_insufficient_evidence(state: dict[str, Any]) -> dict[str, Any]:
@@ -500,11 +699,52 @@ async def handle_insufficient_evidence(state: dict[str, Any]) -> dict[str, Any]:
 
 
 async def escalate(state: dict[str, Any]) -> dict[str, Any]:
-    """Terminal node when the system cannot safely proceed."""
+    """
+    Terminal node when the system cannot safely proceed.
+    Writes a {job_id}.healer_escalation file so the human has a clear signal.
+    """
+    import json
+    from datetime import datetime, timezone
+    from pathlib import Path
+
+    svc = _svc()
+    submit_dir = svc.get("submit_dir")
+    job_id = state.get("job_id", "unknown")
+
     log.warning(
         "incident_escalated",
         incident_id=state["incident_id"],
         policy_decision=state.get("policy_decision"),
         errors=state.get("errors", []),
     )
+
+    if submit_dir:
+        job_dir = _find_job_dir_for_node(submit_dir, job_id)
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        sep = "─" * 72
+        text = (
+            f"╔══════════════════════════════════════════════════════════════════════╗\n"
+            f"║           PEGASUS HEALER — ESCALATION  (human intervention needed) ║\n"
+            f"╚══════════════════════════════════════════════════════════════════════╝\n\n"
+            f"Generated : {now}\n"
+            f"Incident  : {state.get('incident_id', '?')}\n"
+            f"Job       : {job_id}\n"
+            f"Workflow  : {state.get('workflow_id', '?')}\n\n"
+            f"{sep}\n"
+            f"The healer cannot fix this failure automatically.\n"
+            f"Policy decision : {state.get('policy_decision', 'ESCALATE')}\n"
+            f"Errors          : {state.get('errors', [])}\n\n"
+            f"Check the job log and stderr for details:\n"
+            f"    {job_dir}/{job_id}.err\n"
+            f"    {job_dir}/{job_id}.healer.log\n\n"
+            f"After resolving the issue manually, resubmit with:\n"
+            f"    pegasus-run {submit_dir}\n"
+        )
+        esc_path = job_dir / f"{job_id}.healer_escalation"
+        try:
+            esc_path.write_text(text, encoding="utf-8")
+            log.info("escalation_file_written", path=str(esc_path))
+        except OSError as exc:
+            log.warning("escalation_file_write_failed", path=str(esc_path), error=str(exc))
+
     return {"terminal": True}

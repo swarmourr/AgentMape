@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+SCRIPT="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")"
+PROJECT_ROOT="$(cd "$(dirname "$SCRIPT")/.." && pwd)"
+PYTHONPATH="$PROJECT_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
+  "${HEALER_PYTHON:-$PROJECT_ROOT/agentic/bin/python3}" \
+  "$PROJECT_ROOT/scripts/pegasus_inspect_v3.py" "$@"

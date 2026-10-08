@@ -70,6 +70,17 @@ failure_policies:
     maximum_memory_mb: 524288     # 512 GB ceiling (NERSC Perlmutter node max)
     maximum_attempts: 3
 
+  PARTITION_MIGRATION:
+    # Triggered when OOM memory increase would exceed the current SLURM
+    # partition's MaxMemPerNode ceiling.  The fix patches both request_memory
+    # and batch_queue / +remote_queue to move the job to a larger partition.
+    # Always ASK: partition changes affect cost, priority, and fair-share.
+    action: MIGRATE_PARTITION
+    required_level: job           # only .sub batch_queue + request_memory change
+    decision: ASK
+    fallback_decision: ASK        # suggest migration even when scope is tight
+    maximum_attempts: 2           # if migration also OOMs, escalate
+
   DISK_EXCEEDED:
     action: INCREASE_DISK
     required_level: job           # only .sub request_disk change needed
@@ -86,11 +97,123 @@ failure_policies:
     maximum_runtime_seconds: 172800  # 48 h hard ceiling
     maximum_attempts: 2
 
+  # ── Simple retry (no config change) ─────────────────────────────────────────
+
+  PREEMPTED:
+    # Job killed by a higher-priority job. Retry immediately without changes.
+    # Detection: SLURM state=PREEMPTED, exit signal 15, scheduler reason "preempt".
+    action: NO_ACTION_TRANSIENT_RETRY
+    required_level: job
+    decision: AUTO
+    maximum_attempts: 5           # preemption can repeat; allow several retries
+
+  NODE_FAILURE:
+    # Hardware fault caused the node to go down mid-job.
+    # Detection: SLURM state=NODE_FAIL, signal 9 without exit 137 (OOM).
+    action: NO_ACTION_TRANSIENT_RETRY
+    required_level: job
+    decision: AUTO
+    maximum_attempts: 3
+
+  STAGING_FAILURE:
+    # pegasus-transfer I/O error (network blip, NFS timeout, stale handle).
+    # Detection: transformation name is stage_in/stage_out, or transfer error in stderr.
+    action: NO_ACTION_TRANSIENT_RETRY
+    required_level: job
+    decision: AUTO
+    maximum_attempts: 3
+
+  MPI_FAILURE:
+    # MPI rank communication failure — usually transient fabric issue.
+    # Detection: stderr contains MPI_ABORT, Fatal error in PMPI_, etc.
+    action: NO_ACTION_TRANSIENT_RETRY
+    required_level: job
+    decision: AUTO
+    maximum_attempts: 2
+
   TRANSIENT_INFRASTRUCTURE:
     action: NO_ACTION_TRANSIENT_RETRY
     required_level: job           # no file change — just retry
     decision: AUTO
     maximum_attempts: 3
+
+  # ── ASK — human approval required ────────────────────────────────────────────
+
+  LICENSE_UNAVAILABLE:
+    # Software license checkout failed (MATLAB, Gaussian, ANSYS, etc.).
+    # Detection: stderr contains license/checkout-failed patterns, wall time short.
+    # Fix: retry on site with available license, or wait for license to free.
+    action: RETRY_DIFFERENT_SITE
+    required_level: job
+    decision: ASK
+    fallback_decision: ASK
+    maximum_attempts: 2
+
+  GPU_UNAVAILABLE:
+    # GPU not allocated or failed to initialise (CUDA error, no CUDA-capable device).
+    # Detection: stderr contains CUDA error patterns, job exits very early.
+    # Fix: retry on a GPU-capable site or reduce GPU request.
+    action: RETRY_DIFFERENT_SITE
+    required_level: job
+    decision: ASK
+    fallback_decision: ASK
+    maximum_attempts: 2
+
+  DATA_CORRUPTION:
+    # Input file failed integrity/checksum check (pegasus-integrity mismatch).
+    # Detection: stderr contains checksum mismatch, hash mismatch, corrupt.
+    # Fix: re-stage the input from the replica catalog.
+    action: RESTAGE_INPUT
+    required_level: catalog       # needs replica catalog to re-stage
+    decision: ASK
+    fallback_decision: ASK
+    maximum_attempts: 1
+
+  SCRATCH_FULL:
+    # Physical /tmp or scratch filesystem is full (not the Pegasus disk slot).
+    # Detection: "No space left on device" on /tmp/scratch path in stderr.
+    # Fix: redirect TMPDIR or clear scratch — human must intervene.
+    action: HUMAN_REVIEW
+    required_level: job
+    decision: ASK
+    fallback_decision: ESCALATE
+    maximum_attempts: 1
+
+  # ── ESCALATE — human must intervene, healer cannot fix ───────────────────────
+
+  ACCOUNT_EXPIRED:
+    # HPC allocation exhausted — job immediately rejected by scheduler.
+    # Detection: scheduler reason + wall time near zero + account/allocation keywords.
+    action: HUMAN_REVIEW
+    required_level: job
+    decision: ESCALATE
+    maximum_attempts: 1
+
+  CONTAINER_PULL_FAILED:
+    # Docker/Singularity image missing or registry unreachable.
+    # Detection: stderr from container runtime (FATAL: Unable to pull, etc.).
+    action: HUMAN_REVIEW
+    required_level: job
+    decision: ASK               # propose fix path, human applies it
+    fallback_decision: ESCALATE
+    maximum_attempts: 1
+
+  MODULE_NOT_FOUND:
+    # Required environment module or binary not installed on execution site.
+    # Detection: exit code 127, "module not found" / "command not found" in stderr.
+    action: HUMAN_REVIEW
+    required_level: job
+    decision: ASK               # suggest site change, human decides
+    fallback_decision: ESCALATE
+    maximum_attempts: 1
+
+  SSH_AUTH_FAILURE:
+    # SSH authentication failure to remote execution site.
+    # Detection: "Permission denied (publickey)" / "Host key verification failed" + exit 255.
+    action: HUMAN_REVIEW
+    required_level: job
+    decision: ESCALATE          # credential fix requires human
+    maximum_attempts: 1
 
   SCHEDULER_ADMISSION:
     action: CORRECT_SCHEDULER_CONFIG

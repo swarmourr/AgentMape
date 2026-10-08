@@ -90,6 +90,12 @@ class FailureContext(BaseModel):
     # Used by the rule classifier for pattern-based diagnosis without agent overhead.
     stderr_excerpt: str | None = None
 
+    # ── SLURM partition context ───────────────────────────────────────────────
+    # Populated from RawEvidence.current_partition / partition_profile when
+    # the job ran on a SLURM cluster.  Both fields are None / empty on HTCondor.
+    current_partition: str | None = None
+    partition_profile: list[dict] = Field(default_factory=list)
+
     # Fields that were not available at collection time
     missing_evidence: list[str] = Field(default_factory=list)
 

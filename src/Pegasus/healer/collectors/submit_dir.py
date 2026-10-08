@@ -18,7 +18,7 @@ import re
 from pathlib import Path
 
 from Pegasus.healer.models.evidence import InputFileStatus, RawEvidence
-from Pegasus.healer.scheduler.factory import get_scheduler_client
+from Pegasus.healer.scheduler.factory import get_scheduler_client, get_pegasus_client
 from Pegasus.healer.scheduler.pegasus import run_pegasus_analyzer as _pegasus_analyzer
 
 MAX_FILE_BYTES = 200_000   # 200 KB per file cap
@@ -188,6 +188,73 @@ def collect_transformation_script(
     return content, str(script_path.resolve())
 
 
+def parse_slurm_partition(sub_file_content: str | None) -> str | None:
+    """
+    Extract the SLURM partition name from a Pegasus .sub file.
+
+    Pegasus writes the target partition into the submit file differently
+    depending on the CE type used for SLURM submission:
+
+      batch_queue = <partition>          ← CREAM CE / BLAHP / SLURM-CE
+      +remote_queue = "<partition>"      ← HTCondor-CE grid universe
+
+    Returns the partition name (without quotes), or None when neither
+    attribute is present (HTCondor-native job, no SLURM routing).
+    """
+    if not sub_file_content:
+        return None
+    # Try batch_queue first (most common in Pegasus SLURM submissions)
+    m = re.search(
+        r"^\s*batch_queue\s*=\s*([^\s#\n]+)",
+        sub_file_content,
+        re.MULTILINE | re.IGNORECASE,
+    )
+    if m:
+        return m.group(1).strip().strip('"').strip("'")
+    # Fall back to +remote_queue (HTCondor-CE grid universe)
+    m = re.search(
+        r'^\s*\+remote_queue\s*=\s*["\']?([^"\'#\s\n]+)["\']?',
+        sub_file_content,
+        re.MULTILINE | re.IGNORECASE,
+    )
+    if m:
+        return m.group(1).strip()
+    return None
+
+
+def collect_partition_profile(
+    current_partition: str | None,
+) -> list[dict]:
+    """
+    Collect SLURM partition resource limits via PegasusClient.
+
+    Returns a list of serialisable dicts (one per partition) that the fix
+    catalog and LLM agents can inspect without importing scheduler types.
+
+    All SLURM CLI calls (scontrol / sinfo) go through PegasusClient →
+    SLURMClient._run() — no direct subprocess calls here.
+
+    Returns an empty list when:
+      - the cluster is not SLURM (HTCondor, or no sinfo on PATH), or
+      - PegasusClient.get_partition_profile() returns nothing.
+    """
+    try:
+        client = get_pegasus_client()
+        partitions = client.get_partition_profile()
+        return [
+            {
+                "name": p.name,
+                "max_mem_mb": p.max_mem_mb,
+                "default_mem_mb": p.default_mem_mb,
+                "max_time_seconds": p.max_time_seconds,
+                "accessible": p.accessible,
+            }
+            for p in partitions
+        ]
+    except Exception:
+        return []
+
+
 def parse_healer_tags(sub_file_content: str | None) -> list[str]:
     """
     Parse +PegasusHealerTags from a .sub file.
@@ -284,12 +351,18 @@ def collect_evidence(
     script_content, script_path = collect_transformation_script(sub_content, submit_path)
     input_checks = validate_input_files(sub_content)
 
+    # SLURM partition profile — all CLI calls go through PegasusClient
+    current_partition = parse_slurm_partition(sub_content)
+    partition_profile = collect_partition_profile(current_partition)
+
     return RawEvidence(
         pegasus_analyzer_output=analyzer,
         condor_classads_raw=classads,
         transformation_script_content=script_content,
         transformation_script_path=script_path,
         input_validation=input_checks,
+        current_partition=current_partition,
+        partition_profile=partition_profile,
         **job_files,
         **wf_files,
     )

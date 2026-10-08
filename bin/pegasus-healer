@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# =============================================================================
+# pegasus-healer — source-tree launcher (no pip install required)
+#
+# Usage (same as the installed CLI):
+#   bin/pegasus-healer <exit_code> <job_id> <retry> <max_retries> [flags]
+#
+# Use as a DAGMan POST script in pegasus.properties:
+#   dagman.post           = /path/to/project/bin/pegasus-healer
+#   dagman.post.arguments = $RETURN $JOB $RETRY $MAX_RETRIES
+#
+# Python resolution order (first found wins):
+#   1. $HEALER_PYTHON          — explicit override
+#   2. $VIRTUAL_ENV/bin/python3 — an already-activated venv
+#   3. <project>/agentic/bin/python3 — project-local venv
+#   4. python3 / python        — system Python (must have deps)
+#
+# Key env vars you can set in .env or export before calling:
+#   HEALER_PYTHON      — path to python interpreter
+#   HEALER_POLICY_MODE — production | debug
+#   POLICY_FILE        — path to remediation.yaml (defaults to project copy)
+#   AGENT_SCOPE_LEVEL  — job | script | catalog | workflow
+#   LLM_MODEL          — LiteLLM model string  (e.g. openai/gpt-4o)
+#   LLM_API_KEY        — API key
+#   LLM_BASE_URL       — base URL override (Ollama, vLLM, etc.)
+#   HEALER_CHECKPOINT  — SQLite checkpoint DB path
+#   HEALER_MEMORY_DB   — SQLite memory DB path
+# =============================================================================
+set -euo pipefail
+
+# ── 1. Resolve project root (directory containing this script's parent) ───────
+SCRIPT="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || realpath "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")"
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# ── 2. Load .env from project root if present (non-destructive) ───────────────
+if [[ -f "$PROJECT_ROOT/.env" ]]; then
+    set -o allexport
+    # shellcheck disable=SC1090
+    source "$PROJECT_ROOT/.env"
+    set +o allexport
+fi
+
+# ── 3. Pick the Python interpreter ────────────────────────────────────────────
+if [[ -n "${HEALER_PYTHON:-}" ]]; then
+    PYTHON="$HEALER_PYTHON"
+elif [[ -n "${VIRTUAL_ENV:-}" && -x "$VIRTUAL_ENV/bin/python3" ]]; then
+    PYTHON="$VIRTUAL_ENV/bin/python3"
+elif [[ -x "$PROJECT_ROOT/agentic/bin/python3" ]]; then
+    PYTHON="$PROJECT_ROOT/agentic/bin/python3"
+elif command -v python3 &>/dev/null; then
+    PYTHON="python3"
+elif command -v python &>/dev/null; then
+    PYTHON="python"
+else
+    echo "[pegasus-healer] ERROR: no Python interpreter found." >&2
+    echo "  Set HEALER_PYTHON=/path/to/python or activate a venv first." >&2
+    exit 2
+fi
+
+# ── 4. Prepend project src/ to PYTHONPATH ─────────────────────────────────────
+# This makes 'import Pegasus.healer' resolve from the source tree rather
+# than any installed wheel — no pip install required.
+SRC_DIR="$PROJECT_ROOT/src"
+if [[ -z "${PYTHONPATH:-}" ]]; then
+    export PYTHONPATH="$SRC_DIR"
+else
+    export PYTHONPATH="$SRC_DIR:$PYTHONPATH"
+fi
+
+# ── 5. Default env vars (only if not already set) ─────────────────────────────
+# Policy file — use project copy so no install-time path is needed
+export POLICY_FILE="${POLICY_FILE:-$PROJECT_ROOT/policies/remediation.yaml}"
+
+# SQLite state files land in ~/.pegasus/ by default (writable on shared VMs)
+_PEGASUS_DIR="${HOME:-/tmp}/.pegasus"
+mkdir -p "$_PEGASUS_DIR"
+export HEALER_CHECKPOINT="${HEALER_CHECKPOINT:-$_PEGASUS_DIR/healer_checkpoint.db}"
+export HEALER_MEMORY_DB="${HEALER_MEMORY_DB:-$_PEGASUS_DIR/healer_memory.db}"
+
+# ── 6. Exec the healer CLI ────────────────────────────────────────────────────
+exec "$PYTHON" -m Pegasus.healer.cli.healer "$@"
