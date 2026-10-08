@@ -1,6 +1,4 @@
 from Pegasus.api import *
-import re
-import subprocess
 import sys
 from pathlib import Path
 
@@ -27,18 +25,18 @@ OUTPUT_DIR = Path(BASE_DIR /  "output").resolve()
 # from an ACCESS site such as jetstream.
 EXEC_SITE = "local"
 
-# --- Healer post script -------------------------------------------------------
+# --- Healer setup -------------------------------------------------------------
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-from workflows.healer import add_healer_to_job
+from workflows.healer import configure_healer_properties, add_healer_to_job
 
-_post_script = (_PROJECT_ROOT / "scripts" / "pegasus_post_script.py").resolve()
-_post_script.chmod(0o755)
-
-# Remove any stale pegasus.properties — Pegasus auto-loads it from CWD
-(BASE_DIR / "pegasus.properties").unlink(missing_ok=True)
+# Write pegasus.properties with dagman.post = pegasus-healer
+# Pegasus injects it into every job node in the .dag at plan time.
+props = Properties()
+configure_healer_properties(props, max_retries=3)
+props.write()
 
 # generate a simple input file for the workflow
 INPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -88,43 +86,12 @@ try:
 except PegasusClientError as e:
     print(e)
 
-# --- Plan (without submit — we patch the .dag first) -------------------------
+# --- Plan and submit ----------------------------------------------------------
+# dagman.post = pegasus-healer is already in pegasus.properties above,
+# so Pegasus writes it into every job node of the .dag at plan time.
 try:
-    wf.plan(input_dirs=[INPUT_DIR], sites=[EXEC_SITE],\
-            output_dir=OUTPUT_DIR, submit=False)
+    wf.plan(input_dirs=[INPUT_DIR], sites=[EXEC_SITE],
+            output_dir=OUTPUT_DIR, submit=True)
 except PegasusClientError as e:
     print(e)
-    sys.exit(1)
-
-# --- Inject healer into the generated .dag ------------------------------------
-_INFRA = ("create_dir", "stage_in", "stage_out", "register", "clean_up", "cleanup")
-
-# Find the generated .dag — Pegasus submit dir location varies by site config
-_dag_files = sorted(BASE_DIR.glob("**/hello-world-0.dag"), key=lambda p: p.stat().st_mtime)
-
-if not _dag_files:
-    print("ERROR: no .dag file found — cannot inject healer", file=sys.stderr)
-    sys.exit(1)
-
-_dag_file   = _dag_files[-1]           # latest run
-_submit_dir = _dag_file.parent         # e.g. .../run0001/
-_wf_id      = _submit_dir.name         # e.g. "run0001"
-
-_lines = _dag_file.read_text().splitlines()
-_patched = []
-for _line in _lines:
-    _m = re.match(r"^SCRIPT POST\s+(\S+)\s+/usr/bin/pegasus-exitcode", _line)
-    if _m and not any(p in _m.group(1) for p in _INFRA):
-        _job = _m.group(1)
-        _line = (f"SCRIPT POST {_job} {sys.executable} {_post_script} "
-                 f"$RETURN {_job} $RETRY 3 {_submit_dir} {_wf_id}")
-    _patched.append(_line)
-
-_dag_file.write_text("\n".join(_patched) + "\n")
-print(f"\nHealer injected → {_dag_file}")
-
-# --- Submit the patched DAG ---------------------------------------------------
-_res = subprocess.run(["pegasus-run", str(_submit_dir)], text=True)
-if _res.returncode != 0:
-    print("ERROR: pegasus-run failed", file=sys.stderr)
     sys.exit(1)
