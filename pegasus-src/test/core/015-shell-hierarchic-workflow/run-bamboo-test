@@ -1,0 +1,86 @@
+#!/bin/bash
+
+set -e
+set -v
+
+TOPDIR=`pwd`
+DAX=main.dax
+
+# Unique directory for this run
+RUN_ID=`/bin/date +'%Y%m%d_%H%M%S%N'`
+RUN_DIR=`pwd`/submit/$RUN_ID
+
+# create the site catalog
+cat > sites.yml <<EOF
+pegasus: "5.0"
+sites:
+ -
+  name: "local"
+  arch: "x86_64"
+  os.type: "linux"
+  os.release: "rhel"
+  os.version: "7"
+  directories:
+   -
+    type: "sharedScratch"
+    path: "$TOPDIR/shared-scratch"
+    fileServers:
+     -
+      operation: "all"
+      url: "$TOPDIR/shared-scratch"
+   -
+    type: "sharedStorage"
+    path: "$TOPDIR/shared-storage"
+    fileServers:
+     -
+      operation: "all"
+      url: "$TOPDIR/shared-storage"
+  grids:
+   -
+    type: "gt5"
+    contact: "localhost/jobmanager-fork"
+    scheduler: "fork"
+    jobtype: "compute"
+   -
+    type: "gt5"
+    contact: "localhost/jobmanager-fork"
+    scheduler: "fork"
+    jobtype: "auxillary"
+EOF
+
+cat > $DAX <<EOF
+pegasus: "5.0"
+name: main
+
+replicaCatalog:
+  replicas:
+    - lfn: dax
+      pfns:
+        - pfn: "file://$TOPDIR/inner.dax"
+          site: "local"
+
+jobs:
+  - type: pegasusWorkflow
+    id: daxid
+    file: dax
+    arguments: ["-vvv"]
+    uses:
+      - lfn: dax
+        type: input
+        forPlanning: true
+EOF
+
+set -x
+
+pegasus-plan \
+    -Dpegasus.code.generator=Shell \
+    --conf pegasusrc \
+    --sites local \
+    --output-sites local \
+    --dir submit \
+    --relative-submit-dir ${RUN_ID} \
+    --cleanup leaf \
+    --submit \
+    ${DAX}
+
+set +x

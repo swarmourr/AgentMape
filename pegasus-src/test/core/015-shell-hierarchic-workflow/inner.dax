@@ -1,0 +1,260 @@
+pegasus: "5.0"
+name: inner
+
+transformationCatalog:
+  transformations:
+    - namespace: cluster
+      name: level1
+      version: "1.0"
+      sites:
+        - name: local
+          type: installed
+          pfn: "file:///bin/sleep"
+          arch: x86_64
+          os.type: linux
+          os.release: rhel
+          os.version: "7"
+
+    - namespace: cluster
+      name: level2
+      version: "1.0"
+      sites:
+        - name: local
+          type: installed
+          pfn: "file:///bin/sleep"
+          arch: x86_64
+          os.type: linux
+          os.release: rhel
+          os.version: "7"
+
+
+jobs:
+  - type: job
+    id: ID0000001
+    name: level1
+    namespace: cluster
+    version: "1.0"
+    arguments: ["1"]
+    uses: []
+    profiles:
+      pegasus:
+        runtime: "1"
+
+  - type: job
+    id: ID0000002
+    name: level2
+    namespace: cluster
+    version: "1.0"
+    arguments: ["2"]
+    uses: []
+    profiles:
+      pegasus:
+        runtime: "2"
+
+  - type: job
+    id: ID0000003
+    name: level2
+    namespace: cluster
+    version: "1.0"
+    arguments: ["4"]
+    uses: []
+    profiles:
+      pegasus:
+        runtime: "4"
+
+  - type: job
+    id: ID0000004
+    name: level2
+    namespace: cluster
+    version: "1.0"
+    arguments: ["6"]
+    uses: []
+    profiles:
+      pegasus:
+        runtime: "6"
+
+  - type: job
+    id: ID0000005
+    name: level2
+    namespace: cluster
+    version: "1.0"
+    arguments: ["8"]
+    uses: []
+    profiles:
+      pegasus:
+        runtime: "8"
+
+  - type: job
+    id: ID0000006
+    name: level1
+    namespace: cluster
+    version: "1.0"
+    arguments: ["2"]
+    uses: []
+    profiles:
+      pegasus:
+        runtime: "2"
+
+  - type: job
+    id: ID0000007
+    name: level2
+    namespace: cluster
+    version: "1.0"
+    arguments: ["2"]
+    uses: []
+    profiles:
+      pegasus:
+        runtime: "2"
+
+  - type: job
+    id: ID0000008
+    name: level2
+    namespace: cluster
+    version: "1.0"
+    arguments: ["4"]
+    uses: []
+    profiles:
+      pegasus:
+        runtime: "4"
+
+  - type: job
+    id: ID0000009
+    name: level2
+    namespace: cluster
+    version: "1.0"
+    arguments: ["6"]
+    uses: []
+    profiles:
+      pegasus:
+        runtime: "6"
+
+  - type: job
+    id: ID0000010
+    name: level2
+    namespace: cluster
+    version: "1.0"
+    arguments: ["8"]
+    uses: []
+    profiles:
+      pegasus:
+        runtime: "8"
+
+  - type: job
+    id: ID0000011
+    name: level1
+    namespace: cluster
+    version: "1.0"
+    arguments: ["3"]
+    uses: []
+    profiles:
+      pegasus:
+        runtime: "3"
+
+  - type: job
+    id: ID0000012
+    name: level2
+    namespace: cluster
+    version: "1.0"
+    arguments: ["2"]
+    uses: []
+    profiles:
+      pegasus:
+        runtime: "2"
+
+  - type: job
+    id: ID0000013
+    name: level2
+    namespace: cluster
+    version: "1.0"
+    arguments: ["4"]
+    uses: []
+    profiles:
+      pegasus:
+        runtime: "4"
+
+  - type: job
+    id: ID0000014
+    name: level2
+    namespace: cluster
+    version: "1.0"
+    arguments: ["6"]
+    uses: []
+    profiles:
+      pegasus:
+        runtime: "6"
+
+  - type: job
+    id: ID0000015
+    name: level2
+    namespace: cluster
+    version: "1.0"
+    arguments: ["8"]
+    uses: []
+    profiles:
+      pegasus:
+        runtime: "8"
+
+  - type: job
+    id: ID0000016
+    name: level1
+    namespace: cluster
+    version: "1.0"
+    arguments: ["4"]
+    uses: []
+    profiles:
+      pegasus:
+        runtime: "4"
+
+  - type: job
+    id: ID0000017
+    name: level2
+    namespace: cluster
+    version: "1.0"
+    arguments: ["2"]
+    uses: []
+    profiles:
+      pegasus:
+        runtime: "2"
+
+  - type: job
+    id: ID0000018
+    name: level2
+    namespace: cluster
+    version: "1.0"
+    arguments: ["4"]
+    uses: []
+    profiles:
+      pegasus:
+        runtime: "4"
+
+  - type: job
+    id: ID0000019
+    name: level2
+    namespace: cluster
+    version: "1.0"
+    arguments: ["6"]
+    uses: []
+    profiles:
+      pegasus:
+        runtime: "6"
+
+  - type: job
+    id: ID0000020
+    name: level2
+    namespace: cluster
+    version: "1.0"
+    arguments: ["8"]
+    uses: []
+    profiles:
+      pegasus:
+        runtime: "8"
+
+jobDependencies:
+  - id: ID0000001
+    children: [ID0000002, ID0000003, ID0000004, ID0000005]
+  - id: ID0000006
+    children: [ID0000007, ID0000008, ID0000009, ID0000010]
+  - id: ID0000011
+    children: [ID0000012, ID0000013, ID0000014, ID0000015]
+  - id: ID0000016
+    children: [ID0000017, ID0000018, ID0000019, ID0000020]

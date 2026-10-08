@@ -1,0 +1,116 @@
+#!/bin/bash
+
+set -e
+
+TOP_DIR=`pwd`
+
+# figure out where Pegasus is installed
+export PEGASUS_BIN_DIR=`pegasus-config --bin`
+if [ "x$PEGASUS_BIN_DIR" = "x" ]; then
+    echo "Please make sure pegasus-plan is in your path"
+    exit 1
+fi
+
+if [[ -z "$CI_COMMIT_SHORT_SHA" ]]; then
+    CI_COMMIT_SHORT_SHA=`git rev-parse --short HEAD`
+fi
+
+export REMOTE_PEGASUS_HOME=/scitech/shared/scratch-90-days/bamboo/installs/pegasus-$CI_COMMIT_SHORT_SHA
+
+# build the dax generator
+PYTHONPATH=$(pegasus-config --python) ./blackdiamond.py $REMOTE_PEGASUS_HOME > blackdiamond.dax
+
+# we need a f.a file to start
+echo "Hello world!" >f.a
+
+# empty replica catalog
+cat /dev/null >rc.data
+
+# site catalog
+cat > sites.yml <<EOF
+pegasus: "5.0"
+sites:
+ -
+  name: "condor_pool"
+  arch: "x86_64"
+  os.type: "linux"
+  profiles:
+    env:
+      PEGASUS_HOME: "$REMOTE_PEGASUS_HOME"
+    condor:
+      universe: "vanilla"
+    pegasus:
+      style: "condor"
+ -
+  name: "staging_site"
+  arch: "x86_64"
+  os.type: "linux"
+  directories:
+   -
+    type: "localStorage"
+    path: "/pegasus-wms/outputs"
+    sharedFileSystem: false
+    fileServers:
+     -
+      operation: "all"
+      url: "gs://pegasus-wms/outputs"
+   -
+    type: "sharedScratch"
+    path: "/pegasus-wms-test-030/scratch"
+    sharedFileSystem: false
+    fileServers:
+     -
+      operation: "all"
+      url: "gs://pegasus-wms-test-030/scratch"
+  profiles:
+    pegasus:
+      GOOGLE_APPLICATION_CREDENTIALS: "$HOME/.google.key"
+ -
+  name: "local"
+  arch: "x86_64"
+  os.type: "linux"
+  os.release: "rhel"
+  os.version: "7"
+  directories:
+   -
+    type: "localStorage"
+    path: "$TOP_DIR/outputs"
+    sharedFileSystem: false
+    fileServers:
+     -
+      operation: "all"
+      url: "file://$TOP_DIR/outputs"
+   -
+    type: "sharedScratch"
+    path: "$TOP_DIR/scratch"
+    sharedFileSystem: false
+    fileServers:
+     -
+      operation: "all"
+      url: "file://$TOP_DIR/scratch"
+EOF
+
+echo
+echo
+echo "The site catalog is:"
+cat sites.yml
+
+echo
+echo
+echo "Planning the workflow..."
+pegasus-plan \
+    --conf pegasusrc \
+    --dir submit \
+    --sites condor_pool \
+    --staging-site staging_site \
+    --output-sites local \
+    blackdiamond.dax \
+    | tee $TOP_DIR/plan.out
+
+WORK_DIR=`cat plan.out | grep pegasus-run | sed -E 's/^pegasus-run[ ]+//'`
+cd $WORK_DIR
+
+echo
+echo
+echo "Starting the workflow..."
+pegasus-run $WORK_DIR

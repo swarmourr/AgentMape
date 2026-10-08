@@ -1,0 +1,93 @@
+#!/bin/bash
+
+set -e
+
+
+if [ X${testdir} = "X" ]; then
+    testdir=`dirname  $0`
+    export testdir
+fi
+
+TOPDIR=`pwd`
+
+# unique part of shared directory paths to make sure we do not conflict with
+# other instances of similar tests
+UUID=`uuidgen`
+
+# output directory
+mkdir -p outputs
+
+# build the dax generator
+export CLASSPATH=$testdir:$(pegasus-config --classpath)
+javac $testdir/BlackDiamondDAX.java
+
+# generate the dax
+java BlackDiamondDAX "$(dirname $(dirname $(which pegasus-version)))" blackdiamond.dax
+
+# create the site catalog
+cat > sites.yml <<EOF
+pegasus: "5.0"
+sites:
+ -
+  name: "condorpool"
+  arch: "x86_64"
+  os.type: "linux"
+  directories:
+   -
+    type: "sharedScratch"
+    path: "/scitech/shared/scratch-90-days/bamboo/$UUID"
+    sharedFileSystem: false
+    fileServers:
+     -
+      operation: "all"
+      url: "scp://bamboo@submit.isi.edu/scitech/shared/scratch-90-days/bamboo/$UUID"
+  profiles:
+    condor:
+      universe: "vanilla"
+    pegasus:
+      data.configuration: "sharedfs"
+      ssh_private_key: "/scitech/shared/home/bamboo/.ssh/workflow_id_rsa"
+      style: "condor"
+ -
+  name: "local"
+  arch: "x86_64"
+  os.type: "linux"
+  os.release: "rhel"
+  os.version: "7"
+  directories:
+   -
+    type: "localStorage"
+    path: "$TOPDIR/outputs"
+    sharedFileSystem: false
+    fileServers:
+     -
+      operation: "all"
+      url: "file://$TOPDIR/outputs"
+   -
+    type: "sharedScratch"
+    path: "$TOPDIR/scratch"
+    sharedFileSystem: false
+    fileServers:
+     -
+      operation: "all"
+      url: "file://$TOPDIR/scratch"
+  profiles:
+    env:
+      PATH: "$PEGASUS_BIN_DIR:/usr/bin:/bin"
+EOF
+
+# plan and submit the  workflow
+pegasus-plan \
+    --conf $testdir/pegasusrc \
+    --sites condorpool \
+    --output-sites local \
+    --dir submit \
+    blackdiamond.dax  | tee $TOPDIR/plan.out
+
+WORK_DIR=`cat plan.out | grep pegasus-run | sed -E 's/^pegasus-run[ ]+//'`
+cd $WORK_DIR
+
+echo
+echo
+echo "Starting the workflow..."
+pegasus-run $WORK_DIR

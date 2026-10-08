@@ -1,0 +1,52 @@
+repos:
+
+  - hooks:
+      - id: ruff
+        args: [--fix, --target-version, py310]
+        files: ^(\.tox/|packages/pegasus-(common|api|python)/)
+      - id: ruff-format
+        args: [--target-version, py310]
+        files: ^(\.tox/|packages/pegasus-(common|api|python)/)
+    repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: 0671d8ab202c4ac093b78433ae5baf74f3fc7246  # frozen: v0.15.15
+
+  - hooks:
+      - id: pretty-format-java
+        args: [--aosp, --autofix]
+    repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
+    rev: 4380fbb73a154b5f5624794c1c78d9719ccc860f  # frozen: v2.16.0
+
+  # - hooks:
+  #     - id: mypy
+  #       additional_dependencies:
+  #         - types-PyYAML
+  #   repo: https://github.com/pre-commit/mirrors-mypy
+  #   rev: d2823d321df3af8f878f7ee3414dc94d037145b9  # frozen: v2.1.0
+
+  - hooks:
+      - id: mdformat
+        exclude: "^(.github/|.claude/|.agents/|LICENSE.md|doc/sphinx/release-notes)"
+        additional_dependencies:
+          - mdformat-gfm
+          - mdformat-ruff
+          - ruff
+    repo: https://github.com/executablebooks/mdformat
+    rev: 2d496dbc18e31b83a1596685347ffe0b6041daf0  # frozen: 1.0.0
+
+  # - hooks:
+  #   - id: shellcheck
+  #   repo: https://github.com/shellcheck-py/shellcheck-py
+  #   rev: 745eface02aef23e168a8afb6b5737818efbea95  # frozen: v0.11.0.1
+
+  - hooks:
+      - id: check-ast
+      - id: check-builtin-literals
+      - id: check-case-conflict
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: debug-statements
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      # - id: check-yaml
+    repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c  # frozen: v6.0.0

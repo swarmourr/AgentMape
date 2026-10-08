@@ -1,0 +1,126 @@
+/**
+ * Copyright 2007-2013 University Of Southern California
+ *
+ * <p>Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
+ * except in compliance with the License. You may obtain a copy of the License at
+ *
+ * <p>http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * <p>Unless required by applicable law or agreed to in writing, software distributed under the
+ * License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package edu.isi.pegasus.planner.transfer.implementation;
+
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.*;
+
+import edu.isi.pegasus.planner.classes.Job;
+import edu.isi.pegasus.planner.classes.PegasusBag;
+import edu.isi.pegasus.planner.classes.TransferJob;
+
+import org.junit.jupiter.api.Test;
+
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.util.Collection;
+
+/**
+ * @author Rajiv Mayani
+ */
+public class AbstractMultipleFTPerXFERJobTest {
+
+    @Test
+    public void testAbstractMultipleFTPerXFERJobIsAbstractAndExtendsAbstract() {
+        assertThat(
+                Modifier.isAbstract(AbstractMultipleFTPerXFERJob.class.getModifiers()), is(true));
+        assertThat(AbstractMultipleFTPerXFERJob.class.getSuperclass(), is(Abstract.class));
+        assertThat(AbstractMultipleFTPerXFERJob.class.getInterfaces().length, is(1));
+        assertThat(
+                AbstractMultipleFTPerXFERJob.class.getInterfaces()[0],
+                is(edu.isi.pegasus.planner.transfer.MultipleFTPerXFERJob.class));
+    }
+
+    @Test
+    public void testConstructorSignature() throws Exception {
+        Constructor<AbstractMultipleFTPerXFERJob> constructor =
+                AbstractMultipleFTPerXFERJob.class.getDeclaredConstructor(PegasusBag.class);
+
+        assertThat(Modifier.isPublic(constructor.getModifiers()), is(true));
+        assertThat(constructor.getParameterCount(), is(1));
+        assertThat(AbstractMultipleFTPerXFERJob.class.getDeclaredConstructors().length, is(1));
+    }
+
+    @Test
+    public void testSelectedConcreteMethodSignatures() throws Exception {
+        Method createTransferJob =
+                AbstractMultipleFTPerXFERJob.class.getDeclaredMethod(
+                        "createTransferJob",
+                        Job.class,
+                        String.class,
+                        Collection.class,
+                        Collection.class,
+                        String.class,
+                        int.class);
+        assertThat(createTransferJob.getReturnType(), is(TransferJob.class));
+        assertThat(Modifier.isPublic(createTransferJob.getModifiers()), is(true));
+
+        Method getNonThirdPartySite =
+                AbstractMultipleFTPerXFERJob.class.getDeclaredMethod(
+                        "getNonThirdPartySite", Job.class, Collection.class, int.class);
+        assertThat(getNonThirdPartySite.getReturnType(), is(String.class));
+        assertThat(Modifier.isProtected(getNonThirdPartySite.getModifiers()), is(true));
+
+        Method defaultTCEntry =
+                AbstractMultipleFTPerXFERJob.class.getDeclaredMethod(
+                        "defaultTCEntry",
+                        String.class,
+                        String.class,
+                        String.class,
+                        String.class,
+                        String.class);
+        assertThat(
+                defaultTCEntry.getReturnType(),
+                is(
+                        edu.isi.pegasus.planner.catalog.transformation.TransformationCatalogEntry
+                                .class));
+        assertThat(Modifier.isProtected(defaultTCEntry.getModifiers()), is(true));
+    }
+
+    @Test
+    public void testAbstractHelperMethodSignatures() throws Exception {
+        Method generateArgumentString =
+                AbstractMultipleFTPerXFERJob.class.getDeclaredMethod(
+                        "generateArgumentString", TransferJob.class);
+        assertThat(generateArgumentString.getReturnType(), is(String.class));
+        assertThat(Modifier.isProtected(generateArgumentString.getModifiers()), is(true));
+        assertThat(Modifier.isAbstract(generateArgumentString.getModifiers()), is(true));
+
+        Method getDerivationNamespace =
+                AbstractMultipleFTPerXFERJob.class.getDeclaredMethod("getDerivationNamespace");
+        assertThat(getDerivationNamespace.getReturnType(), is(String.class));
+        assertThat(Modifier.isProtected(getDerivationNamespace.getModifiers()), is(true));
+        assertThat(Modifier.isAbstract(getDerivationNamespace.getModifiers()), is(true));
+
+        Method getDerivationName =
+                AbstractMultipleFTPerXFERJob.class.getDeclaredMethod("getDerivationName");
+        assertThat(getDerivationName.getReturnType(), is(String.class));
+        assertThat(Modifier.isProtected(getDerivationName.getModifiers()), is(true));
+        assertThat(Modifier.isAbstract(getDerivationName.getModifiers()), is(true));
+
+        Method getDerivationVersion =
+                AbstractMultipleFTPerXFERJob.class.getDeclaredMethod("getDerivationVersion");
+        assertThat(getDerivationVersion.getReturnType(), is(String.class));
+        assertThat(Modifier.isProtected(getDerivationVersion.getModifiers()), is(true));
+        assertThat(Modifier.isAbstract(getDerivationVersion.getModifiers()), is(true));
+
+        Method getCompleteTCName =
+                AbstractMultipleFTPerXFERJob.class.getDeclaredMethod("getCompleteTCName");
+        assertThat(getCompleteTCName.getReturnType(), is(String.class));
+        assertThat(Modifier.isProtected(getCompleteTCName.getModifiers()), is(true));
+        assertThat(Modifier.isAbstract(getCompleteTCName.getModifiers()), is(true));
+    }
+}

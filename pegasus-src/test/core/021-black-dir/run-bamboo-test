@@ -1,0 +1,97 @@
+#!/bin/bash
+
+set -e
+set -v
+
+if [ X${testdir} = "X" ]; then
+    testdir=`dirname  $0`
+    export testdir
+fi
+
+if [[ -z "$CI_COMMIT_SHORT_SHA" ]]; then
+    CI_COMMIT_SHORT_SHA=`git rev-parse --short HEAD`
+fi
+
+TOPDIR=`pwd`
+
+# generate the input file
+input_dir=./input
+mkdir $input_dir
+echo "This is sample input to KEG" > ./input/f.a
+
+# output directory
+# this is the one we put in site catalog
+mkdir -p outputs
+
+#create a test output directory
+output_dir=./output
+mkdir -p $output_dir
+
+# build the dax generator
+export CLASSPATH=.:$(pegasus-config --classpath)
+javac $testdir/BlackDiamondDAX.java
+
+# generate the dax
+java BlackDiamondDAX /scitech/shared/scratch-90-days/bamboo/installs/pegasus-$CI_COMMIT_SHORT_SHA blackdiamond.dax
+
+# create the site catalog
+cat > sites.yml <<EOF
+pegasus: "5.0"
+sites:
+ -
+  name: "condorpool"
+  arch: "x86_64"
+  os.type: "linux"
+  directories:
+   -
+    type: "sharedStorage"
+    path: "/scitech/shared/scratch-90-days/bamboo/outputs"
+    sharedFileSystem: false
+    fileServers:
+     -
+      operation: "all"
+      url: "scp://bamboo@submit.isi.edu/scitech/shared/scratch-90-days/bamboo/outputs"
+   -
+    type: "sharedScratch"
+    path: "/scitech/shared/scratch-90-days/bamboo/scratch"
+    sharedFileSystem: false
+    fileServers:
+     -
+      operation: "all"
+      url: "scp://bamboo@submit.isi.edu/scitech/shared/scratch-90-days/bamboo/scratch"
+  profiles:
+    env:
+      PEGASUS_HOME: "/scitech/shared/scratch-90-days/bamboo/installs/pegasus-$CI_COMMIT_SHORT_SHA"
+    condor:
+      universe: "vanilla"
+    pegasus:
+      ssh_private_key: "/scitech/shared/home/bamboo/.ssh/workflow_id_rsa"
+      style: "condor"
+ -
+  name: "local"
+  arch: "x86_64"
+  os.type: "linux"
+  os.release: "rhel"
+  os.version: "7"
+  directories:
+   -
+    type: "sharedScratch"
+    path: "$TOPDIR/work"
+    sharedFileSystem: false
+    fileServers:
+     -
+      operation: "all"
+      url: "file://$TOPDIR/work"
+  profiles:
+    pegasus:
+      clusters.num: "1"
+EOF
+
+# plan and submit the  workflow
+pegasus-plan \
+    --conf $testdir/pegasusrc \
+    --sites condorpool \
+    --dir submit \
+    --input-dir $input_dir \
+    --output-dir $output_dir \
+    --submit blackdiamond.dax | tee plan.out

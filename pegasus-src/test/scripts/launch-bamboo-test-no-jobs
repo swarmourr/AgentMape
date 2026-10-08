@@ -1,0 +1,33 @@
+#!/bin/bash
+
+TOP_DIR=`pwd`
+
+# The first argument is the build plan name which contains
+# plan/branch information. We are only interested in the
+# last part of this name which is the test name.
+TEST=`echo $1 | sed -r 's/.*Build and Test - ([0-9\.]+ - ){0,1}//' | awk '{ print $1; }'`
+shift
+
+cd test/core/$TEST
+
+echo "TEST is $TEST"
+pwd
+
+#add common properties to pegasusrc
+if [ -e pegasusrc ]; then
+    echo "" >> pegasusrc
+    cat ../common.properties >> pegasusrc
+else
+    echo "Warning: Test $TEST not setup with pegasusrc file"
+fi
+
+#Launch the test
+./run-bamboo-test "$@"
+
+STATUS=$?
+if [ $STATUS != 0 ]; then
+   echo "Test failed!"
+   exit $STATUS
+fi
+
+exit

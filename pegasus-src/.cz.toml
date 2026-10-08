@@ -1,0 +1,14 @@
+[tool.commitizen]
+name = "cz_conventional_commits"
+tag_format = "$version"
+version_scheme = "pep440"
+version = "6.0.0.dev0"
+version_files = [
+    "build.properties",
+    "CITATION.cff:version",
+    "pyproject.toml:version",
+    "packages/pegasus-common/pyproject.toml:version",
+    "packages/pegasus-api/pyproject.toml:version",
+    "packages/pegasus-python/pyproject.toml:version",
+    "packages/pegasus-python/src/Pegasus/cli/pegasus-config.py:_version",
+]

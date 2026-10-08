@@ -1,0 +1,97 @@
+import errno
+import os
+import re
+import sys
+import unittest
+import uuid
+from unittest.mock import patch
+
+import pymysql
+from sqlalchemy import create_engine
+
+from Pegasus.db import connection
+from Pegasus.db.admin.admin_loader import *
+from Pegasus.db.schema import *
+
+
+class TestConnection(unittest.TestCase):
+    def test_mysql_uses_pymysql(self):
+        with patch.dict(sys.modules):
+            sys.modules.pop("MySQLdb", None)
+            sys.modules.pop("_mysql", None)
+
+            connection._validate("mysql://user@localhost/database")
+            engine = create_engine("mysql://user@localhost/database")
+
+            self.assertIs(engine.dialect.dbapi, pymysql)
+
+    def test_non_existent_url(self):
+        dburi = "jdbc:mysql://localhost/unknown-db"
+        self.assertRaises(connection.ConnectionError, connection.connect, dburi)
+
+        dburi = "jdbc:mysql://root@localhost/unknown-db"
+        self.assertRaises(connection.ConnectionError, connection.connect, dburi)
+
+        dburi = "jdbc:mysql://localhost:1111/unknown-db"
+        self.assertRaises(connection.ConnectionError, connection.connect, dburi)
+
+        dburi = "sqlite:test-url.db"
+        self.assertRaises(connection.ConnectionError, connection.connect, dburi)
+
+        dburi = "test.db"
+        self.assertRaises(connection.ConnectionError, connection.connect, dburi)
+
+        dburi = "jdbc:invalid://localhost/testdb"
+        self.assertRaises(connection.ConnectionError, connection.connect, dburi)
+
+    def test_jdbc_sqlite(self):
+        filename = str(uuid.uuid4())
+        _silentremove(filename)
+        dburi = f"jdbc:sqlite:{filename}"
+        db = connection.connect(dburi, create=True, verbose=False)
+        self.assertEqual(get_version(db), CURRENT_DB_VERSION)
+        db.close()
+        _remove(filename)
+
+        filename = "/tmp/" + str(uuid.uuid4())
+        _silentremove(filename)
+        dburi = f"jdbc:sqlite:{filename}"
+        db = connection.connect(dburi, create=True, verbose=False)
+        self.assertEqual(get_version(db), CURRENT_DB_VERSION)
+        db.close()
+        _remove(filename)
+
+        dburi = f"jdbc:sqlite:/{filename}"
+        db = connection.connect(dburi, create=True, verbose=False)
+        self.assertEqual(get_version(db), CURRENT_DB_VERSION)
+        db.close()
+        _remove(filename)
+
+    def test_connection_by_uri(self):
+        filename = str(uuid.uuid4())
+        _silentremove(filename)
+        dburi = f"sqlite:///{filename}"
+        db = connection.connect(
+            dburi, echo=False, schema_check=True, create=True, verbose=False
+        )
+        db.close()
+        _remove(filename)
+
+
+def _silentremove(filename):
+    try:
+        os.remove(filename)
+    except OSError as e:
+        if e.errno != errno.ENOENT:  # errno.ENOENT = no such file or directory
+            raise  # re-raise exception if a different error occurred
+
+
+def _remove(filename):
+    for f in os.listdir("."):
+        if re.search(filename + ".*", f):
+            os.remove(f)
+    _silentremove(filename)
+
+
+if __name__ == "__main__":
+    unittest.main()

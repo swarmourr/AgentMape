@@ -1,0 +1,97 @@
+#!/bin/bash
+
+set -e
+
+
+
+if [ X${testdir} = "X" ]; then
+    testdir=`dirname  $0`
+    export testdir
+fi
+
+TOPDIR=`pwd`
+
+# generate the input file
+echo "This is sample input to KEG" >f.a
+
+# output directory
+mkdir -p outputs
+
+# build the dax generator
+CLASSPATH=.:$(pegasus-config --classpath) javac $testdir/BlackDiamondDAX.java
+
+# generate the dax
+CLASSPATH=.:$(pegasus-config --classpath) java BlackDiamondDAX "$(dirname $(dirname $(which pegasus-version)))" blackdiamond.dax
+
+# create the site catalog
+cat > sites.yml <<EOF
+pegasus: "5.0"
+sites:
+ -
+  name: "local"
+  arch: "x86_64"
+  os.type: "linux"
+  os.release: "rhel"
+  os.version: "8"
+  directories:
+   -
+    type: "sharedScratch"
+    path: "$TOPDIR/shared-scratch"
+    sharedFileSystem: false
+    fileServers:
+     -
+      operation: "all"
+      url: "file://$TOPDIR/shared-scratch"
+   -
+    type: "sharedStorage"
+    path: "$TOPDIR/outputs"
+    sharedFileSystem: false
+    fileServers:
+     -
+      operation: "all"
+      url: "file://$TOPDIR/outputs"
+  profiles:
+    pegasus:
+      pegasus_lite_env_source: "${TOPDIR}/job-setup.sh"
+EOF
+
+# plan and submit the  workflow
+pegasus-plan \
+    --conf $testdir/pegasusrc \
+    --sites local \
+    --dir submit \
+    --output-sites local \
+    --cluster horizontal \
+    blackdiamond.dax \
+    | tee $TOPDIR/plan.out
+
+
+WORK_DIR=`cat plan.out | grep pegasus-run | sed -E 's/.*pegasus-run[ ]+(.*)[ ]+/\1/'`
+# account for deep submit directory structure
+cd $WORK_DIR/00/00
+
+# PM-1192 make sure the env variable PEGASUS_LITE_ENV_SOURCE is set
+for sub in ` ls *sub | grep -E "analyze|findrange|preprocess"`; do
+    pegasus_lite_env_source_set=`(grep environment $sub | grep PEGASUS_LITE_ENV_SOURCE) 2>/dev/null || /bin/true`
+    if [ "x$pegasus_lite_env_source_set" == "x" ]; then
+        echo "ERROR: PEGASUS_LITE_ENV_SOURCE not set in environment for $sub"
+        exit 1
+    fi
+done
+
+
+# we should have no stage in jobs - they should all be bypassed
+if (find $WORK_DIR -name stage_in\* | grep stage_in) >/dev/null 2>&1; then
+    echo "Error: Found stage in jobs, even though we should have full bypass in this test"
+    exit 1
+fi
+
+# make sure that none of the input files are deleted by cleanup jobs
+for CLEANUP_IN in `find $WORK_DIR -name clean_up_local_\*.in`; do
+    if (cat $CLEANUP_IN | grep "file://" | grep "$PWD/inputs") >/dev/null 2>&1; then
+        echo "Error: $CLEANUP_IN is specifying file:// in the inputs directory"
+        exit 1
+    fi
+done
+
+pegasus-run $WORK_DIR

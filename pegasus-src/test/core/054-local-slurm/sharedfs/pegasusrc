@@ -1,0 +1,11 @@
+pegasus.catalog.site.file=./sites.yml
+pegasus.catalog.site YAML
+pegasus.data.configuration = sharedfs
+
+pegasus.catalog.transformation.file ./transformations.yml
+pegasus.catalog.transformation YAML
+
+# we need to enable transfer of worker package
+# other alternative is to set PEGASUS_HOME
+# in the site catalog
+pegasus.transfer.worker.package = true

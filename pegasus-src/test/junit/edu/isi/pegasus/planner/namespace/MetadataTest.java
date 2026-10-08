@@ -1,0 +1,151 @@
+/**
+ * Copyright 2007-2020 University Of Southern California
+ *
+ * <p>Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file
+ * except in compliance with the License. You may obtain a copy of the License at
+ *
+ * <p>http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * <p>Unless required by applicable law or agreed to in writing, software distributed under the
+ * License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package edu.isi.pegasus.planner.namespace;
+
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+
+import com.fasterxml.jackson.databind.MapperFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator;
+
+import edu.isi.pegasus.planner.classes.ReplicaLocation;
+import edu.isi.pegasus.planner.test.DefaultTestSetup;
+import edu.isi.pegasus.planner.test.TestSetup;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import java.io.IOException;
+
+/**
+ * @author vahi
+ */
+public class MetadataTest {
+
+    private TestSetup mTestSetup;
+
+    public MetadataTest() {}
+
+    @BeforeEach
+    public void setUp() {
+        mTestSetup = new DefaultTestSetup();
+
+        mTestSetup.setInputDirectory(this.getClass());
+    }
+
+    @Test
+    public void serializationWithNoMetadata() throws IOException {
+        ObjectMapper mapper =
+                new ObjectMapper(
+                        new YAMLFactory().configure(YAMLGenerator.Feature.INDENT_ARRAYS, true));
+        mapper.configure(MapperFeature.ALLOW_COERCION_OF_SCALARS, false);
+
+        // metadata serialization can only be tested by being enclosed in a ReplicaLocation
+        // object as we don't have writeStartObject in the serializer implementation of Metadata
+        ReplicaLocation rl = new ReplicaLocation();
+        rl.setLFN("test");
+
+        String expected = "---\n" + "lfn: \"test\"\n";
+
+        String actual = mapper.writeValueAsString(rl);
+
+        assertThat(actual, is(expected));
+    }
+
+    @Test
+    public void serializationWithOnlyMetadata() throws IOException {
+        ObjectMapper mapper =
+                new ObjectMapper(
+                        new YAMLFactory().configure(YAMLGenerator.Feature.INDENT_ARRAYS, true));
+        mapper.configure(MapperFeature.ALLOW_COERCION_OF_SCALARS, false);
+
+        // metadata serialization can only be tested by being enclosed in a ReplicaLocation
+        // object as we don't have writeStartObject in the serializer implementation of Metadata
+        ReplicaLocation rl = new ReplicaLocation();
+        rl.setLFN("test");
+
+        Metadata m = new Metadata();
+        rl.addMetadata("user", "vahi");
+        rl.addMetadata("year", "2020");
+
+        String expected =
+                "---\n"
+                        + "lfn: \"test\"\n"
+                        + "metadata:\n"
+                        + "  year: \"2020\"\n"
+                        + "  user: \"vahi\"\n";
+
+        String actual = mapper.writeValueAsString(rl);
+
+        assertThat(actual, is(expected));
+    }
+
+    @Test
+    public void serializationWithOnlyChecksum() throws IOException {
+        ObjectMapper mapper =
+                new ObjectMapper(
+                        new YAMLFactory().configure(YAMLGenerator.Feature.INDENT_ARRAYS, true));
+        mapper.configure(MapperFeature.ALLOW_COERCION_OF_SCALARS, false);
+
+        // metadata serialization can only be tested by being enclosed in a ReplicaLocation
+        // object as we don't have writeStartObject in the serializer implementation of Metadata
+        ReplicaLocation rl = new ReplicaLocation();
+        rl.setLFN("test");
+
+        Metadata m = new Metadata();
+        rl.addMetadata(Metadata.CHECKSUM_TYPE_KEY, "sha256");
+        rl.addMetadata(Metadata.CHECKSUM_VALUE_KEY, "sdasdsadas2020");
+
+        String expected =
+                "---\n" + "lfn: \"test\"\n" + "checksum:\n" + "  sha256: \"sdasdsadas2020\"\n";
+
+        String actual = mapper.writeValueAsString(rl);
+        // System.out.println(actual);
+        assertThat(actual, is(expected));
+    }
+
+    @Test
+    public void serializationWithBothChecksumAndMetadata() throws IOException {
+        ObjectMapper mapper =
+                new ObjectMapper(
+                        new YAMLFactory().configure(YAMLGenerator.Feature.INDENT_ARRAYS, true));
+        mapper.configure(MapperFeature.ALLOW_COERCION_OF_SCALARS, false);
+
+        // metadata serialization can only be tested by being enclosed in a ReplicaLocation
+        // object as we don't have writeStartObject in the serializer implementation of Metadata
+        ReplicaLocation rl = new ReplicaLocation();
+        rl.setLFN("test");
+
+        Metadata m = new Metadata();
+        rl.addMetadata("user", "vahi");
+        rl.addMetadata("year", "2020");
+        rl.addMetadata(Metadata.CHECKSUM_TYPE_KEY, "sha256");
+        rl.addMetadata(Metadata.CHECKSUM_VALUE_KEY, "sdasdsadas2020");
+
+        String expected =
+                "---\n"
+                        + "lfn: \"test\"\n"
+                        + "checksum:\n"
+                        + "  sha256: \"sdasdsadas2020\"\n"
+                        + "metadata:\n"
+                        + "  year: \"2020\"\n"
+                        + "  user: \"vahi\"\n";
+
+        String actual = mapper.writeValueAsString(rl);
+        // System.out.println(actual);
+        assertThat(actual, is(expected));
+    }
+}
