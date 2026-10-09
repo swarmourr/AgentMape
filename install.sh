@@ -51,23 +51,36 @@ fi
 PIP="$VENV_DIR/bin/pip"
 "$VENV_DIR/bin/python3" -m pip install --quiet --upgrade pip
 
-# ── 3. Install Pegasus into the venv ──────────────────────────────────────────
-echo ">> Installing Pegasus (pegasus-wms) ..."
-"$PIP" install --quiet "pegasus-wms"
-echo "   done"
+# ── 3. Install Pegasus Python packages from pegasus-src/ ─────────────────────
+# Install the individual pure-Python packages (no CMake/Go/Java required).
+# The root pegasus-wms package requires a full C/Go build — skip it.
+PEGASUS_SRC="$PROJECT_ROOT/pegasus-src"
+if [[ -d "$PEGASUS_SRC/packages" ]]; then
+    echo ">> Installing Pegasus packages from pegasus-src/ ..."
+    for _pkg in pegasus-common pegasus-api pegasus-python pegasus-healer; do
+        _pkgdir="$PEGASUS_SRC/packages/$_pkg"
+        if [[ -d "$_pkgdir" ]]; then
+            echo "   pip install $_pkg ..."
+            "$PIP" install --quiet "$_pkgdir"
+        fi
+    done
+    echo "   done"
+else
+    echo "WARNING: pegasus-src/ not found — skipping Pegasus package install."
+    echo "         Run: git pull origin integration"
+fi
 
 # ── 4. Install healer dependencies ────────────────────────────────────────────
 echo ">> Installing healer dependencies ..."
 "$PIP" install --quiet -r "$PROJECT_ROOT/requirements.txt"
 
 # ── 5. Wire Pegasus.healer from src/ via .pth ─────────────────────────────────
-# Pegasus.healer is not yet part of the published pegasus-wms package, so
-# we add src/ via a .pth file.  src/Pegasus/__init__.py uses extend_path
-# so it merges cleanly with the installed Pegasus namespace.
+# Keep src/ on sys.path so live edits to the healer are picked up immediately
+# without reinstalling pegasus-healer.
 SITE_PACKAGES="$("$VENV_DIR/bin/python3" -c "import sysconfig; print(sysconfig.get_path('purelib'))")"
 PTH_FILE="$SITE_PACKAGES/pegasus-healer.pth"
 
-echo ">> Wiring Pegasus.healer → $PTH_FILE"
+echo ">> Wiring src/ (live edits) → $PTH_FILE"
 echo "$PROJECT_ROOT/src" > "$PTH_FILE"
 echo "   done"
 
