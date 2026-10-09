@@ -23,6 +23,7 @@ props["dagman.post"]                      = "pegasus-healer"
 props["dagman.post.path.pegasus-healer"]  = _healer
 props["dagman.post.arguments"]            = "$RETURN $JOB $RETRY $MAX_RETRIES"
 props["dagman.maxretries"]                = "3"
+props["dagman.retry"]                     = "3"
 # condorio: HTCondor transfers files natively — no pegasus-transfer binary needed
 props["pegasus.data.configuration"]       = "condorio"
 props.write()
@@ -65,10 +66,6 @@ local_site.add_directories(
 )
 sc.add_sites(local_site)
 
-# --- Replica catalog (register physical locations of input files) -------------
-rc = ReplicaCatalog()
-rc.add_replica("local", "f.in", "file://" + str(INPUT_DIR / "f.in"))
-
 # --- Transformation catalog ---------------------------------------------------
 tc = TransformationCatalog()
 tc.add_transformations(
@@ -83,7 +80,6 @@ tc.add_transformations(
 # --- Workflow -----------------------------------------------------------------
 wf = Workflow("hello-world")
 wf.add_site_catalog(sc)
-wf.add_replica_catalog(rc)
 wf.add_transformation_catalog(tc)
 
 fin = File("f.in")
