@@ -27,10 +27,10 @@ props["dagman.maxretries"]                = "3"
 props["pegasus.data.configuration"]       = "sharedfs"
 props.write()
 
-BASE_DIR = Path(".").resolve()
-INPUT_DIR = Path(BASE_DIR /  "input").resolve()
-EXECUTABLES_DIR = Path(BASE_DIR / "executables").resolve()
-OUTPUT_DIR = Path(BASE_DIR /  "output").resolve()
+BASE_DIR = Path(__file__).resolve().parent.parent  # project root
+INPUT_DIR = BASE_DIR / "input"
+EXECUTABLES_DIR = BASE_DIR / "executables"
+OUTPUT_DIR = BASE_DIR / "output"
 
 # the execution site where you job to run.
 # local means the jobs run on ACCESS Pegasus itself.
