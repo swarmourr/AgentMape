@@ -15,8 +15,13 @@ logging.basicConfig(level=logging.DEBUG)
 # Registers pegasus-healer as the DAGMan POST script via pegasus.properties.
 # Pegasus loads this file at plan time — no .dag patching needed.
 # Remove this block if you do not want the healer.
+import shutil as _sh, sys as _sys
+_healer = (
+    _sh.which("pegasus-healer")
+    or str(Path(_sys.executable).parent / "pegasus-healer")
+)
 props = Properties()
-props["dagman.post"]           = "pegasus-healer"
+props["dagman.post"]           = _healer
 props["dagman.post.arguments"] = "$RETURN $JOB $RETRY $MAX_RETRIES"
 props["dagman.maxretries"]     = "3"
 props.write()
