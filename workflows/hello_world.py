@@ -25,9 +25,6 @@ props["dagman.post.arguments"]            = "$RETURN $JOB $RETRY $MAX_RETRIES"
 props["dagman.maxretries"]                = "3"
 # Run everything on the local machine with no file staging (shared filesystem)
 props["pegasus.data.configuration"]       = "sharedfs"
-# Disable kickstart wrapper so real exit codes and stderr reach the healer directly
-# (with kickstart, pegasus-lite normalizes exit codes and captures stderr in XML)
-props["pegasus.gridstart"]                = "none"
 props.write()
 
 BASE_DIR = Path(__file__).resolve().parent.parent  # project root
