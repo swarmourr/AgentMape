@@ -95,9 +95,23 @@ print(f'   Pegasus.braindump         OK')
 print(f'   Pegasus.api               OK')
 "
 
-# ── 7. Done ───────────────────────────────────────────────────────────────────
+# ── 7. Create ~/.pegasus/healer.env if it doesn't exist ──────────────────────
+HEALER_ENV_DIR="$HOME/.pegasus"
+HEALER_ENV_FILE="$HEALER_ENV_DIR/healer.env"
+if [[ ! -f "$HEALER_ENV_FILE" ]]; then
+    mkdir -p "$HEALER_ENV_DIR"
+    cp "$PROJECT_ROOT/healer.env.example" "$HEALER_ENV_FILE"
+    chmod 600 "$HEALER_ENV_FILE"
+    echo ">> Created $HEALER_ENV_FILE"
+    echo "   Edit it and set LLM_API_KEY before running the healer."
+else
+    echo ">> $HEALER_ENV_FILE already exists — not overwritten"
+fi
+
+# ── 8. Done ───────────────────────────────────────────────────────────────────
 echo ""
 echo "================================================================"
-echo "  Done. Activate with:"
-echo "    source $PROJECT_ROOT/activate.sh"
+echo "  Done. Next steps:"
+echo "    1. Edit ~/.pegasus/healer.env  — set LLM_MODEL + LLM_API_KEY"
+echo "    2. source $PROJECT_ROOT/activate.sh"
 echo "================================================================"
