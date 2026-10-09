@@ -27,6 +27,8 @@ props["dagman.post"]                      = "pegasus-healer"
 props["dagman.post.path.pegasus-healer"]  = _healer
 props["dagman.post.arguments"]            = "$RETURN $JOB $RETRY $MAX_RETRIES"
 props["dagman.maxretries"]                = "3"
+# Run everything on the local machine with no file staging (shared filesystem)
+props["pegasus.data.configuration"]       = "sharedfs"
 props.write()
 
 BASE_DIR = Path(".").resolve()
