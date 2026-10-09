@@ -26,7 +26,9 @@ props["dagman.maxretries"]                = "3"
 props["dagman.retry"]                     = "3"
 # condorio: HTCondor transfers files natively — no pegasus-transfer binary needed
 props["pegasus.data.configuration"]       = "condorio"
-props.write()
+# Write to an absolute path so pegasus-plan always finds it regardless of CWD
+_PROPS_PATH = str(Path(__file__).resolve().parent.parent / "pegasus.properties")
+props.write(_PROPS_PATH)
 
 BASE_DIR = Path(__file__).resolve().parent.parent  # project root
 INPUT_DIR = BASE_DIR / "input"
@@ -110,7 +112,8 @@ except PegasusClientError as e:
 # dagman.post = pegasus-healer is already in pegasus.properties above,
 # so Pegasus writes it into every job node of the .dag at plan time.
 try:
-    wf.plan(input_dirs=[INPUT_DIR], sites=[EXEC_SITE], output_dir=OUTPUT_DIR, submit=True)
+    wf.plan(conf=_PROPS_PATH, input_dirs=[INPUT_DIR], sites=[EXEC_SITE],
+            output_dir=OUTPUT_DIR, submit=True)
 except PegasusClientError as e:
     print(e)
     sys.exit(1)
