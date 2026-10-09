@@ -1,10 +1,24 @@
 from __future__ import annotations
 
+from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Credential files loaded in order (later files take precedence over earlier ones;
+# environment variables always win over all files):
+#   1. ~/.pegasus/healer.env  — user-level credentials, shared across projects
+#   2. .env                   — project-level overrides (current working directory)
+_ENV_FILES = (
+    Path.home() / ".pegasus" / "healer.env",
+    Path(".env"),
+)
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(
+        env_file=_ENV_FILES,
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     # ── LLM — shared defaults ─────────────────────────────────────────────────
     # Used by any agent that does not have its own override below.
