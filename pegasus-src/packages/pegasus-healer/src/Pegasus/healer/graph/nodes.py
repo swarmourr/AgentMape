@@ -722,6 +722,58 @@ async def escalate(state: dict[str, Any]) -> dict[str, Any]:
         job_dir = _find_job_dir_for_node(submit_dir, job_id)
         now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
         sep = "─" * 72
+
+        # ── Collect diagnostic detail for the report ──────────────────────────
+        raw_ev = RawEvidence.model_validate(state.get("raw_evidence") or {})
+        diagnosis_raw = state.get("diagnosis")
+        diagnosis = Diagnosis.model_validate(diagnosis_raw) if diagnosis_raw else None
+
+        # Stderr snippet (tail of last 20 lines)
+        stderr_snippet = ""
+        if raw_ev.stderr_content:
+            lines = raw_ev.stderr_content.strip().splitlines()
+            tail = lines[-20:] if len(lines) > 20 else lines
+            stderr_snippet = (
+                f"{sep}\n"
+                f"STDERR (last {len(tail)} lines)\n"
+                f"{sep}\n"
+                + "\n".join(f"    {l}" for l in tail)
+                + "\n\n"
+            )
+
+        # Pegasus-analyzer output (first 30 lines)
+        analyzer_snippet = ""
+        if raw_ev.pegasus_analyzer_output:
+            lines = raw_ev.pegasus_analyzer_output.strip().splitlines()
+            head = lines[:30]
+            analyzer_snippet = (
+                f"{sep}\n"
+                f"PEGASUS-ANALYZER OUTPUT\n"
+                f"{sep}\n"
+                + "\n".join(f"    {l}" for l in head)
+                + ("\n    [...]\n" if len(lines) > 30 else "\n")
+                + "\n"
+            )
+
+        # Diagnosis block (if the LLM or rule engine produced one)
+        diag_block = ""
+        if diagnosis:
+            diag_block = (
+                f"{sep}\n"
+                f"HEALER DIAGNOSIS\n"
+                f"{sep}\n"
+                f"    Failure type : {diagnosis.failure_type}\n"
+                f"    Confidence   : {diagnosis.confidence:.0%}\n"
+                f"    Explanation  : {diagnosis.explanation}\n"
+                f"    Source       : {diagnosis.source}\n\n"
+            )
+
+        # Evidence sources checked
+        evidence_block = (
+            f"Evidence collected : {raw_ev.available_sources or ['none']}\n"
+            f"Exit code          : {state.get('exit_code', '?')}\n"
+        )
+
         text = (
             f"╔══════════════════════════════════════════════════════════════════════╗\n"
             f"║           PEGASUS HEALER — ESCALATION  (human intervention needed) ║\n"
@@ -731,13 +783,25 @@ async def escalate(state: dict[str, Any]) -> dict[str, Any]:
             f"Job       : {job_id}\n"
             f"Workflow  : {state.get('workflow_id', '?')}\n\n"
             f"{sep}\n"
-            f"The healer cannot fix this failure automatically.\n"
-            f"Policy decision : {state.get('policy_decision', 'ESCALATE')}\n"
-            f"Errors          : {state.get('errors', [])}\n\n"
-            f"Check the job log and stderr for details:\n"
+            f"SUMMARY\n"
+            f"{sep}\n"
+            f"The healer could not fix this failure automatically.\n"
+            f"Policy decision    : {state.get('policy_decision', 'ESCALATE')}\n"
+            f"{evidence_block}"
+            f"Healer errors      : {state.get('errors', [])}\n\n"
+            f"{diag_block}"
+            f"{stderr_snippet}"
+            f"{analyzer_snippet}"
+            f"{sep}\n"
+            f"FILES TO INSPECT\n"
+            f"{sep}\n"
             f"    {job_dir}/{job_id}.err\n"
+            f"    {job_dir}/{job_id}.out\n"
             f"    {job_dir}/{job_id}.healer.log\n\n"
-            f"After resolving the issue manually, resubmit with:\n"
+            f"{sep}\n"
+            f"RESUBMIT\n"
+            f"{sep}\n"
+            f"After resolving the issue manually:\n"
             f"    pegasus-run {submit_dir}\n"
         )
         esc_path = job_dir / f"{job_id}.healer_escalation"
