@@ -31,15 +31,36 @@ else
 fi
 
 # ── Pegasus home — PEGASUS_HOME env var or auto-detect ───────────────────────
-# Set PEGASUS_HOME to any Pegasus directory (built locally, copied from Mac,
-# or the system install) and its bin/ will be added to PATH automatically.
-# If not set, we look for pegasus-plan on the existing PATH.
+# Priority: PEGASUS_HOME env var → common system paths → pegasus-src/ (scripts only)
+if [[ -z "${PEGASUS_HOME:-}" ]]; then
+    for _p in /usr /usr/local /opt/pegasus /usr/share/pegasus \
+               /scitech/shared/pegasus /scitech/pegasus \
+               /cvmfs/oasis.opensciencegrid.org/mis/pegasus/current; do
+        if [[ -x "$_p/bin/pegasus-plan" ]]; then
+            PEGASUS_HOME="$_p"; break
+        fi
+    done
+fi
+
 if [[ -n "${PEGASUS_HOME:-}" && -d "$PEGASUS_HOME/bin" ]]; then
+    export PEGASUS_HOME
     case ":$PATH:" in
         *":$PEGASUS_HOME/bin:"*) ;;
         *) export PATH="$PEGASUS_HOME/bin:$PATH" ;;
     esac
     echo "[pegasus-healer] pegasus   : $PEGASUS_HOME"
+else
+    # No full Pegasus found — add pegasus-src/bin/ so scripts are on PATH.
+    # pegasus-plan will fail at runtime until JARs are built (make dist-wheel).
+    _SRC_BIN="$HEALER_PROJECT/pegasus-src/bin"
+    if [[ -d "$_SRC_BIN" ]]; then
+        case ":$PATH:" in
+            *":$_SRC_BIN:"*) ;;
+            *) export PATH="$_SRC_BIN:$PATH" ;;
+        esac
+    fi
+    unset _SRC_BIN
+    echo "[pegasus-healer] pegasus   : (not found — set PEGASUS_HOME=/path/to/pegasus)"
 fi
 
 # ── PATH — project bin/ first (healer, inspect scripts) ──────────────────────
