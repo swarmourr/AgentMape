@@ -48,12 +48,18 @@ INPUT_DIR.mkdir(parents=True, exist_ok=True)
 with open("{}/f.in".format(INPUT_DIR), "w") as f:
     f.write("This is the contents of the input file for the hello world workflow!")
 
+SCRATCH_DIR = BASE_DIR / "scratch"
+SCRATCH_DIR.mkdir(parents=True, exist_ok=True)
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-# --- Site catalog (condorio — HTCondor transfers files, only storage needed) --
+# --- Site catalog -------------------------------------------------------------
+# SHARED_SCRATCH is always required by Pegasus (worker package staging).
+# LOCAL_STORAGE is where final output files land.
 sc = SiteCatalog()
 local_site = Site("local", arch=Arch.X86_64, os_type=OS.LINUX)
 local_site.add_directories(
+    Directory(Directory.SHARED_SCRATCH, str(SCRATCH_DIR))
+        .add_file_servers(FileServer("file://" + str(SCRATCH_DIR), Operation.ALL)),
     Directory(Directory.LOCAL_STORAGE, str(OUTPUT_DIR))
         .add_file_servers(FileServer("file://" + str(OUTPUT_DIR), Operation.ALL)),
 )
