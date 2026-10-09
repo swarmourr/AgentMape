@@ -2,10 +2,6 @@ from Pegasus.api import *
 import sys
 from pathlib import Path
 
-import logging
-
-logging.basicConfig(level=logging.DEBUG)
-
 # we specify directories for inputs, executables and outputs
 # - directory where to pick up the inputs from a directory.
 # - directory where the executables that the workflow uses are placed.
@@ -52,6 +48,25 @@ INPUT_DIR.mkdir(parents=True, exist_ok=True)
 with open("{}/f.in".format(INPUT_DIR), "w") as f:
     f.write("This is the contents of the input file for the hello world workflow!")
 
+SCRATCH_DIR = BASE_DIR / "scratch"
+SCRATCH_DIR.mkdir(parents=True, exist_ok=True)
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+# --- Site catalog (sharedfs — no transfer/staging jobs) ----------------------
+sc = SiteCatalog()
+local_site = Site("local", arch=Arch.X86_64, os_type=OS.LINUX)
+local_site.add_directories(
+    Directory(Directory.SHARED_SCRATCH, str(SCRATCH_DIR))
+        .add_file_servers(FileServer("file://" + str(SCRATCH_DIR), Operation.ALL)),
+    Directory(Directory.LOCAL_STORAGE, str(OUTPUT_DIR))
+        .add_file_servers(FileServer("file://" + str(OUTPUT_DIR), Operation.ALL)),
+)
+sc.add_sites(local_site)
+
+# --- Replica catalog (register physical locations of input files) -------------
+rc = ReplicaCatalog()
+rc.add_replica("local", "f.in", "file://" + str(INPUT_DIR / "f.in"))
+
 # --- Transformation catalog ---------------------------------------------------
 tc = TransformationCatalog()
 tc.add_transformations(
@@ -65,6 +80,8 @@ tc.add_transformations(
 
 # --- Workflow -----------------------------------------------------------------
 wf = Workflow("hello-world")
+wf.add_site_catalog(sc)
+wf.add_replica_catalog(rc)
 wf.add_transformation_catalog(tc)
 
 fin = File("f.in")
@@ -95,8 +112,7 @@ except PegasusClientError as e:
 # dagman.post = pegasus-healer is already in pegasus.properties above,
 # so Pegasus writes it into every job node of the .dag at plan time.
 try:
-    wf.plan(input_dirs=[INPUT_DIR], sites=[EXEC_SITE],
-            output_dir=OUTPUT_DIR, submit=True)
+    wf.plan(sites=[EXEC_SITE], output_dir=OUTPUT_DIR, submit=True)
 except PegasusClientError as e:
     print(e)
     sys.exit(1)
