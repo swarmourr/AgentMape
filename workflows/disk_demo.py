@@ -39,9 +39,12 @@ _healer = (
     or str(Path(_sys.executable).parent / "pegasus-healer")
 )
 props = Properties()
-props["dagman.post"]           = _healer
-props["dagman.post.arguments"] = "$RETURN $JOB $RETRY $MAX_RETRIES"
-props["dagman.maxretries"]     = "3"
+# dagman.post = TYPE name; dagman.post.path.TYPE = actual binary path.
+# Pegasus resolves the path via POST.PATH.{TYPE} in the Dagman namespace.
+props["dagman.post"]                      = "pegasus-healer"
+props["dagman.post.path.pegasus-healer"]  = _healer
+props["dagman.post.arguments"]            = "$RETURN $JOB $RETRY $MAX_RETRIES"
+props["dagman.maxretries"]                = "3"
 props.write()
 
 BASE_DIR        = Path(".").resolve()
