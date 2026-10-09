@@ -56,3 +56,6 @@ Issues = "https://github.com/pegasus-isi/pegasus/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"Pegasus.healer" = ["healer.env.example"]
