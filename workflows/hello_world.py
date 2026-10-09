@@ -23,8 +23,8 @@ props["dagman.post"]                      = "pegasus-healer"
 props["dagman.post.path.pegasus-healer"]  = _healer
 props["dagman.post.arguments"]            = "$RETURN $JOB $RETRY $MAX_RETRIES"
 props["dagman.maxretries"]                = "3"
-# Run everything on the local machine with no file staging (shared filesystem)
-props["pegasus.data.configuration"]       = "sharedfs"
+# condorio: HTCondor transfers files natively — no pegasus-transfer binary needed
+props["pegasus.data.configuration"]       = "condorio"
 props.write()
 
 BASE_DIR = Path(__file__).resolve().parent.parent  # project root
@@ -48,16 +48,12 @@ INPUT_DIR.mkdir(parents=True, exist_ok=True)
 with open("{}/f.in".format(INPUT_DIR), "w") as f:
     f.write("This is the contents of the input file for the hello world workflow!")
 
-SCRATCH_DIR = BASE_DIR / "scratch"
-SCRATCH_DIR.mkdir(parents=True, exist_ok=True)
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-# --- Site catalog (sharedfs — no transfer/staging jobs) ----------------------
+# --- Site catalog (condorio — HTCondor transfers files, only storage needed) --
 sc = SiteCatalog()
 local_site = Site("local", arch=Arch.X86_64, os_type=OS.LINUX)
 local_site.add_directories(
-    Directory(Directory.SHARED_SCRATCH, str(SCRATCH_DIR))
-        .add_file_servers(FileServer("file://" + str(SCRATCH_DIR), Operation.ALL)),
     Directory(Directory.LOCAL_STORAGE, str(OUTPUT_DIR))
         .add_file_servers(FileServer("file://" + str(OUTPUT_DIR), Operation.ALL)),
 )
@@ -89,13 +85,13 @@ finter = File("f.inter")
 fout = File("f.out")
 
 job_hello = Job("hello")\
-                    .add_args("-T", "3", "-i", fin, "-o {}".format(finter))\
+                    .add_args("-T", "3", "-i", fin, "-o", finter)\
                     .add_inputs(fin)\
                     .add_outputs(finter, stage_out=False)\
                     .add_profiles(Namespace.CONDOR, key="request_memory", value="256")
 
 job_world = Job("world")\
-                    .add_args("-T", "3", "-i", finter, "-o {}".format(fout))\
+                    .add_args("-T", "3", "-i", finter, "-o", fout)\
                     .add_inputs(finter)\
                     .add_outputs(fout)
 
@@ -112,7 +108,7 @@ except PegasusClientError as e:
 # dagman.post = pegasus-healer is already in pegasus.properties above,
 # so Pegasus writes it into every job node of the .dag at plan time.
 try:
-    wf.plan(sites=[EXEC_SITE], output_dir=OUTPUT_DIR, submit=True)
+    wf.plan(input_dirs=[INPUT_DIR], sites=[EXEC_SITE], output_dir=OUTPUT_DIR, submit=True)
 except PegasusClientError as e:
     print(e)
     sys.exit(1)
