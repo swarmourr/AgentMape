@@ -82,6 +82,7 @@ build: build-worker
 # Re-run after C or Java source changes to recompile.
 dev:
 	$(PYTHON) -m pip install -e . --no-build-isolation
+	@$(PYTHON) packages/pegasus-healer/scripts/post-install.py
 
 # Re-build only C tools (skip Java and worker)
 build-c:
