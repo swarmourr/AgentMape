@@ -34,27 +34,6 @@ try:
 except ImportError:
     _HAS_YAML = False
 
-def _ensure_healer_env() -> None:
-    """Create ~/.pegasus/healer.env from the bundled example on first run."""
-    pegasus_dir = Path.home() / ".pegasus"
-    healer_env  = pegasus_dir / "healer.env"
-    if healer_env.exists():
-        return
-    example = Path(__file__).parent.parent / "healer.env.example"
-    if not example.exists():
-        return
-    pegasus_dir.mkdir(exist_ok=True)
-    import shutil
-    shutil.copy(example, healer_env)
-    healer_env.chmod(0o600)
-    print(
-        f"[pegasus-healer] Created {healer_env}\n"
-        f"[pegasus-healer] Edit it and set LLM_MODEL + LLM_API_KEY before running.",
-        file=sys.stderr,
-    )
-
-_ensure_healer_env()
-
 try:
     from dotenv import load_dotenv as _load_dotenv
     _ENV = Path.home() / ".pegasus" / "healer.env"
