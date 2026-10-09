@@ -304,6 +304,10 @@ def main() -> int:
     parser.add_argument("--condor-job-id",   dest="condor_job_id",   default=None)
     parser.add_argument("--execution-site",  dest="execution_site",  default=None)
     parser.add_argument("--transformation",  default=None)
+    # Pegasus always appends the job's .out file as a 5th positional arg to
+    # every POST script.  Accept it so argparse doesn't fail with exit 2.
+    parser.add_argument("kickstart_out", nargs="?", default=None,
+                        help="kickstart .out file appended by Pegasus (ignored)")
     args = parser.parse_args()
 
     # Resolve submit_dir: flag > CWD (DAGMan always sets CWD = submit_dir)
