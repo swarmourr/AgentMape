@@ -29,6 +29,16 @@ from Pegasus.api import (
     TransformationCatalog, TransformationSite, Transformation, Workflow,
 )
 
+# ── Healer — opt in by keeping this block ─────────────────────────────────────
+# Registers pegasus-healer as the DAGMan POST script via pegasus.properties.
+# Pegasus loads this file at plan time — no .dag patching needed.
+# Remove this block if you do not want the healer.
+props = Properties()
+props["dagman.post"]           = "pegasus-healer"
+props["dagman.post.arguments"] = "$RETURN $JOB $RETRY $MAX_RETRIES"
+props["dagman.maxretries"]     = "3"
+props.write()
+
 BASE_DIR        = Path(".").resolve()
 INPUT_DIR       = (BASE_DIR / "input").resolve()
 EXECUTABLES_DIR = (BASE_DIR / "executables").resolve()
@@ -36,8 +46,6 @@ OUTPUT_DIR      = (BASE_DIR / "output").resolve()
 
 EXEC_SITE = "local"
 
-# dagman.post = pegasus-healer is registered in ~/.pegasus/properties by
-# activate.sh — Pegasus loads it automatically at plan time.
 
 # ── Input file ────────────────────────────────────────────────────────────────
 INPUT_DIR.mkdir(exist_ok=True)
