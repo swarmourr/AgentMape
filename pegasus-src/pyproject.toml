@@ -127,7 +127,7 @@ cwl = ["cwl-utils==0.11", "jsonschema==3.2.0"]
 cmake.version = ">=3.20"
 cmake.build-type = "Release"
 build-dir = "_cmake_build"
-editable.rebuild = true
+editable.rebuild = false
 wheel.py-api = "py3"
 
 # Python package location — pegasus-python is the main package; pegasus-common
