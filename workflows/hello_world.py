@@ -113,7 +113,8 @@ except PegasusClientError as e:
 # so Pegasus writes it into every job node of the .dag at plan time.
 try:
     wf.plan(conf=_PROPS_PATH, input_dirs=[INPUT_DIR], sites=[EXEC_SITE],
-            output_dir=OUTPUT_DIR, submit=True)
+            output_dir=OUTPUT_DIR, submit=True,
+            **{"pegasus.data.configuration": "condorio"})
 except PegasusClientError as e:
     print(e)
     sys.exit(1)

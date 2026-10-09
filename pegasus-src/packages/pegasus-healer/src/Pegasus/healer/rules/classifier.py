@@ -70,6 +70,9 @@ STAGING_STDERR_PATTERNS: list[str] = [
     r"pegasus.?transfer", r"transfer.?failed", r"transfer.?error",
     r"failed.?to.?transfer", r"stale.?file.?handle",
     r"connection.*refused.*transfer", r"timeout.*transfer",
+    # PegasusLite .meta file check — happens when stage_in job didn't complete
+    r"cannot\s+stat.*\.meta", r"\.meta.*no such file",
+    r"stage_in.*\.meta", r"cp.*meta.*no such",
 ]
 STAGING_TRANSFORMATIONS: list[str] = [
     "stage_in", "stage_out", "stagein", "stageout",
