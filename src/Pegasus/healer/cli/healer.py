@@ -140,6 +140,28 @@ def _resolve_thread(
     return thread_id, False
 
 
+def _find_policy(submit_dir: Path) -> str:
+    """
+    Locate policies/remediation.yaml.
+
+    Priority:
+      1. POLICY_FILE env var (absolute path)
+      2. Walk up from submit_dir until policies/remediation.yaml is found
+      3. Relative to the package install root (parents[4] from __file__)
+      4. Bare relative path as last resort (load_policy handles missing file)
+    """
+    if env_path := os.environ.get("POLICY_FILE"):
+        return env_path
+    for parent in [submit_dir, *submit_dir.parents]:
+        candidate = parent / "policies" / "remediation.yaml"
+        if candidate.exists():
+            return str(candidate)
+    install_candidate = Path(__file__).resolve().parents[4] / "policies" / "remediation.yaml"
+    if install_candidate.exists():
+        return str(install_candidate)
+    return "policies/remediation.yaml"
+
+
 async def _run(args: argparse.Namespace) -> int:
     from Pegasus.healer.collectors.submit_dir import (
         collect_evidence, parse_instance_id, parse_healer_tags,
@@ -184,9 +206,7 @@ async def _run(args: argparse.Namespace) -> int:
     )
     _log(f"{'resuming' if is_resume else 'fresh'} thread: {thread_id}")
 
-    _policy_path = os.environ.get("POLICY_FILE") or "policies/remediation.yaml"
-    if not os.path.isabs(_policy_path):
-        _policy_path = str(Path(__file__).resolve().parents[4] / _policy_path)
+    _policy_path = _find_policy(submit_dir)
     policy = load_policy(_policy_path)
     policy_engine = PolicyEngine(policy)
 
