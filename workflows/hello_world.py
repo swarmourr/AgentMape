@@ -1,38 +1,52 @@
 from Pegasus.api import *
 import sys
+import logging
 from pathlib import Path
 
-# ── Healer — opt in by keeping this block ─────────────────────────────────────
+logging.basicConfig(level=logging.DEBUG)
+
+# we specify directories for inputs, executables and outputs
+# - directory where to pick up the inputs from a directory.
+# - directory where the executables that the workflow uses are placed.
+# - directory where the outputs should be placed.
+
+BASE_DIR        = Path(__file__).resolve().parent.parent
+INPUT_DIR       = BASE_DIR / "input"
+EXECUTABLES_DIR = BASE_DIR / "executables"
+OUTPUT_DIR      = BASE_DIR / "output"
+SCRATCH_DIR     = BASE_DIR / "scratch"
+
+# the execution site where your job will run.
+# local means the jobs run on the local machine.
+EXEC_SITE = "local"
+
+# ── Healer ────────────────────────────────────────────────────────────────────
+# Load the machine's existing Pegasus config, then overlay healer settings.
 import shutil as _sh, sys as _sys
 _healer = (
     _sh.which("pegasus-healer")
     or str(Path(_sys.executable).parent / "pegasus-healer")
 )
-props = Properties()
-props["dagman.post"]                      = "pegasus-healer"
-props["dagman.post.path.pegasus-healer"]  = _healer
-props["dagman.post.arguments"]            = "$RETURN $JOB $RETRY $MAX_RETRIES"
-props["dagman.maxretries"]                = "3"
-props["dagman.retry"]                     = "3"
-# sharedfs: no pegasus-transfer needed; local OS copies only.
-props["pegasus.data.configuration"]       = "sharedfs"
-_PROPS_PATH = str(Path(__file__).resolve().parent.parent / "pegasus.properties")
+_PROPS_PATH = str(BASE_DIR / "pegasus.properties")
+try:
+    props = Properties.load(Path.home() / ".pegasusrc")
+except Exception:
+    props = Properties()
+props["dagman.post"]                     = "pegasus-healer"
+props["dagman.post.path.pegasus-healer"] = _healer
+props["dagman.post.arguments"]           = "$RETURN $JOB $RETRY $MAX_RETRIES"
+props["dagman.maxretries"]               = "3"
+props["dagman.retry"]                    = "3"
+# sharedfs: no pegasus-transfer needed; uses local OS file copies.
+props["pegasus.data.configuration"]      = "sharedfs"
 props.write(_PROPS_PATH)
 
-BASE_DIR       = Path(__file__).resolve().parent.parent
-INPUT_DIR      = BASE_DIR / "input"
-EXECUTABLES_DIR = BASE_DIR / "executables"
-OUTPUT_DIR     = BASE_DIR / "output"
-SCRATCH_DIR    = BASE_DIR / "scratch"
-EXEC_SITE      = "local"
-
-# Create directories and input file
+# generate a simple input file for the workflow
 INPUT_DIR.mkdir(parents=True, exist_ok=True)
 SCRATCH_DIR.mkdir(parents=True, exist_ok=True)
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-(INPUT_DIR / "f.in").write_text(
-    "This is the contents of the input file for the hello world workflow!"
-)
+with open("{}/f.in".format(INPUT_DIR), "w") as f:
+    f.write("This is the contents of the input file for the hello world workflow!")
 
 # --- Site catalog -------------------------------------------------------------
 sc = SiteCatalog()
@@ -56,30 +70,34 @@ tc.add_transformations(
     ),
 )
 
-# --- Workflow -----------------------------------------------------------------
-# Pass absolute paths directly — no File objects on jobs so PegasusLite does
-# not create .lof staging infrastructure files, eliminating staging failures.
-INTER = str(SCRATCH_DIR / "f.inter")
+# --- Replica catalog ----------------------------------------------------------
+rc = ReplicaCatalog()
+rc.add_replica("local", "f.in", "file://" + str(INPUT_DIR / "f.in"))
 
+# --- Workflow -----------------------------------------------------------------
 wf = Workflow("hello-world")
 wf.add_site_catalog(sc)
 wf.add_transformation_catalog(tc)
+wf.add_replica_catalog(rc)
 
-job_hello = (
-    Job("hello")
-    .add_args("-T", "3", "-i", str(INPUT_DIR / "f.in"), "-o", INTER)
-    .add_profiles(Namespace.CONDOR, key="request_memory", value="256")
-)
+fin   = File("f.in")
+finter = File("f.inter")
+fout  = File("f.out")
 
-job_world = (
-    Job("world")
-    .add_args("-T", "3", "-i", INTER, "-o", str(OUTPUT_DIR / "f.out"))
-)
+job_hello = Job("hello")\
+                .add_args("-T", "3", "-i", fin, "-o", finter)\
+                .add_inputs(fin)\
+                .add_outputs(finter, stage_out=False)\
+                .add_profiles(Namespace.CONDOR, key="request_memory", value="256")
+
+job_world = Job("world")\
+                .add_args("-T", "3", "-i", finter, "-o", fout)\
+                .add_inputs(finter)\
+                .add_outputs(fout)
 
 wf.add_jobs(job_hello, job_world)
-wf.add_dependency(job_world, parents=[job_hello])
 
-# --- Visualize ----------------------------------------------------------------
+# --- Visualize the Workflow ---------------------------------------------------
 try:
     wf.write()
     wf.graph(include_files=True, label="xform-id", output="graph.png")
