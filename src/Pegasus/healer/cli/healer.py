@@ -326,6 +326,17 @@ def main() -> int:
         f"wf={args.workflow_id}"
     )
 
+    # Pegasus infrastructure jobs — pass exit code through unchanged so DAGMan
+    # gets the real result and does not mis-mark a failed staging/cleanup job
+    # as succeeded.  These jobs never benefit from LLM remediation.
+    _INFRA_PREFIXES = (
+        "stage_in_", "stage_out_", "create_dir_", "cleanup_", "register_",
+        "chmod_", "pegasus_concat_",
+    )
+    if any(args.job_id.startswith(p) for p in _INFRA_PREFIXES):
+        _log(f"infrastructure job — passing exit_code={args.exit_code} through")
+        return args.exit_code
+
     thread_file = (
         _find_job_subdir(submit_dir, args.job_id) / f"{args.job_id}.healer_thread"
     )
