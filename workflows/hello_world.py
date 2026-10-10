@@ -106,8 +106,9 @@ except PegasusClientError as e:
 
 # --- Plan and submit ----------------------------------------------------------
 try:
-    wf.plan(conf=_PROPS_PATH, sites=[EXEC_SITE],
-            output_dir=str(OUTPUT_DIR), submit=True)
+    wf.plan(conf=_PROPS_PATH, input_dirs=[INPUT_DIR], sites=[EXEC_SITE],
+            transformations_dir=EXECUTABLES_DIR,
+            output_dir=OUTPUT_DIR, submit=True)
 except PegasusClientError as e:
     print(e)
     sys.exit(1)
