@@ -254,7 +254,13 @@ failure_policies:
     decision: STOP                # never auto-fix scientific logic
 
   UNKNOWN:
-    decision: ESCALATE
+    # Always surface the LLM's best-effort analysis rather than going silent.
+    # The agent must provide a diagnosis or proposed action for every error.
+    action: HUMAN_REVIEW
+    required_level: job
+    decision: ASK
+    fallback_decision: ASK
+    maximum_attempts: 1
 
 # ── Healer tags ───────────────────────────────────────────────────────────────
 # Set per-job or per-transformation in the DAX/workflow.yml:
