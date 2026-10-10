@@ -39,6 +39,10 @@ props["dagman.maxretries"]               = "3"
 props["dagman.retry"]                    = "3"
 # sharedfs: no pegasus-transfer needed; uses local OS file copies.
 props["pegasus.data.configuration"]      = "sharedfs"
+# Bypass PegasusLite wrapper — it always checks for .lof (list-of-files)
+# infrastructure files even when no files are staged, causing exit 2.
+# With gridstart=none jobs run directly; no .lof files needed.
+props["pegasus.gridstart"]               = "none"
 props.write(_PROPS_PATH)
 
 # generate a simple input file for the workflow
