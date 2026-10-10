@@ -70,32 +70,27 @@ tc.add_transformations(
     ),
 )
 
-# --- Replica catalog ----------------------------------------------------------
-rc = ReplicaCatalog()
-rc.add_replica("local", "f.in", "file://" + str(INPUT_DIR / "f.in"))
-
 # --- Workflow -----------------------------------------------------------------
 wf = Workflow("hello-world")
 wf.add_site_catalog(sc)
 wf.add_transformation_catalog(tc)
-wf.add_replica_catalog(rc)
 
+# File objects used for naming; absolute paths are passed directly in add_args
+# so Pegasus does not create staging jobs (.lof infrastructure) that fail on
+# this machine.  Ordering is expressed via add_dependency instead.
 fin   = File("f.in")
 finter = File("f.inter")
 fout  = File("f.out")
 
 job_hello = Job("hello")\
-                .add_args("-T", "3", "-i", fin, "-o", finter)\
-                .add_inputs(fin)\
-                .add_outputs(finter, stage_out=False)\
+                .add_args("-T", "3", "-i", str(INPUT_DIR / "f.in"), "-o", str(SCRATCH_DIR / "f.inter"))\
                 .add_profiles(Namespace.CONDOR, key="request_memory", value="256")
 
 job_world = Job("world")\
-                .add_args("-T", "3", "-i", finter, "-o", fout)\
-                .add_inputs(finter)\
-                .add_outputs(fout)
+                .add_args("-T", "3", "-i", str(SCRATCH_DIR / "f.inter"), "-o", str(OUTPUT_DIR / "f.out"))
 
 wf.add_jobs(job_hello, job_world)
+wf.add_dependency(job_world, parents=[job_hello])
 
 # --- Visualize the Workflow ---------------------------------------------------
 try:
