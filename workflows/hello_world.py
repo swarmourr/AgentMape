@@ -33,6 +33,9 @@ props["dagman.post.path.pegasus-healer"] = _healer
 props["dagman.post.arguments"]           = "$RETURN $JOB $RETRY $MAX_RETRIES"
 props["dagman.maxretries"]               = "3"
 props["dagman.retry"]                    = "3"
+# Disable strict worker-package version check — avoids exit 1 from
+# pegasus_lite_worker_package when running a dev build (6.0.0.dev0).
+props["pegasus.transfer.worker.package.strict"] = "false"
 props.write(_PROPS_PATH)
 
 # generate a simple input file for the workflow
