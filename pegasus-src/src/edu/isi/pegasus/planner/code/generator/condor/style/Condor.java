@@ -503,8 +503,9 @@ public class Condor extends Abstract {
                         && dataConf.equals(
                                 edu.isi.pegasus.planner.common.PegasusConfiguration
                                         .SHARED_FS_CONFIGURATION_VALUE)) {
-                    job.envVariables.construct(Condor.CONDOR_SCRATCH_DIR_ENV_VARIABLE, ".");
-                    CodeGenerator.replaceCondorScratchDirInArguments(job, mLogger, ".");
+                    job.envVariables.construct("_CONDOR_SCRATCH_DIR", ".");
+                    edu.isi.pegasus.planner.code.CodeGenerator
+                            .replaceCondorScratchDirInArguments(job, mLogger, ".");
                 }
             }
         }
