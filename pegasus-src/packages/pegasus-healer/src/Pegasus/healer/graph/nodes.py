@@ -608,8 +608,64 @@ def _write_proposal_files(
     job_dir = _find_job_dir_for_node(submit_dir, job_id)
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     steps = _manual_steps(proposal)
+    sep = "─" * 72
 
-    separator = "─" * 72
+    # ── Evidence summary ──────────────────────────────────────────────────────
+    raw_ev = state.get("raw_evidence") or {}
+    exit_code   = state.get("exit_code", raw_ev.get("exit_code", "?"))
+    retry_num   = state.get("retry_number", "?")
+    max_retries = state.get("max_retries", "?")
+
+    available_sources = raw_ev.get("available_sources") or []
+    stderr_content    = raw_ev.get("stderr_content") or ""
+    stdout_content    = raw_ev.get("stdout_content") or ""
+    kickstart_data    = raw_ev.get("kickstart_data") or {}
+    sub_file          = raw_ev.get("sub_file_content") or ""
+
+    stderr_tail = "\n".join(stderr_content.splitlines()[-30:]) if stderr_content else "(empty)"
+    stdout_tail = "\n".join(stdout_content.splitlines()[-10:]) if stdout_content else "(empty)"
+
+    # Kickstart execution summary
+    ks_lines: list[str] = []
+    if kickstart_data:
+        ks_lines.append(f"  Executable     : {kickstart_data.get('executable', '?')}")
+        ks_lines.append(f"  Exit code      : {kickstart_data.get('exit_code', '?')}")
+        ks_lines.append(f"  Duration (s)   : {kickstart_data.get('duration', '?')}")
+        ks_lines.append(f"  Max RSS (MB)   : {kickstart_data.get('max_rss_mb', '?')}")
+        ks_lines.append(f"  CPU user (s)   : {kickstart_data.get('cpu_user', '?')}")
+        ks_lines.append(f"  CPU sys  (s)   : {kickstart_data.get('cpu_sys', '?')}")
+        ks_lines.append(f"  Bytes read     : {kickstart_data.get('bytes_read', '?')}")
+        ks_lines.append(f"  Bytes written  : {kickstart_data.get('bytes_written', '?')}")
+        ks_lines.append(f"  Machine        : {kickstart_data.get('hostname', '?')}")
+        ks_lines.append(f"  Site           : {kickstart_data.get('site', '?')}")
+    kickstart_block = "\n".join(ks_lines) if ks_lines else "  (no kickstart data available)"
+
+    # Resource requests from .sub file
+    sub_resources: list[str] = []
+    for line in sub_file.splitlines():
+        l = line.strip().lower()
+        if any(k in l for k in ("request_memory", "request_disk", "request_cpus",
+                                 "request_runtime", "+pegasus_request", "queue")):
+            sub_resources.append(f"  {line.strip()}")
+    sub_block = "\n".join(sub_resources) if sub_resources else "  (not available)"
+
+    # ── Alternative diagnoses ─────────────────────────────────────────────────
+    alt_lines: list[str] = []
+    for alt in diagnosis.alternative_causes:
+        alt_lines.append(f"  {alt.failure_type:<30} {alt.confidence:.0%}  {alt.explanation}")
+    alt_block = "\n".join(alt_lines) if alt_lines else "  (none considered)"
+
+    # ── Policy decision ───────────────────────────────────────────────────────
+    pr = state.get("policy_record") or {}
+    policy_decision  = state.get("policy_decision", "?")
+    checks_passed    = pr.get("checks_passed") or []
+    checks_failed    = pr.get("checks_failed") or []
+    policy_reason    = pr.get("reason", "")
+    policy_version   = pr.get("policy_version", "?")
+
+    checks_pass_str  = "\n".join(f"  ✓  {c}" for c in checks_passed) or "  (none)"
+    checks_fail_str  = "\n".join(f"  ✗  {c}" for c in checks_failed) or "  (none)"
+
     text = textwrap.dedent(f"""\
         ╔══════════════════════════════════════════════════════════════════════╗
         ║           PEGASUS HEALER — FIX PROPOSAL  (action required)         ║
@@ -619,32 +675,83 @@ def _write_proposal_files(
         Incident  : {state.get('incident_id', '?')}
         Job       : {job_id}
         Workflow  : {state.get('workflow_id', '?')}
+        Exit code : {exit_code}
+        Retry     : {retry_num} / {max_retries}
 
-        {separator}
+        {sep}
+        EVIDENCE ANALYZED
+        {sep}
+        Sources available : {', '.join(available_sources) if available_sources else 'none'}
+
+        Resource requests (.sub):
+{sub_block}
+
+        Kickstart execution metrics:
+{kickstart_block}
+
+        Stderr (last 30 lines):
+        {chr(10).join('        ' + l for l in stderr_tail.splitlines())}
+
+        Stdout (last 10 lines):
+        {chr(10).join('        ' + l for l in stdout_tail.splitlines())}
+
+        {sep}
         DIAGNOSIS
-        {separator}
-        Failure type : {diagnosis.failure_type}
-        Confidence   : {diagnosis.confidence:.0%}
-        Explanation  : {diagnosis.explanation}
+        {sep}
+        Failure type  : {diagnosis.failure_type}
+        Confidence    : {diagnosis.confidence:.0%}
+        Source        : {diagnosis.source}{f'  (model: {diagnosis.model_id})' if diagnosis.model_id else ''}
+        Evidence IDs  : {', '.join(diagnosis.evidence_ids) if diagnosis.evidence_ids else 'none'}
+        Human review  : {'Yes — LLM flagged uncertainty' if diagnosis.requires_human_review else 'No'}
 
-        {separator}
+        Explanation:
+        {chr(10).join('        ' + l for l in diagnosis.explanation.splitlines())}
+
+        Missing evidence that would improve confidence:
+        {chr(10).join('        • ' + m for m in diagnosis.missing_evidence) if diagnosis.missing_evidence else '        (none)'}
+
+        {sep}
+        ALTERNATIVE DIAGNOSES CONSIDERED
+        {sep}
+{alt_block}
+
+        {sep}
         PROPOSED FIX
-        {separator}
+        {sep}
         Action        : {proposal.action}
         Fix ID        : {proposal.fix_id}
-        Justification : {proposal.justification}
+        Confidence    : {proposal.confidence:.0%}
+        Source        : {proposal.source}
+        Evidence used : {', '.join(proposal.evidence_ids) if proposal.evidence_ids else 'none'}
 
-        Old config : {proposal.old_configuration or '(none)'}
-        New config : {proposal.proposed_configuration or '(none)'}
+        Justification:
+        {chr(10).join('        ' + l for l in proposal.justification.splitlines())}
 
-        {separator}
+        Configuration change:
+          Before : {proposal.old_configuration or '(none)'}
+          After  : {proposal.proposed_configuration or '(none)'}
+
+        {sep}
+        POLICY DECISION
+        {sep}
+        Decision       : {policy_decision}
+        Policy version : {policy_version}
+        Reason         : {policy_reason}
+
+        Checks passed:
+{checks_pass_str}
+
+        Checks failed (caused ASK / STOP):
+{checks_fail_str}
+
+        {sep}
         MANUAL STEPS
-        {separator}
+        {sep}
         {steps}
 
-        {separator}
+        {sep}
         HOW TO RESUBMIT
-        {separator}
+        {sep}
         After applying the fix, resume the workflow from the submit directory:
 
             pegasus-run {submit_dir}
@@ -653,8 +760,8 @@ def _write_proposal_files(
 
             condor_submit_dag -DoRescueFrom <N> *.dag
 
-        {separator}
-        NOTE: This fix was NOT applied automatically (policy = ASK).
+        {sep}
+        NOTE: This fix was NOT applied automatically (policy = {policy_decision}).
         Review the steps above, apply the change, then resubmit.
         To mark the job permanently failed instead, run:
 

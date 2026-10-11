@@ -79,6 +79,8 @@ class HealerReasoningLogger(_BaseCallbackHandler):
             f"{'═' * 70}\n"
         )
 
+    # ── helpers ───────────────────────────────────────────────────────────────
+
     def _write(self, text: str) -> None:
         try:
             self._f.write(text)
@@ -101,6 +103,8 @@ class HealerReasoningLogger(_BaseCallbackHandler):
                 )
             lines.append(f"[{role.upper()}]\n{content}")
         return "\n\n".join(lines)
+
+    # ── LangChain callback interface ──────────────────────────────────────────
 
     def on_chain_start(self, serialized, inputs, **kwargs):
         name = (serialized or {}).get("name") or (serialized or {}).get("id", ["?"])[-1]
@@ -136,6 +140,7 @@ class HealerReasoningLogger(_BaseCallbackHandler):
                     self._write(str(text) + "\n")
         except Exception as exc:
             self._write(f"(could not extract response text: {exc})\n")
+        # Token usage
         try:
             usage = response.llm_output or {}
             token_info = usage.get("token_usage") or usage.get("usage") or {}
@@ -433,7 +438,9 @@ async def _run(args: argparse.Namespace) -> int:
         if _reasoning_logger:
             _reasoning_logger._section_header("OUTCOME")
             _reasoning_logger._write(f"Exit code returned to DAGMan: {code}\n")
-            _reasoning_logger._write("(1=retry, 0=stop/success, other=terminal failure)\n")
+            _reasoning_logger._write(
+                "(1=retry, 0=stop/success, other=terminal failure)\n"
+            )
             _reasoning_logger.close()
         return code
 
@@ -444,6 +451,12 @@ async def _run(args: argparse.Namespace) -> int:
         _log("exit 1 → DAGMan retries with patched .sub")
         return _exit(1)
     if decision == "ASK":
+        # Print the proposal to stdout so it's visible in DAGMan's post-script
+        # output without needing to cat the file separately.
+        job_dir = Path(_find_job_subdir(submit_dir, args.job_id))
+        proposal_path = job_dir / f"{args.job_id}.healer_proposal"
+        if proposal_path.exists():
+            print(proposal_path.read_text(), flush=True)
         if args.exit_code != 0:
             _log(f"exit {args.exit_code} → proposal written; apply fix manually")
             return _exit(args.exit_code)
