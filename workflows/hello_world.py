@@ -33,6 +33,10 @@ props["dagman.post.path.pegasus-healer"] = _healer
 props["dagman.post.arguments"]           = "$RETURN $JOB $RETRY $MAX_RETRIES"
 props["dagman.maxretries"]               = "3"
 props["dagman.retry"]                    = "3"
+# sharedfs: stages files with plain cp — no pegasus-transfer needed.
+# Overrides ~/.pegasusrc which uses condorio (creates stage_in_remote_local
+# jobs that require pegasus-transfer and produce .meta files).
+props["pegasus.data.configuration"]      = "sharedfs"
 # Disable strict worker-package version check — avoids exit 1 from
 # pegasus_lite_worker_package when running a dev build (6.0.0.dev0).
 props["pegasus.transfer.worker.package.strict"] = "false"
