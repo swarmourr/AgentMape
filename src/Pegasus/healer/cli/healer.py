@@ -451,12 +451,6 @@ async def _run(args: argparse.Namespace) -> int:
         _log("exit 1 → DAGMan retries with patched .sub")
         return _exit(1)
     if decision == "ASK":
-        # Print the proposal to stdout so it's visible in DAGMan's post-script
-        # output without needing to cat the file separately.
-        job_dir = Path(_find_job_subdir(submit_dir, args.job_id))
-        proposal_path = job_dir / f"{args.job_id}.healer_proposal"
-        if proposal_path.exists():
-            print(proposal_path.read_text(), flush=True)
         if args.exit_code != 0:
             _log(f"exit {args.exit_code} → proposal written; apply fix manually")
             return _exit(args.exit_code)
