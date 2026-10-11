@@ -48,7 +48,13 @@ _log_file = None
 
 # ── Per-job reasoning logger ──────────────────────────────────────────────────
 
-class HealerReasoningLogger:
+try:
+    from langchain_core.callbacks import BaseCallbackHandler as _BaseCallbackHandler
+except ImportError:
+    _BaseCallbackHandler = object  # type: ignore[assignment,misc]
+
+
+class HealerReasoningLogger(_BaseCallbackHandler):
     """
     LangChain BaseCallbackHandler that writes every LLM exchange to a
     per-job  <job_id>.healer_reasoning.log  file.
@@ -61,6 +67,8 @@ class HealerReasoningLogger:
     """
 
     def __init__(self, path: Path) -> None:
+        if _BaseCallbackHandler is not object:
+            super().__init__()
         self._f = open(path, "w", encoding="utf-8")
         self._section: str = "GRAPH"
         now = __import__("datetime").datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
