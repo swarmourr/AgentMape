@@ -46,6 +46,119 @@ TAG = "[pegasus-healer]"
 _log_file = None
 
 
+# ── Per-job reasoning logger ──────────────────────────────────────────────────
+
+class HealerReasoningLogger:
+    """
+    LangChain BaseCallbackHandler that writes every LLM exchange to a
+    per-job  <job_id>.healer_reasoning.log  file.
+
+    Captures:
+      - Which agent/chain is running (diagnosis, fix-planner, …)
+      - Full prompt / message list sent to the LLM
+      - Full LLM response text
+      - Token usage when available
+    """
+
+    def __init__(self, path: Path) -> None:
+        self._f = open(path, "w", encoding="utf-8")
+        self._section: str = "GRAPH"
+        now = __import__("datetime").datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+        self._write(
+            f"{'═' * 70}\n"
+            f"HEALER REASONING LOG\n"
+            f"Generated : {now}\n"
+            f"{'═' * 70}\n"
+        )
+
+    def _write(self, text: str) -> None:
+        try:
+            self._f.write(text)
+            self._f.flush()
+        except Exception:
+            pass
+
+    def _section_header(self, title: str) -> None:
+        self._write(f"\n── {title} {'─' * max(0, 66 - len(title))}\n")
+
+    def _fmt_messages(self, messages: list) -> str:
+        lines: list[str] = []
+        for msg in messages:
+            role = getattr(msg, "type", None) or getattr(msg, "role", "message")
+            content = getattr(msg, "content", str(msg))
+            if isinstance(content, list):
+                content = "\n".join(
+                    p.get("text", str(p)) if isinstance(p, dict) else str(p)
+                    for p in content
+                )
+            lines.append(f"[{role.upper()}]\n{content}")
+        return "\n\n".join(lines)
+
+    def on_chain_start(self, serialized, inputs, **kwargs):
+        name = (serialized or {}).get("name") or (serialized or {}).get("id", ["?"])[-1]
+        self._section = str(name)
+        self._section_header(f"CHAIN START  {name}")
+
+    def on_chain_end(self, outputs, **kwargs):
+        self._section_header(f"CHAIN END  {self._section}")
+
+    def on_chat_model_start(self, serialized, messages, **kwargs):
+        name = (serialized or {}).get("name") or (serialized or {}).get("id", ["LLM"])[-1]
+        self._section_header(f"LLM CALL  {name}  [{self._section}]")
+        self._write("\n[PROMPT / MESSAGES]\n")
+        for msg_list in messages:
+            self._write(self._fmt_messages(msg_list))
+            self._write("\n")
+
+    def on_llm_start(self, serialized, prompts, **kwargs):
+        name = (serialized or {}).get("name") or "LLM"
+        self._section_header(f"LLM CALL  {name}  [{self._section}]")
+        self._write("\n[PROMPT]\n")
+        for p in prompts:
+            self._write(p + "\n")
+
+    def on_llm_end(self, response, **kwargs):
+        self._write("\n[RESPONSE]\n")
+        try:
+            for gen_list in response.generations:
+                for gen in gen_list:
+                    text = getattr(gen, "text", None) or getattr(
+                        getattr(gen, "message", None), "content", str(gen)
+                    )
+                    self._write(str(text) + "\n")
+        except Exception as exc:
+            self._write(f"(could not extract response text: {exc})\n")
+        try:
+            usage = response.llm_output or {}
+            token_info = usage.get("token_usage") or usage.get("usage") or {}
+            if token_info:
+                self._write(f"[TOKENS] {token_info}\n")
+        except Exception:
+            pass
+
+    def on_llm_error(self, error, **kwargs):
+        self._write(f"\n[LLM ERROR] {error}\n")
+
+    def on_tool_start(self, serialized, input_str, **kwargs):
+        name = (serialized or {}).get("name", "tool")
+        self._write(f"\n  → TOOL {name}: {input_str}\n")
+
+    def on_tool_end(self, output, **kwargs):
+        self._write(f"  ← TOOL RESULT: {output}\n")
+
+    def on_agent_action(self, action, **kwargs):
+        self._write(f"\n  [ACTION] {action.tool}: {action.tool_input}\n")
+
+    def on_agent_finish(self, finish, **kwargs):
+        self._write(f"\n  [AGENT FINISH] {finish.return_values}\n")
+
+    def close(self) -> None:
+        try:
+            self._f.close()
+        except Exception:
+            pass
+
+
 def _read_braindump(submit_dir: Path) -> dict:
     """
     Read braindump.yml from submit_dir.
@@ -92,12 +205,19 @@ def _find_job_subdir(submit_dir: Path, job_id: str) -> Path:
     return submit_dir
 
 
+_reasoning_logger: HealerReasoningLogger | None = None
+
+
 def _open_log(submit_dir: Path, job_id: str) -> None:
-    global _log_file
+    global _log_file, _reasoning_logger
     job_dir = _find_job_subdir(submit_dir, job_id)
     try:
         _log_file = open(job_dir / f"{job_id}.healer.log", "a")
     except OSError:
+        pass
+    try:
+        _reasoning_logger = HealerReasoningLogger(job_dir / f"{job_id}.healer_reasoning.log")
+    except Exception:
         pass
 
 
@@ -185,6 +305,22 @@ async def _run(args: argparse.Namespace) -> int:
         condor_job_id=args.condor_job_id,
     )
     _log(f"evidence: {evidence.available_sources}")
+    if _reasoning_logger:
+        _reasoning_logger._write(
+            f"Job       : {args.job_id}\n"
+            f"Workflow  : {args.workflow_id}\n"
+            f"Exit code : {args.exit_code}\n"
+            f"Retry     : {args.retry_number}/{args.max_retries}\n"
+            f"Submit dir: {submit_dir}\n"
+        )
+        _reasoning_logger._section_header("EVIDENCE COLLECTED")
+        _reasoning_logger._write(f"Sources: {evidence.available_sources}\n")
+        if evidence.stderr_content:
+            _reasoning_logger._write(f"\n[STDERR (last 50 lines)]\n")
+            _reasoning_logger._write("\n".join(evidence.stderr_content.splitlines()[-50:]) + "\n")
+        if evidence.transformation_script_content:
+            _reasoning_logger._write(f"\n[TRANSFORMATION SCRIPT: {evidence.transformation_script_path}]\n")
+            _reasoning_logger._write(evidence.transformation_script_content + "\n")
 
     transformation = args.transformation
     if not transformation and evidence.sub_file_content:
@@ -239,6 +375,7 @@ async def _run(args: argparse.Namespace) -> int:
     memory_repo = SQLiteMemoryRepo(db_path=_mem_db)
     _log(f"memory_repo: {_mem_db}")
 
+    _callbacks = [_reasoning_logger] if _reasoning_logger else []
     config = {
         "configurable": {
             "thread_id":        thread_id,
@@ -251,7 +388,8 @@ async def _run(args: argparse.Namespace) -> int:
             "submit_dir":       str(submit_dir),
             "raw_evidence":     evidence.model_dump(),
             "memory_repo":      memory_repo,
-        }
+        },
+        "callbacks": _callbacks,
     }
 
     if is_resume:
@@ -274,23 +412,40 @@ async def _run(args: argparse.Namespace) -> int:
     decision = final_state.get("policy_decision")
     _log(f"decision={decision} terminal={final_state.get('terminal', False)}")
 
+    if _reasoning_logger:
+        _reasoning_logger._section_header("POLICY DECISION")
+        _reasoning_logger._write(f"Decision : {decision}\n")
+        pr = final_state.get("policy_record") or {}
+        if pr:
+            _reasoning_logger._write(f"Passed   : {pr.get('checks_passed', [])}\n")
+            _reasoning_logger._write(f"Failed   : {pr.get('checks_failed', [])}\n")
+            _reasoning_logger._write(f"Reason   : {pr.get('reason', '')}\n")
+
+    def _exit(code: int) -> int:
+        if _reasoning_logger:
+            _reasoning_logger._section_header("OUTCOME")
+            _reasoning_logger._write(f"Exit code returned to DAGMan: {code}\n")
+            _reasoning_logger._write("(1=retry, 0=stop/success, other=terminal failure)\n")
+            _reasoning_logger.close()
+        return code
+
     if final_state.get("retry_outcome") == "EFFECTIVE":
         _log("exit 0 → effective outcome, workflow continues")
-        return 0
+        return _exit(0)
     if decision == "AUTO":
         _log("exit 1 → DAGMan retries with patched .sub")
-        return 1
+        return _exit(1)
     if decision == "ASK":
         if args.exit_code != 0:
             _log(f"exit {args.exit_code} → proposal written; apply fix manually")
-            return args.exit_code
+            return _exit(args.exit_code)
         _log("exit 0 → proposal in report; apply manually and re-submit")
-        return 0
+        return _exit(0)
     if args.exit_code != 0:
         _log(f"exit {args.exit_code} → terminal, job failed")
-        return args.exit_code
+        return _exit(args.exit_code)
     _log("exit 0 → terminal")
-    return 0
+    return _exit(0)
 
 
 def _run_graph(args: argparse.Namespace) -> int:
