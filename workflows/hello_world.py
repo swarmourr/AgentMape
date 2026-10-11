@@ -59,12 +59,14 @@ job_hello = Job("hello")\
                 .add_args("-T", "3", "-i", fin, "-o", finter)\
                 .add_inputs(fin)\
                 .add_outputs(finter, stage_out=False)\
-                .add_profiles(Namespace.CONDOR, key="request_memory", value="256")
+                .add_profiles(Namespace.CONDOR, key="request_memory", value="256")\
+                .add_profiles(Namespace.ENV, key="_CONDOR_SCRATCH_DIR", value=".")
 
 job_world = Job("world")\
                 .add_args("-T", "3", "-i", finter, "-o", fout)\
                 .add_inputs(finter)\
-                .add_outputs(fout)
+                .add_outputs(fout)\
+                .add_profiles(Namespace.ENV, key="_CONDOR_SCRATCH_DIR", value=".")
 
 wf.add_jobs(job_hello, job_world)
 
