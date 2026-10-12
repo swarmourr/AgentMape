@@ -280,7 +280,8 @@ def _find_policy(submit_dir: Path) -> str:
     Priority:
       1. POLICY_FILE env var (absolute path)
       2. Walk up from submit_dir until policies/remediation.yaml is found
-      3. Relative to the package install root (parents[4] from __file__)
+      3. Walk up from __file__ at parents[3]..parents[6] — handles editable
+         installs (parents[4] = project root) and site-packages layouts
       4. Bare relative path as last resort (load_policy handles missing file)
     """
     if env_path := os.environ.get("POLICY_FILE"):
@@ -289,9 +290,14 @@ def _find_policy(submit_dir: Path) -> str:
         candidate = parent / "policies" / "remediation.yaml"
         if candidate.exists():
             return str(candidate)
-    install_candidate = Path(__file__).resolve().parents[4] / "policies" / "remediation.yaml"
-    if install_candidate.exists():
-        return str(install_candidate)
+    this = Path(__file__).resolve()
+    for n in range(3, 7):
+        try:
+            candidate = this.parents[n] / "policies" / "remediation.yaml"
+            if candidate.exists():
+                return str(candidate)
+        except IndexError:
+            break
     return "policies/remediation.yaml"
 
 

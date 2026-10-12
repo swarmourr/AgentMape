@@ -19,9 +19,12 @@ EXEC_SITE = "local"
 # Do NOT override pegasus.data.configuration or pegasus.gridstart — the
 # machine's ~/.pegasusrc already has the correct values for this site.
 import shutil as _sh, sys as _sys
+# Prefer bin/pegasus-healer (bash wrapper) — it always sets POLICY_FILE and
+# PYTHONPATH correctly regardless of whether activate.sh was sourced.
 _healer = (
-    _sh.which("pegasus-healer")
-    or str(Path(_sys.executable).parent / "pegasus-healer")
+    str(BASE_DIR / "bin" / "pegasus-healer")
+    if (BASE_DIR / "bin" / "pegasus-healer").exists()
+    else (_sh.which("pegasus-healer") or str(Path(_sys.executable).parent / "pegasus-healer"))
 )
 _PROPS_PATH = str(BASE_DIR / "pegasus.properties")
 try:
