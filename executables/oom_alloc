@@ -1,0 +1,85 @@
+#!/usr/bin/env python3
+"""
+oom_alloc — Pegasus healer OOM validation job.
+
+Simulates an Out-of-Memory failure that the healer can detect and auto-fix.
+
+How it works
+────────────
+1. Reads JOB_MEMORY_MB from the environment.
+   HTCondor expands $(request_memory) in the submit file's environment line,
+   so this variable always reflects the *current* request_memory value — even
+   after the healer patches the .sub file and DAGMan retries.
+
+2. Compares available memory (JOB_MEMORY_MB minus interpreter overhead) against
+   the fixed ALLOC_MB target.
+
+3. If enough memory: actually allocates ALLOC_MB and writes the output file. ✓
+   If not enough:   prints OOM-like stderr and exits via SIGKILL (code 137).  ✗
+
+Expected retry sequence with request_memory=256 and healer multiplier=1.5
+──────────────────────────────────────────────────────────────────────────
+  Attempt 1  256 MB  →  206 MB available  <  400 MB needed  →  OOM  →  healer → 384 MB
+  Attempt 2  384 MB  →  334 MB available  <  400 MB needed  →  OOM  →  healer → 576 MB
+  Attempt 3  576 MB  →  526 MB available  ≥  400 MB needed  →  SUCCESS ✓
+"""
+
+import os
+import signal
+import sys
+
+# ── Configuration ──────────────────────────────────────────────────────────────
+ALLOC_MB    = 400   # fixed allocation target (MB)
+OVERHEAD_MB = 50    # Python interpreter + stack virtual memory overhead (MB)
+
+# ── Read memory budget from HTCondor-expanded env var ─────────────────────────
+limit_mb = int(os.environ.get("JOB_MEMORY_MB", "256"))
+available_mb = limit_mb - OVERHEAD_MB
+
+print(
+    f"[oom_alloc] JOB_MEMORY_MB={limit_mb} MB  "
+    f"available={available_mb} MB  target={ALLOC_MB} MB",
+    file=sys.stderr, flush=True,
+)
+
+# ── Parse output file argument  (-o <path>) ───────────────────────────────────
+out_path = None
+args = sys.argv[1:]
+for i, a in enumerate(args):
+    if a == "-o" and i + 1 < len(args):
+        out_path = args[i + 1]
+        break
+
+# ── OOM decision ───────────────────────────────────────────────────────────────
+if available_mb < ALLOC_MB:
+    print(
+        f"[oom_alloc] not enough memory: {available_mb} MB available, "
+        f"{ALLOC_MB} MB needed",
+        file=sys.stderr, flush=True,
+    )
+    print(
+        "Killed: Out of memory — process exceeded its memory limit",
+        file=sys.stderr, flush=True,
+    )
+    # Exit via SIGKILL so the OS reports exit code 137, matching a real OOM kill.
+    os.kill(os.getpid(), signal.SIGKILL)
+
+# ── Actual allocation ──────────────────────────────────────────────────────────
+print(f"[oom_alloc] allocating {ALLOC_MB} MB ...", file=sys.stderr, flush=True)
+_data = bytearray(ALLOC_MB * 1024 * 1024)
+print("[oom_alloc] allocation succeeded", file=sys.stderr, flush=True)
+
+# ── Write output ───────────────────────────────────────────────────────────────
+result = (
+    f"oom_alloc completed successfully\n"
+    f"  JOB_MEMORY_MB : {limit_mb} MB\n"
+    f"  allocated     : {ALLOC_MB} MB\n"
+)
+if out_path:
+    with open(out_path, "w") as f:
+        f.write(result)
+    print(f"[oom_alloc] wrote output to {out_path}", file=sys.stderr, flush=True)
+else:
+    print(result)
+
+sys.exit(0)
