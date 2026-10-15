@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import getpass
 import logging
 import os
 import re
@@ -168,6 +169,32 @@ def _node_label(name: str) -> str:
     return _c(color, _c("bold", name))
 
 
+# ── Condor log reader ─────────────────────────────────────────────────────────
+
+def _default_condor_log() -> Path:
+    """Return the default GridmanagerLog path for the current user."""
+    return Path(f"/var/log/condor/GridmanagerLog.{getpass.getuser()}")
+
+
+def _read_condor_log(log_path: Path, job_id: str, tail: int = 50) -> list[str]:
+    """
+    Return up to *tail* lines from *log_path* that mention *job_id* or its
+    base name (without the trailing _IDxxxxxxx suffix).
+    """
+    if not log_path.exists():
+        return []
+    job_base = re.sub(r"_ID\d+$", "", job_id)
+    try:
+        text = log_path.read_text(errors="replace")
+    except PermissionError:
+        return [f"(permission denied reading {log_path})"]
+    relevant = [
+        line for line in text.splitlines()
+        if job_base in line or job_id in line
+    ]
+    return relevant[-tail:]
+
+
 # ── LangGraph runner ──────────────────────────────────────────────────────────
 
 async def _run_graph(
@@ -176,6 +203,7 @@ async def _run_graph(
     services: dict,
     verbose: bool,
     checkpoint_path: str,
+    condor_lines: list[str] | None = None,
 ) -> dict:
     """
     Run the LangGraph remediation graph for one failed job.
@@ -209,10 +237,14 @@ async def _run_graph(
                 model_name = getattr(wrapped[key], "model", "?")
                 wrapped[key] = _VerboseLLMProvider(wrapped[key], model_name, label)
 
+    raw = evidence.model_dump(mode="json")
+    if condor_lines:
+        raw["condor_gridmanager_log"] = "\n".join(condor_lines)
+
     svc = {
         **wrapped,
         "scheduler_client": _ReportSchedulerClient(report),
-        "raw_evidence":     evidence.model_dump(mode="json"),
+        "raw_evidence":     raw,
         "submit_dir":       str(submit_dir),
         "job_tags":         tags,
     }
@@ -346,7 +378,11 @@ def _print_v3_result(state: dict) -> None:
         print(f"  {_c('dim', 'graph complete — no further action')}")
 
 
-def _print_report_v3(report: JobReport, state: dict | None) -> None:
+def _print_report_v3(
+    report: JobReport,
+    state: dict | None,
+    condor_lines: list[str] | None = None,
+) -> None:
     """Full job report — static sections + LangGraph result."""
     r   = report
     ks  = r.kickstart[-1] if r.kickstart else None
@@ -380,6 +416,11 @@ def _print_report_v3(report: JobReport, state: dict | None) -> None:
             for line in lines:
                 print(f"  {line}")
 
+    if condor_lines:
+        _sec("Condor GridmanagerLog", f"({len(condor_lines)} matching lines)")
+        for line in condor_lines:
+            print(f"  {_c('dim', line)}")
+
     if state is not None:
         _print_v3_result(state)
 
@@ -403,6 +444,9 @@ def main() -> int:
     parser.add_argument("--base-url",  metavar="URL",   default=None)
     parser.add_argument("--checkpoint", metavar="PATH", default="checkpoints.db",
                         help="SQLite checkpoint file (default: checkpoints.db)")
+    parser.add_argument("--condor-log", metavar="PATH", default=None,
+                        help="Path to Condor GridmanagerLog "
+                             "(default: /var/log/condor/GridmanagerLog.<user>)")
     parser.add_argument("--verbose", "-v", action="store_true")
     args = parser.parse_args()
 
@@ -461,11 +505,16 @@ def main() -> int:
         except ImportError as exc:
             print(f"WARNING: --agent disabled — {exc}", file=sys.stderr)
 
+    condor_log_path = Path(args.condor_log) if args.condor_log else _default_condor_log()
+
     print(f"\npegasus_inspect_v3  →  {submit_dir}")
     if agent_enabled:
         print(f"Model              :  {model}")
         print(f"Pipeline           :  LangGraph (collect→classify→fix→policy)")
         print(f"Checkpoint         :  {args.checkpoint}")
+    condor_log_exists = condor_log_path.exists()
+    print(f"Condor log         :  {condor_log_path}"
+          f"  {'(found)' if condor_log_exists else '(not found)'}")
 
     # ── Job discovery ─────────────────────────────────────────────────────────
     if args.job:
@@ -496,6 +545,7 @@ def main() -> int:
     if not args.summary_only:
         for rep in reports:
             state: dict | None = None
+            condor_lines = _read_condor_log(condor_log_path, rep.job_id)
 
             if agent_enabled and rep.failure_cat != "SUCCESS":
                 label = rep.job_id
@@ -508,6 +558,7 @@ def main() -> int:
                             services=services,
                             verbose=args.verbose,
                             checkpoint_path=args.checkpoint,
+                            condor_lines=condor_lines or None,
                         )
                     )
                     pd = state.get("policy_decision", "?")
@@ -515,7 +566,7 @@ def main() -> int:
                 except Exception as exc:
                     print(f" ERROR: {exc}")
 
-            _print_report_v3(rep, state)
+            _print_report_v3(rep, state, condor_lines=condor_lines or None)
 
     _print_summary(reports)
     return 1 if failed_reports else 0
