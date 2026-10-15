@@ -169,6 +169,59 @@ def _node_label(name: str) -> str:
     return _c(color, _c("bold", name))
 
 
+# ── pegasus-analyzer runner ───────────────────────────────────────────────────
+
+def _run_pegasus_analyzer(submit_dir: Path) -> str | None:
+    """
+    Run ``pegasus-analyzer --submit-dir <submit_dir>`` as a subprocess and
+    return its combined stdout+stderr, or None if the tool is not on PATH.
+    """
+    import shutil
+    import subprocess
+
+    exe = shutil.which("pegasus-analyzer")
+    if exe is None:
+        return None
+    try:
+        result = subprocess.run(
+            [exe, str(submit_dir)],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        return (result.stdout + result.stderr).strip() or None
+    except Exception:
+        return None
+
+
+def _filter_analyzer_output(analyzer_output: str, job_id: str) -> str | None:
+    """
+    Extract the section for *job_id* from pegasus-analyzer output.
+
+    pegasus-analyzer wraps each failed job in a block:
+        ====<job_name>====
+        ...
+        ====<job_name>====
+
+    Returns the block text, or None if not found.
+    """
+    job_base = re.sub(r"_ID\d+$", "", job_id)
+    lines = analyzer_output.splitlines()
+    in_block = False
+    block: list[str] = []
+
+    for line in lines:
+        stripped = line.strip("= \t")
+        if stripped == job_base or stripped == job_id:
+            in_block = not in_block
+            block.append(line)
+            continue
+        if in_block:
+            block.append(line)
+
+    return "\n".join(block).strip() or None
+
+
 # ── Condor log reader ─────────────────────────────────────────────────────────
 
 def _default_condor_log() -> Path:

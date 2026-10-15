@@ -22,6 +22,7 @@ Use get_pegasus_client() for a singleton that already wraps the
 configured scheduler backend.
 """
 
+import re
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -83,14 +84,16 @@ class PegasusClient:
         """
         Run pegasus-analyzer and return its stdout.
 
-        With job_id: scoped to one job node (--job flag).
+        With job_id: scoped to one job node (--debug-job flag).
         Without:     full workflow analysis.
 
         Returns None when pegasus-analyzer is not on PATH or times out.
         """
         cmd = ["pegasus-analyzer", str(submit_dir)]
         if job_id:
-            cmd += ["--job", job_id]
+            # strip _IDxxxxxxx suffix — pegasus-analyzer expects the base job name
+            job_base = re.sub(r"_ID\d+$", "", job_id)
+            cmd += ["--debug-job", job_base]
         result = _run(cmd, timeout, "pegasus_analyzer")
         if result is None:
             return None
